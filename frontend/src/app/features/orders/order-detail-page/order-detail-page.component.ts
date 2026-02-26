@@ -23,9 +23,16 @@ import { Order } from '../../../core/models/product.model';
               <h1>{{ order()!.id }}</h1>
               <p class="date">{{ order()!.createdAt | date: 'dd/MM/yyyy HH:mm' }}</p>
             </div>
-            <span class="status-badge" [attr.data-status]="order()!.status">{{
-              order()!.status
-            }}</span>
+            <span class="status-badge" [attr.data-status]="order()!.status">
+              @switch (order()!.status) {
+                @case ('pending') { 🕐 Chờ xác nhận }
+                @case ('confirmed') { ✅ Đã xác nhận }
+                @case ('shipping') { 🚚 Đang giao hàng }
+                @case ('delivered') { 📦 Đã giao }
+                @case ('cancelled') { ❌ Đã hủy }
+                @default { {{ order()!.status }} }
+              }
+            </span>
           </div>
 
           <div class="od-grid">

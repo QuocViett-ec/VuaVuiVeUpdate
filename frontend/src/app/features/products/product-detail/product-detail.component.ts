@@ -40,7 +40,20 @@ import { Product } from '../../../core/models/product.model';
 
           <!-- Info -->
           <div class="pd-info">
-            <span class="pd-cat">{{ product()!.cat }}</span>
+            <span class="pd-cat">
+              @switch (product()!.cat) {
+                @case ('veg') { 🥦 Rau củ }
+                @case ('fruit') { 🍎 Trái cây }
+                @case ('meat') { 🥩 Thịt & Cá }
+                @case ('drink') { 🥤 Đồ uống }
+                @case ('dry') { 🌾 Hàng khô }
+                @case ('sweet') { 🍬 Bánh kẹo }
+                @case ('spice') { 🧂 Gia vị }
+                @case ('household') { 🧴 Gia dụng }
+                @case ('frozen') { 🧊 Đông lạnh }
+                @default { 🛒 {{ product()!.cat }} }
+              }
+            </span>
             <h1 class="pd-name">{{ product()!.name }}</h1>
 
             <div class="pd-price">
