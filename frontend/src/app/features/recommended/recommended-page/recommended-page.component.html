@@ -1,0 +1,82 @@
+<!-- Page Hero -->
+<section class="page-hero">
+  <div class="container page-hero__content">
+    <span class="eyebrow">🤖 Cá nhân hóa</span>
+    <h1 class="page-title">Gợi ý dành riêng cho bạn</h1>
+    <p class="page-description">
+      Chúng tôi chọn lọc sản phẩm dựa trên sở thích và lịch sử mua sắm của bạn
+    </p>
+    @if (interests().length > 0) {
+      <div class="chip-row">
+        @for (c of interests(); track c) {
+          <span class="chip">{{ c }}</span>
+        }
+      </div>
+    }
+  </div>
+</section>
+
+<!-- Section 1: Personal Recommendations -->
+<section class="section-card container">
+  <div class="section-head">
+    <div class="section-head__text">
+      <span class="eyebrow">💚 Cho riêng bạn</span>
+      <h2>Tiếp nối những gì bạn thích</h2>
+      <p class="section-desc">
+        @if (loading()) { Đang phân tích đơn hàng... }
+        @else if (personal().length === 0) { Hãy mua sắm để nhận gợi ý cá nhân! }
+        @else { Dựa trên {{ personal().length }} sản phẩm được gợi ý từ lịch sử của bạn. }
+      </p>
+    </div>
+    <button class="btn btn--outline" (click)="load()">🔄 Làm mới</button>
+  </div>
+  @if (loading()) {
+    <div class="skeleton-grid">@for (i of [1,2,3,4,5,6]; track i) { <div class="skeleton-card"></div> }</div>
+  } @else if (personal().length === 0) {
+    <div class="empty-state">
+      <p>🛒 Chưa có gợi ý cá nhân. Hãy mua thêm để nhận gợi ý!</p>
+      <a routerLink="/products" class="btn btn--primary">Mua sắm ngay</a>
+    </div>
+  } @else {
+    <div class="products-grid">
+      @for (r of personal(); track r.product_id) {
+        <div class="rec-card">
+          <img [src]="r.image || 'assets/placeholder.png'" [alt]="r.name" class="rec-img" />
+          <div class="rec-info">
+            <p class="rec-name">{{ r.name }}</p>
+            <p class="rec-price">{{ r.price | number }}đ</p>
+            @if (r.reason) { <p class="rec-reason">{{ r.reason }}</p> }
+          </div>
+        </div>
+      }
+    </div>
+  }
+</section>
+
+<!-- Section 2: Similar Products -->
+<section class="section-card container">
+  <div class="section-head">
+    <div class="section-head__text">
+      <span class="eyebrow">🔍 Gần giống khẩu vị</span>
+      <h2>Sản phẩm tương tự</h2>
+      <p class="section-desc">Ưu tiên cùng danh mục hoặc tiểu mục bạn mua nhiều nhất.</p>
+    </div>
+  </div>
+  <div class="products-grid">
+    @for (p of similar(); track p.id) { <app-product-card [product]="p" /> }
+  </div>
+</section>
+
+<!-- Section 3: Trending -->
+<section class="section-card container">
+  <div class="section-head">
+    <div class="section-head__text">
+      <span class="eyebrow">📈 Xu hướng</span>
+      <h2>Mua nhiều tại Vựa Vui Vẻ</h2>
+      <p class="section-desc">Top sản phẩm được thêm giỏ nhiều nhất.</p>
+    </div>
+  </div>
+  <div class="products-grid">
+    @for (p of trending(); track p.id) { <app-product-card [product]="p" /> }
+  </div>
+</section>

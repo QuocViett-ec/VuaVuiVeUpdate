@@ -1,0 +1,40 @@
+
+.page-hero {
+  background: linear-gradient(135deg, #d7fbe8 0%, #f7fff5 100%);
+  padding: 3.5rem 0 2.5rem;
+  border-bottom: 1px solid #d4edda;
+  .page-hero__content { max-width: 640px; }
+}
+.eyebrow { font-size: .85rem; font-weight: 700; color: #2e7d32; letter-spacing: .05em; text-transform: uppercase; }
+.page-title { font-size: 2rem; font-weight: 800; color: #1b2a1e; margin: .5rem 0; }
+.page-description { color: #555; margin-bottom: 1rem; }
+.chip-row { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .5rem; }
+.chip { background: #e8f5e9; color: #2e7d32; border-radius: 20px; padding: .25rem .75rem; font-size: .8rem; font-weight: 600; }
+
+.section-card { margin: 2rem auto; padding: 0 1.25rem; }
+.section-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;
+  h2 { font-size: 1.25rem; font-weight: 800; color: #1b2a1e; margin: .25rem 0; }
+  .section-desc { color: #777; font-size: .9rem; }
+}
+
+.products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+.rec-card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.06);
+  .rec-img { width: 100%; height: 150px; object-fit: cover; }
+  .rec-info { padding: .75rem; }
+  .rec-name { font-weight: 600; font-size: .9rem; margin-bottom: .25rem; }
+  .rec-price { color: #2e7d32; font-weight: 700; font-size: .95rem; }
+  .rec-reason { color: #888; font-size: .78rem; margin-top: .3rem; }
+}
+
+.skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }
+.skeleton-card { height: 220px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); border-radius: 12px; animation: shimmer 1.2s infinite; background-size: 200% 100%; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+.empty-state { text-align: center; padding: 3rem; color: #888;
+  p { margin-bottom: 1rem; }
+}
+
+.btn { display: inline-flex; align-items: center; gap: .4rem; padding: .6rem 1.25rem; border-radius: 10px; font-weight: 600; font-size: .9rem; cursor: pointer; text-decoration: none; border: 2px solid transparent;
+  &--primary { background: #2e7d32; color: #fff; &:hover { background: #1b5e20; } }
+  &--outline  { background: none; border-color: #2e7d32; color: #2e7d32; &:hover { background: #f1f8e9; } }
+}

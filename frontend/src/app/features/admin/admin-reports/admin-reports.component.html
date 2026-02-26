@@ -1,0 +1,87 @@
+<div class="reports-page">
+  <!-- Summary cards -->
+  <div class="summary-grid">
+    <div class="s-card">
+      <span class="s-icon" style="background: #dcfce7; color: #15803d">💰</span>
+      <div>
+        <p class="s-label">Tổng doanh thu</p>
+        <strong class="s-val">{{ totalRevenue() | number }}đ</strong>
+      </div>
+    </div>
+    <div class="s-card">
+      <span class="s-icon" style="background: #dbeafe; color: #1d4ed8">📦</span>
+      <div>
+        <p class="s-label">Tổng đơn hàng</p>
+        <strong class="s-val">{{ totalOrders() }}</strong>
+      </div>
+    </div>
+    <div class="s-card">
+      <span class="s-icon" style="background: #fef9c3; color: #a16207">📅</span>
+      <div>
+        <p class="s-label">Số tháng ghi nhận</p>
+        <strong class="s-val">{{ byMonth().length }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart card -->
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title">Doanh thu theo tháng</h3>
+      <button class="btn-export" (click)="exportCsv()">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        Export CSV
+      </button>
+    </div>
+    <canvas id="monthRevChart" style="max-height: 320px"></canvas>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <h3 class="card-title">Chi tiết theo tháng</h3>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Tháng</th>
+            <th>Số đơn</th>
+            <th>Doanh thu</th>
+            <th>TB / đơn</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of byMonth(); track row.month) {
+            <tr>
+              <td class="mono">{{ row.month }}</td>
+              <td>{{ row.orders }}</td>
+              <td class="money">{{ row.revenue | number }}đ</td>
+              <td class="muted">
+                {{ (row.orders ? row.revenue / row.orders : 0) | number: '1.0-0' }}đ
+              </td>
+            </tr>
+          }
+          @if (!byMonth().length) {
+            <tr>
+              <td colspan="4" style="text-align: center; padding: 2rem; color: #aaa">
+                Chưa có dữ liệu
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

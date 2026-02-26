@@ -1,0 +1,122 @@
+/* ===================================================
+   Vựa Vui Vẻ – Global Styles
+   =================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --green-900: #1b5e20;
+  --green-800: #2e7d32;
+  --green-700: #388e3c;
+  --green-600: #43a047;
+  --green-400: #66bb6a;
+  --green-100: #f1f8e9;
+  --orange: #ff7043;
+  --text: #212121;
+  --text-muted: #757575;
+  --border: #e0e0e0;
+  --bg: #ffffff;
+  --bg-alt: #f9fafb;
+  --radius: 14px;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+img {
+  max-width: 100%;
+  display: block;
+}
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+ul,
+ol {
+  list-style: none;
+}
+
+.main-content {
+  min-height: calc(100vh - 64px - 200px);
+}
+
+.container {
+  width: 100%;
+  max-width: 1260px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+  &:hover {
+    background: #aaa;
+  }
+}
+
+/* ── Typography helpers ── */
+.text-green {
+  color: var(--green-800);
+}
+.text-muted {
+  color: var(--text-muted);
+}
+.fw-bold {
+  font-weight: 700;
+}
+.mt-1 {
+  margin-top: 0.5rem;
+}
+.mt-2 {
+  margin-top: 1rem;
+}
+.mb-1 {
+  margin-bottom: 0.5rem;
+}
+.mb-2 {
+  margin-bottom: 1rem;
+}
+
+/* ── Utility badge ── */
+.badge {
+  display: inline-block;
+  padding: 0.2em 0.6em;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}

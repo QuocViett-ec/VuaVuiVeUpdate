@@ -1,0 +1,187 @@
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background: #faf9f2;
+  border-bottom: 1px solid #e8e0c8;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    height: 64px;
+  }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    border: 1.5px solid #b5cbb5;
+    border-radius: 24px;
+    padding: 0 .75rem;
+    background: #fff;
+    flex: 0 1 260px;
+    min-width: 0;
+    .search-input {
+      border: none;
+      outline: none;
+      background: transparent;
+      padding: .4rem .25rem;
+      font-size: .92rem;
+      width: 100%;
+      color: #1b2a1e;
+      &::placeholder { color: #9aaa9a; }
+    }
+    .search-btn { background: none; border: none; cursor: pointer; color: #4a7a4a; display:flex; align-items:center; }
+  }
+
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-left: auto;
+  }
+}
+
+// Logo
+.logo {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  flex-shrink: 0;
+  &__img { height: 40px; }
+  &__text { font-weight: 800; color: #2e7d32; font-size: 1.1rem; }
+}
+
+// Nav
+.nav {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+}
+
+.nav-item {
+  position: relative;
+  &--dropdown { position: relative; }
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  padding: .45rem .75rem;
+  border-radius: 8px;
+  font-size: .92rem;
+  font-weight: 600;
+  color: #2d4a2d;
+  text-decoration: none;
+  transition: background .15s, color .15s;
+  white-space: nowrap;
+  &:hover, &--active { background: #e8f5e9; color: #1b5e20; }
+  &--dropdown { cursor: default; }
+  .nav-arrow { margin-left: 2px; opacity: .6; }
+}
+
+// Mega menu
+.mega-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: #fff;
+  border: 1px solid #e0e8e0;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.1);
+  min-width: 580px;
+  z-index: 200;
+  padding: 1.25rem;
+
+  &__content { display: flex; gap: 1.5rem; }
+  &__column { flex: 1 1 0; min-width: 0; }
+  &__title { font-size: .8rem; font-weight: 700; text-transform: uppercase; color: #7aaa7a; margin-bottom: .5rem; }
+  &__list { list-style: none; margin: 0; padding: 0; display:flex; flex-direction:column; gap:.2rem; }
+  &__link { font-size: .88rem; color: #2d4a2d; text-decoration: none; padding: .25rem .5rem; border-radius: 6px; display:block;
+    &:hover { background: #e8f5e9; color: #1b5e20; }
+  }
+}
+
+// Account menu
+.account-menu { position: relative; }
+.btn--account {
+  background: transparent;
+  border: 1.5px solid #b5cbb5;
+  border-radius: 8px;
+  padding: .42rem .9rem;
+  font-size: .9rem;
+  font-weight: 600;
+  color: #1b2a1e;
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover { border-color: #2e7d32; color: #2e7d32; }
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #fff;
+  border: 1px solid #e0e8e0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.1);
+  min-width: 160px;
+  z-index: 300;
+  padding: .5rem 0;
+  hr { margin: .25rem 1rem; border-color: #e8e0c8; }
+}
+
+.dropdown-item {
+  display: block;
+  width: 100%;
+  padding: .6rem 1rem;
+  font-size: .9rem;
+  color: #2d4a2d;
+  text-decoration: none;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  &:hover { background: #f0f7f0; }
+  &.text-danger { color: #c62828; }
+}
+
+// Cart button
+.btn--cart {
+  background: #2e7d32;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: .42rem 1rem;
+  font-size: .9rem;
+  font-weight: 700;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  white-space: nowrap;
+  &:hover { background: #1b5e20; }
+}
+
+.cart-badge {
+  background: #ff6f00;
+  color: #fff;
+  border-radius: 50%;
+  font-size: .72rem;
+  font-weight: 800;
+  min-width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+@media (max-width: 768px) {
+  .nav { display: none; }
+  .header__search { flex: 1; }
+  .mega-menu { min-width: 100vw; left: 0; }
+}

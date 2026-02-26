@@ -1,0 +1,245 @@
+<!-- ── Popup quảng cáo khi vào trang ───────────────────────────────────── -->
+@if (showPopup()) {
+  <div class="popup-backdrop" (click)="closePopup()">
+    <div class="popup-modal" (click)="$event.stopPropagation()">
+      <button class="popup-close" (click)="closePopup()" aria-label="Dong">×</button>
+      <img
+        class="popup-image"
+        src="images/brand/PopUp.png"
+        alt="Khuyen mai"
+        onerror="this.src = 'images/brand/Banner.png'"
+      />
+    </div>
+  </div>
+}
+
+<!-- ── Hero Slider ─────────────────────────────────────────────────────── -->
+<section class="hero-slider">
+  <div class="hero-slider__track" [style.transform]="'translateX(-' + slideIdx() * 100 + '%)'">
+    @for (slide of slides; track slide.img) {
+      <div class="hero-slider__slide">
+        <img [src]="slide.img" [alt]="slide.alt" loading="eager" />
+      </div>
+    }
+  </div>
+  <button class="hero-nav prev" (click)="prevSlide()">&#8249;</button>
+  <button class="hero-nav next" (click)="nextSlide()">&#8250;</button>
+  <div class="hero-pagi">
+    @for (slide of slides; track slide.img; let i = $index) {
+      <span [class.active]="slideIdx() === i" (click)="goSlide(i)"></span>
+    }
+  </div>
+</section>
+
+<!-- ── Awards marquee ──────────────────────────────────────────────────── -->
+<section class="awards">
+  <div class="marquee-wrapper">
+    <div class="marquee-track">
+      <span class="award-item">🏆 GIAO HANG NHANH</span>
+      <span class="award-item">🏆 HANG TUOI MOI NGAY</span>
+      <span class="award-item">🏆 GIA TOT NHAT</span>
+      <span class="award-item">🏆 FREESHIP &gt; 299K</span>
+      <span class="award-item">🏆 DAM BAO CHAT LUONG</span>
+      <span class="award-item">🏆 GIAO HANG NHANH</span>
+      <span class="award-item">🏆 HANG TUOI MOI NGAY</span>
+      <span class="award-item">🏆 GIA TOT NHAT</span>
+      <span class="award-item">🏆 FREESHIP &gt; 299K</span>
+      <span class="award-item">🏆 DAM BAO CHAT LUONG</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── Flash Sale ──────────────────────────────────────────────────────── -->
+<section class="section" id="flashsale">
+  <div class="container">
+    <div class="section__head">
+      <div>
+        <h2 class="flash-title">Flash Sale</h2>
+        <p class="flash-sub">
+          Khung gio dang xem:
+          <strong>{{ flashSlot() === 'morning' ? '6:00–8:00' : '16:00–18:00' }}</strong> &nbsp;• Con
+          lai: <span class="flash-timer">{{ countdown() }}</span>
+        </p>
+      </div>
+      <div class="flash-pills">
+        <button
+          class="pill"
+          [class.active]="flashSlot() === 'morning'"
+          (click)="setSlot('morning')"
+        >
+          06:00–08:00
+        </button>
+        <button
+          class="pill"
+          [class.active]="flashSlot() === 'afternoon'"
+          (click)="setSlot('afternoon')"
+        >
+          16:00–18:00
+        </button>
+      </div>
+    </div>
+    @if (loading()) {
+      <div class="products-grid">
+        @for (i of [1, 2, 3, 4]; track i) {
+          <div class="skeleton-card"></div>
+        }
+      </div>
+    } @else {
+      <div class="products-grid">
+        @for (p of flashProducts(); track p.id) {
+          <app-product-card [product]="p" />
+        }
+      </div>
+    }
+  </div>
+</section>
+
+<!-- ── Danh muc ────────────────────────────────────────────────────────── -->
+<section class="section section--categories" id="catalog">
+  <div class="container">
+    <div class="section__head"><h2 class="section__title">Danh muc</h2></div>
+    <div class="cat-grid">
+      @for (cat of categories; track cat.key) {
+        <a [routerLink]="['/products']" [queryParams]="{ cat: cat.key }" class="cat-card">
+          <span class="cat-icon">{{ cat.icon }}</span>
+          <span class="cat-label">{{ cat.label }}</span>
+        </a>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- ── San pham noi bat ────────────────────────────────────────────────── -->
+<section class="section" id="featured">
+  <div class="container">
+    <div class="section__head">
+      <h2 class="section__title">San pham noi bat</h2>
+      <a routerLink="/products" class="see-all">Xem tat ca →</a>
+    </div>
+    @if (loading()) {
+      <div class="products-grid">
+        @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
+          <div class="skeleton-card"></div>
+        }
+      </div>
+    } @else {
+      <div class="products-grid">
+        @for (p of featured(); track p.id) {
+          <app-product-card [product]="p" />
+        }
+      </div>
+    }
+  </div>
+</section>
+
+<!-- ── Khuyen mai goc ──────────────────────────────────────────────────── -->
+@if (!loading() && deals().length) {
+  <section class="section section--deals">
+    <div class="container">
+      <div class="section__head">
+        <h2 class="section__title">Khuyen mai hot 🔥</h2>
+        <a routerLink="/products" class="see-all">Xem them →</a>
+      </div>
+      <div class="products-grid">
+        @for (p of deals(); track p.id) {
+          <app-product-card [product]="p" />
+        }
+      </div>
+    </div>
+  </section>
+}
+
+<!-- ── Cong thuc nau an CTA ────────────────────────────────────────────── -->
+<section class="section section--recipe">
+  <div class="container recipe-cta">
+    <div class="recipe-cta__text">
+      <h2>Tro ly Cong thuc Nau an</h2>
+      <p>
+        Tim cong thuc yeu thich va them tat ca nguyen lieu vao gio hang chi voi mot cu nhap chuot
+      </p>
+      <a routerLink="/recipes" class="btn btn--white">Kham pha ngay →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Goi y danh rieng ────────────────────────────────────────────────── -->
+@if (recommended().length) {
+  <section class="section">
+    <div class="container">
+      <div class="section__head">
+        <div>
+          <p class="eyebrow">CA NHAN HOA</p>
+          <h2 class="section__title">Goi y danh rieng cho ban</h2>
+        </div>
+        <a routerLink="/recommended" class="see-all">Xem them →</a>
+      </div>
+      <div class="products-grid">
+        @for (r of recommended().slice(0, 4); track r.product_id) {
+          <div class="rec-card">
+            <img
+              [src]="r.image"
+              [alt]="r.name"
+              class="rec-card__img"
+              onerror="this.src = 'images/icon/placeholder.png'"
+            />
+            <p class="rec-card__name">{{ r.name }}</p>
+            <p class="rec-card__price">{{ r.price | number }}d</p>
+          </div>
+        }
+      </div>
+    </div>
+  </section>
+}
+
+<!-- ── About section ───────────────────────────────────────────────────── -->
+<section class="section section--about" id="about">
+  <div class="container about-grid">
+    <div class="about-text">
+      <p class="eyebrow">VE CHUNG TOI</p>
+      <h2>Tu nong trai xa ve bep nha ta</h2>
+      <p>
+        Vua Vui Ve chuyen cung cap thuc pham tuoi sach, giao hang trong ngay, dam bao chat luong
+        tung san pham.
+      </p>
+      <ul class="about-values">
+        <li>🌿 Tuoi sach — kiem soat tu nguon goc</li>
+        <li>⚡ Giao nhanh — trong ngay</li>
+        <li>💚 An toan — cho ca gia dinh</li>
+        <li>💰 Gia tot — cac khuyen mai hang ngay</li>
+      </ul>
+    </div>
+    <div class="about-img">
+      <img
+        src="images/brand/TuNongTraiXa.png"
+        alt="Vua Vui Ve"
+        onerror="
+          this.style.background = '#e8f5e9';
+          this.style.borderRadius = '16px';
+          this.removeAttribute('src');
+        "
+      />
+    </div>
+  </div>
+</section>
+
+<!-- ── USP strip ───────────────────────────────────────────────────────── -->
+<section class="usp-strip">
+  <div class="container usp-grid">
+    <div class="usp-item">
+      <span class="usp-icon">🚚</span><strong>Freeship &gt; 299k</strong
+      ><small>Giao hang trong ngay</small>
+    </div>
+    <div class="usp-item">
+      <span class="usp-icon">🌿</span><strong>Hang tuoi moi ngay</strong
+      ><small>Nhap truc tiep tu vuon</small>
+    </div>
+    <div class="usp-item">
+      <span class="usp-icon">✅</span><strong>Kiem soat chat luong</strong
+      ><small>100% kiem tra truoc khi xuat</small>
+    </div>
+    <div class="usp-item">
+      <span class="usp-icon">💬</span><strong>Ho tro 24/7</strong
+      ><small>Phan hoi nhanh chong</small>
+    </div>
+  </div>
+</section>

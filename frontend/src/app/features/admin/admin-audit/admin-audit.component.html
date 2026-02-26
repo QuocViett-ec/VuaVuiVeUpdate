@@ -1,0 +1,81 @@
+<div class="audit-page">
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title">Audit Log — Lịch sử hoạt động</h3>
+      <button class="btn-export" (click)="exportCsv()">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        Export CSV
+      </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <input
+        class="input"
+        type="search"
+        placeholder="Tìm theo người thực hiện / hành động..."
+        [ngModel]="search()"
+        (ngModelChange)="search.set($event)"
+      />
+      <select
+        class="input"
+        [ngModel]="categoryFilter()"
+        (ngModelChange)="categoryFilter.set($event)"
+      >
+        <option value="">Tất cả hành động</option>
+        <option value="order">Đơn hàng</option>
+        <option value="product">Sản phẩm</option>
+        <option value="profile">Thông tin</option>
+        <option value="password">Mật khẩu</option>
+        <option value="login">Đăng nhập</option>
+        <option value="logout">Đăng xuất</option>
+      </select>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Thời gian</th>
+            <th>Hành động</th>
+            <th>Người thực hiện</th>
+            <th>Chi tiết</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (log of filtered(); track log.timestamp + log.action) {
+            <tr>
+              <td class="mono muted">{{ log.timestamp | date: 'dd/MM/yy HH:mm:ss' }}</td>
+              <td>
+                <span class="tag">{{ actionLabel(log.action) }}</span>
+              </td>
+              <td>{{ log.who ?? 'System' }}</td>
+              <td class="muted meta-cell">{{ metaStr(log.metadata) }}</td>
+            </tr>
+          }
+          @if (!filtered().length) {
+            <tr>
+              <td colspan="4" style="text-align: center; padding: 2rem; color: #aaa">
+                Không có dữ liệu
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <p class="count-note">Hiển thị {{ filtered().length }} / {{ allLogs().length }} bản ghi</p>
+  </div>
+</div>

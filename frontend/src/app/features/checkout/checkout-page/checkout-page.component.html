@@ -1,0 +1,133 @@
+<div class="co-page container">
+  <h1 class="page-title">🛒 Thanh toán</h1>
+
+  @if (cart.itemCount() === 0) {
+    <div class="empty">
+      <p>Giỏ hàng trống.</p>
+      <a routerLink="/products" class="btn btn--primary">Mua sắm ngay</a>
+    </div>
+  } @else {
+    <div class="co-grid">
+      <!-- Form delivery -->
+      <section class="co-form-section card">
+        <h2>Thông tin giao hàng</h2>
+        <div class="form-row">
+          <div class="field">
+            <label>Họ tên *</label>
+            <input [(ngModel)]="name" type="text" placeholder="Nguyễn Văn A" class="input" />
+          </div>
+          <div class="field">
+            <label>Số điện thoại *</label>
+            <input [(ngModel)]="phone" type="tel" placeholder="0912345678" class="input" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input [(ngModel)]="email" type="email" placeholder="email@gmail.com" class="input" />
+        </div>
+        <div class="field">
+          <label>Địa chỉ giao hàng *</label>
+          <textarea
+            [(ngModel)]="address"
+            rows="2"
+            placeholder="Số nhà, đường, phường, quận, tỉnh"
+            class="input"
+          ></textarea>
+        </div>
+        <div class="field">
+          <label>Khung giờ giao hàng</label>
+          <select [(ngModel)]="selectedSlotId" class="input">
+            <option value="">-- Chọn khung giờ --</option>
+            @for (slot of slots(); track slot.id) {
+              <option [value]="slot.id">{{ slot.date }} | {{ slot.window }}</option>
+            }
+          </select>
+        </div>
+        <div class="field">
+          <label>Ghi chú</label>
+          <textarea
+            [(ngModel)]="note"
+            rows="2"
+            placeholder="Yêu cầu đặc biệt..."
+            class="input"
+          ></textarea>
+        </div>
+
+        <h2 style="margin-top: 1.5rem">Phương thức thanh toán</h2>
+        <div class="pay-methods">
+          <label class="pay-option" [class.selected]="paymentMethod === 'cod'">
+            <input type="radio" [(ngModel)]="paymentMethod" value="cod" /> 💵 Thanh toán khi nhận
+            hàng
+          </label>
+          <label class="pay-option" [class.selected]="paymentMethod === 'vnpay'">
+            <input type="radio" [(ngModel)]="paymentMethod" value="vnpay" /> 🏦 VNPay (thẻ ATM/QR)
+          </label>
+        </div>
+      </section>
+
+      <!-- Order summary -->
+      <aside class="co-summary card">
+        <h2>Đơn hàng ({{ cart.itemCount() }} món)</h2>
+
+        <div class="order-items">
+          @for (item of cartItems(); track item.product.id) {
+            <div class="order-item">
+              <img
+                [src]="item.product.img || 'assets/no-image.png'"
+                [alt]="item.product.name"
+                class="item-img"
+              />
+              <div class="item-desc">
+                <p>{{ item.product.name }}</p>
+                <small>x {{ item.quantity }}</small>
+              </div>
+              <span>{{ item.product.price * item.quantity | number }}đ</span>
+            </div>
+          }
+        </div>
+
+        <!-- Voucher -->
+        <div class="voucher-row">
+          <input
+            [(ngModel)]="voucherCode"
+            type="text"
+            placeholder="Mã giảm giá"
+            class="input input--sm"
+          />
+          <button class="btn btn--outline btn--sm" (click)="applyVoucher()">Áp dụng</button>
+        </div>
+        @if (voucherResult()) {
+          <p class="voucher-msg" [class.ok]="voucherResult()!.ok">{{ voucherResult()!.message }}</p>
+        }
+
+        <!-- Totals -->
+        <div class="totals">
+          <div class="total-row">
+            <span>Tạm tính</span><span>{{ subtotal() | number }}đ</span>
+          </div>
+          <div class="total-row">
+            <span>Phí giao hàng</span><span>{{ shippingFee() | number }}đ</span>
+          </div>
+          @if (discount() > 0) {
+            <div class="total-row discount">
+              <span>Giảm giá</span><span>-{{ discount() | number }}đ</span>
+            </div>
+          }
+          <div class="total-row total-final">
+            <span>Tổng cộng</span><strong>{{ totalAmount() | number }}đ</strong>
+          </div>
+        </div>
+
+        <button class="btn btn--primary btn--full" (click)="placeOrder()" [disabled]="loading()">
+          {{
+            loading()
+              ? 'Đang xử lý...'
+              : paymentMethod === 'vnpay'
+                ? '🏦 Thanh toán VNPay'
+                : '✅ Đặt hàng'
+          }}
+        </button>
+      </aside>
+    </div>
+  }
+</div>

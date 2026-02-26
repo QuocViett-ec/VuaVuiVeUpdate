@@ -1,0 +1,95 @@
+
+.title { margin-bottom: 1.5rem; h2 { font-size: 1.8rem; font-weight: 800; color: #1b2a1e; } }
+
+.account-tabs {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  @media (max-width: 700px) { flex-direction: column; }
+}
+
+.account-nav {
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid #e0e8e0;
+  border-radius: 12px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.account-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: .95rem;
+  font-weight: 600;
+  color: #2d4a2d;
+  text-align: left;
+  border-bottom: 1px solid #e8f5e9;
+  transition: background .15s;
+  &:last-child { border-bottom: none; }
+  &:hover { background: #f0f7f0; }
+  &.active { background: #e8f5e9; color: #1b5e20; }
+}
+
+.account-content {
+  flex: 1;
+  background: #fff;
+  border: 1px solid #e0e8e0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.account-panel { width: 100%; }
+
+.input {
+  display: block;
+  width: 100%;
+  padding: .65rem .9rem;
+  border: 1.5px solid #c8d8c8;
+  border-radius: 8px;
+  font-size: .95rem;
+  color: #1b2a1e;
+  background: #fff;
+  margin-bottom: .85rem;
+  box-sizing: border-box;
+  &:focus { outline: none; border-color: #2e7d32; }
+  &[readonly] { background: #f5fdf5; color: #888; cursor: not-allowed; }
+}
+
+textarea.input { resize: vertical; font-family: inherit; }
+
+.btn--pri {
+  background: #2e7d32;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: .65rem 1.5rem;
+  font-size: .95rem;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover { background: #1b5e20; }
+  &:disabled { opacity: .6; cursor: not-allowed; }
+}
+
+.btn--danger {
+  background: #c62828;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: .65rem 1.5rem;
+  font-size: .95rem;
+  font-weight: 700;
+  cursor: pointer;
+  &:hover { background: #b71c1c; }
+}
+
+.error-msg { color: #c62828; font-size: .9rem; margin-top: 8px; }
+.muted { color: #888; font-size: .88rem; }
+.drawer__foot { display: flex; justify-content: flex-end; }

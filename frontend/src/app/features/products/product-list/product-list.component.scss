@@ -1,0 +1,219 @@
+﻿/* Match css/style.css variables */
+.section {
+  padding: 2rem 0;
+  &--light {
+    background: #f0faf0;
+  }
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+/* Flash Sale */
+.title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+
+  h2 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #1b2a1e;
+  }
+}
+
+.flash-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.flash-banner {
+  font-size: 0.92rem;
+  color: #555;
+  margin-bottom: 1rem;
+  strong {
+    color: #1b2a1e;
+  }
+}
+
+.countdown {
+  color: #d32f2f;
+  font-weight: 700;
+  font-family: monospace;
+  font-size: 1rem;
+}
+
+.pill {
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 2px solid #2e7d32;
+  background: #fff;
+  color: #2e7d32;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: 0.15s;
+  &.active,
+  &:hover {
+    background: #2e7d32;
+    color: #fff;
+  }
+}
+
+/* Products grid - matching .grid from style.css */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+/* Category cards */
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.cat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0.5rem;
+  border: 1.5px solid #e0ede0;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  transition: 0.15s;
+
+  &:hover {
+    border-color: #2e7d32;
+    box-shadow: 0 2px 8px rgba(46, 125, 50, 0.1);
+  }
+  &--active {
+    border-color: #2e7d32;
+    background: #f0faf0;
+  }
+}
+
+.cat-card__icon {
+  font-size: 2rem;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cat-card__img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+.cat-card__label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1b2a1e;
+  text-align: center;
+}
+
+/* Controls row */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.input {
+  height: 38px;
+  padding: 0 0.75rem;
+  border: 1.5px solid #c5d9c5;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  background: #fff;
+  outline: none;
+  &:focus {
+    border-color: #2e7d32;
+  }
+  &[type='search'] {
+    min-width: 220px;
+    flex: 1;
+  }
+}
+
+select.input {
+  min-width: 140px;
+}
+
+.range-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  label {
+    font-size: 0.85rem;
+    color: #555;
+    white-space: nowrap;
+  }
+}
+
+.range-input {
+  accent-color: #2e7d32;
+  cursor: pointer;
+}
+
+.result-count {
+  font-size: 0.85rem;
+  color: #888;
+  margin-bottom: 0.75rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 0;
+  color: #666;
+  button {
+    margin-top: 1rem;
+  }
+}
+
+/* Skeleton */
+.skeleton-card {
+  height: 240px;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #e8f5e9 25%, #d0ebd0 50%, #e8f5e9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .cat-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .controls {
+    flex-direction: column;
+  }
+  .input[type='search'] {
+    min-width: 0;
+    width: 100%;
+  }
+}

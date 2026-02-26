@@ -1,0 +1,64 @@
+<!-- Hero -->
+<section class="recipe-hero">
+  <div class="container">
+    <div class="recipe-hero__inner">
+      <h1>Trợ lý Công thức Nấu ăn</h1>
+      <p>Tìm công thức yêu thích và thêm tất cả nguyên liệu vào giỏ hàng chỉ với một cú nhấp chuột</p>
+      <video class="hero-video" autoplay muted loop playsinline>
+        <source src="../../../../vid/introVuavuive.mp4" type="video/mp4" />
+      </video>
+    </div>
+  </div>
+</section>
+
+<!-- Recipe Assistant -->
+<section class="section" style="background:#effeee">
+  <div class="container">
+    <div class="title"><h2>Tìm công thức</h2></div>
+    <div class="recipe-row">
+      <input [(ngModel)]="query" (keyup.enter)="search()" type="search" class="input"
+             placeholder="Nhập món: canh bí đỏ, canh chua cá, rau muống xào..."
+             list="recipeList" aria-label="Tên món ăn" />
+      <datalist id="recipeList">
+        @for (r of recipes(); track r.id) { <option [value]="r.name"></option> }
+      </datalist>
+      <button class="btn btn--outline" (click)="search()">🔍 Tìm kiếm</button>
+      @if (selected()) {
+        <button class="btn btn--primary" (click)="addAllToCart()">+ Thêm tất cả nguyên liệu</button>
+      }
+    </div>
+    <p class="muted">Mẹo: Chọn món trong gợi ý để đúng công thức dữ liệu mẫu.</p>
+
+    <!-- Search results -->
+    @if (results().length > 0 && !selected()) {
+      <div class="recipe-results">
+        @for (r of results(); track r.id) {
+          <button class="recipe-item" (click)="select(r)">
+            <strong>{{ r.name }}</strong>
+            <span class="muted">{{ (r.ingredients || []).length }} nguyên liệu</span>
+          </button>
+        }
+      </div>
+    }
+
+    <!-- Selected recipe -->
+    @if (selected(); as recipe) {
+      <div class="recipe-detail">
+        <h3>{{ recipe.name }}</h3>
+        <table class="ingredients-table">
+          <thead><tr><th>Nguyên liệu</th><th>Số lượng</th><th>Đơn vị</th></tr></thead>
+          <tbody>
+            @for (ing of recipe.ingredients; track ing.name) {
+              <tr><td>{{ ing.name }}</td><td>{{ ing.qty }}</td><td>{{ ing.unit }}</td></tr>
+            }
+          </tbody>
+        </table>
+        <button class="btn btn--primary" (click)="addAllToCart()">🛒 Thêm tất cả vào giỏ</button>
+      </div>
+    }
+
+    @if (results().length === 0 && query) {
+      <p class="muted" style="padding:1rem 0">Không tìm thấy công thức cho "{{ query }}". Hãy thử từ khóa khác.</p>
+    }
+  </div>
+</section>
