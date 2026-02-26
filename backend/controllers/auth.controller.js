@@ -2,6 +2,7 @@
 
 const crypto = require("crypto");
 const User = require("../models/User.model");
+const { createAuditLog } = require("./user.controller");
 
 /**
  * POST /api/auth/register
@@ -87,6 +88,16 @@ exports.login = async (req, res, next) => {
     req.session.role = user.role;
     req.session.name = user.name;
 
+    if (user.role === "admin") {
+      await createAuditLog({
+        adminId: user._id,
+        action: "ADMIN_LOGIN",
+        target: `User:${user._id}`,
+        details: { phone: user.phone, email: user.email },
+        ip: req.ip,
+      });
+    }
+
     return res.json({
       success: true,
       message: "Đăng nhập thành công",
@@ -107,6 +118,16 @@ exports.login = async (req, res, next) => {
  * POST /api/auth/logout
  */
 exports.logout = (req, res, next) => {
+  const { userId, role } = req.session || {};
+  if (role === "admin" && userId) {
+    createAuditLog({
+      adminId: userId,
+      action: "ADMIN_LOGOUT",
+      target: `User:${userId}`,
+      details: {},
+      ip: req.ip,
+    });
+  }
   req.session.destroy((err) => {
     if (err) return next(err);
     res.clearCookie("vvv.sid");
