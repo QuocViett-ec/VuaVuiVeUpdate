@@ -1,11 +1,33 @@
 "use strict";
 
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const router = express.Router();
+const orderCtrl = require("../controllers/order.controller");
+const { requireAuth, requireAdmin } = require("../middleware/auth.middleware");
 
-// Stub — full implementation in Task 5
-router.get("/", (req, res) =>
-  res.json({ success: true, data: [], message: "Orders API (stub)" }),
-);
+const readLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Quá nhiều yêu cầu, vui lòng thử lại sau" },
+});
+
+const writeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: "Quá nhiều yêu cầu, vui lòng thử lại sau" },
+});
+
+// User routes (auth required)
+router.post("/", requireAuth, writeLimiter, orderCtrl.createOrder);
+router.get("/me", requireAuth, readLimiter, orderCtrl.getMyOrders);
+router.get("/:id", requireAuth, readLimiter, orderCtrl.getOrderById);
+
+// Admin routes
+router.put("/:id/status", requireAuth, requireAdmin, writeLimiter, orderCtrl.updateStatus);
 
 module.exports = router;
