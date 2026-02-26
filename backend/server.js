@@ -78,7 +78,7 @@ app.use(csrfProtection);
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
-app.use("/api/users", userRoutes);
+app.use("/api/admin", userRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {
