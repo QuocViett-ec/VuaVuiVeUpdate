@@ -1,35 +1,82 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import {
+  ReactiveFormsModule,
+  FormsModule,
+  FormBuilder,
+  FormGroup,
+  Validators,
+  AbstractControl,
+  ValidationErrors,
+} from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 
 type Tab = 'profile' | 'orders' | 'security';
 
+// ── Custom Validators ─────────────────────────────────────────────────────────
+
+/**
+ * Mật khẩu mạnh: ≥8 ký tự, ít nhất 1 chữ hoa, ít nhất 1 chữ số.
+ */
+function strongPasswordValidator(control: AbstractControl): ValidationErrors | null {
+  const v: string = control.value || '';
+  if (v.length < 8)           return { tooShort: true };
+  if (!/[A-Z]/.test(v))       return { noUppercase: true };
+  if (!/[0-9]/.test(v))       return { noNumber: true };
+  return null;
+}
+
+/** Group validator: newPassword và confirmNew phải giống nhau */
+function confirmNewMatchValidator(group: AbstractControl): ValidationErrors | null {
+  const nw   = group.get('newPassword')?.value;
+  const conf = group.get('confirmNew')?.value;
+  if (!conf) return null;
+  return nw === conf ? null : { confirmMismatch: true };
+}
+
 @Component({
   selector: 'app-account-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink],
   templateUrl: './account-page.component.html',
   styleUrl: './account-page.component.scss',
 })
-export class AccountPageComponent {
+export class AccountPageComponent implements OnInit {
   private auth  = inject(AuthService);
   private toast = inject(ToastService);
+  private fb    = inject(FormBuilder);
 
   readonly user = this.auth.currentUser;
 
   tab      = signal<Tab>('profile');
   saving   = signal(false);
   savingPw = signal(false);
-  pwError  = signal('');
-  pwMsg    = signal('');
   acctMsg  = signal('');
+  showOldPw  = signal(false);
+  showNewPw  = signal(false);
 
+  // ── Profile form (Template-Driven, vẫn giữ cho tab profile) ──────────────
   editName    = '';
   editAddress = '';
-  oldPw = ''; newPw = ''; confirmPw = '';
+
+  // ── Password form (Reactive Forms + Custom Validators) ───────────────────
+  passwordForm: FormGroup = this.fb.group(
+    {
+      currentPassword: ['', Validators.required],
+      newPassword:     ['', [Validators.required, strongPasswordValidator]],
+      confirmNew:      ['', Validators.required],
+    },
+    { validators: confirmNewMatchValidator },
+  );
+
+  get pf() { return this.passwordForm.controls; }
+
+  isPwInvalid(field: string): boolean {
+    const c = this.pf[field];
+    return !!c && c.invalid && (c.dirty || c.touched);
+  }
 
   ngOnInit(): void {
     const u = this.user();
@@ -41,18 +88,27 @@ export class AccountPageComponent {
     this.saving.set(true); this.acctMsg.set('');
     const r = await this.auth.updateProfile({ name: this.editName, address: this.editAddress });
     this.saving.set(false);
-    this.acctMsg.set(r.ok ? 'Da luu thong tin!' : (r.message ?? 'Loi khi luu.'));
-    if (r.ok) this.toast.success('Da cap nhat thong tin!');
+    this.acctMsg.set(r.ok ? 'Đã lưu thông tin!' : (r.message ?? 'Lỗi khi lưu.'));
+    if (r.ok) this.toast.success('Đã cập nhật thông tin!');
   }
 
   async changePassword(): Promise<void> {
-    this.pwError.set(''); this.pwMsg.set('');
-    if (this.newPw !== this.confirmPw) { this.pwError.set('Mat khau xac nhan khong khop.'); return; }
+    this.passwordForm.markAllAsTouched();
+    if (this.passwordForm.invalid) return;
+
     this.savingPw.set(true);
-    const r = await this.auth.changePassword({ oldPassword: this.oldPw, newPassword: this.newPw });
+    const { currentPassword, newPassword } = this.passwordForm.value;
+    const r = await this.auth.changePassword({
+      oldPassword: currentPassword,
+      newPassword,
+    });
     this.savingPw.set(false);
-    if (r.ok) { this.pwMsg.set('Doi mat khau thanh cong!'); this.oldPw = this.newPw = this.confirmPw = ''; }
-    else { this.pwError.set(r.message ?? 'Loi.'); }
+    if (r.ok) {
+      this.toast.success('Đổi mật khẩu thành công!');
+      this.passwordForm.reset();
+    } else {
+      this.pf['currentPassword'].setErrors({ serverError: r.message ?? 'Lỗi.' });
+    }
   }
 
   logout(): void { this.auth.logout(); }
