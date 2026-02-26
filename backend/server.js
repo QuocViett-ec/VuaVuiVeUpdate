@@ -20,6 +20,7 @@ const productRoutes = require("./routes/product.routes");
 const orderRoutes = require("./routes/order.routes");
 const userRoutes = require("./routes/user.routes");
 const errorHandler = require("./middleware/error.middleware");
+const { csrfProtection } = require("./middleware/csrf.middleware");
 
 // ─── App Init ────────────────────────────────────────────────────────────────
 const app = express();
@@ -69,6 +70,9 @@ app.use(
 
 // ─── Static Files (uploaded images) ──────────────────────────────────────────
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// ─── CSRF Protection ──────────────────────────────────────────────────────────
+app.use(csrfProtection);
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
