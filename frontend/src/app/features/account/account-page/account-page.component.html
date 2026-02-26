@@ -44,15 +44,44 @@
         <!-- Password -->
         @if (tab() === 'security') {
           <section class="account-panel">
-            <form (ngSubmit)="changePassword()" class="contact" style="padding:16px">
-              <input class="input" type="password" name="current" placeholder="Mat khau hien tai" [(ngModel)]="oldPw" required />
-              <input class="input" type="password" name="new" placeholder="Mat khau moi" [(ngModel)]="newPw" required />
-              <input class="input" type="password" name="confirm" placeholder="Xac nhan mat khau moi" [(ngModel)]="confirmPw" required />
+            <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" class="contact" style="padding:16px">
+              <div class="field">
+                <input class="input" type="password" formControlName="currentPassword" placeholder="Mat khau hien tai" />
+                @if (passwordForm.get('currentPassword')?.touched && passwordForm.get('currentPassword')?.errors?.['required']) {
+                  <p class="error-msg">Vui long nhap mat khau hien tai.</p>
+                }
+                @if (passwordForm.get('currentPassword')?.touched && passwordForm.get('currentPassword')?.errors?.['serverError']) {
+                  <p class="error-msg">{{ passwordForm.get('currentPassword')?.errors?.['serverError'] }}</p>
+                }
+              </div>
+              <div class="field">
+                <input class="input" type="password" formControlName="newPassword" placeholder="Mat khau moi (>= 8 ky tu, co chu hoa, co so)" />
+                @if (passwordForm.get('newPassword')?.touched && passwordForm.get('newPassword')?.errors?.['required']) {
+                  <p class="error-msg">Vui long nhap mat khau moi.</p>
+                }
+                @if (passwordForm.get('newPassword')?.touched && passwordForm.get('newPassword')?.errors?.['tooShort']) {
+                  <p class="error-msg">Mat khau yeu: phai co it nhat 8 ky tu.</p>
+                }
+                @if (passwordForm.get('newPassword')?.touched && passwordForm.get('newPassword')?.errors?.['noUppercase']) {
+                  <p class="error-msg">Mat khau yeu: phai co chu hoa.</p>
+                }
+                @if (passwordForm.get('newPassword')?.touched && passwordForm.get('newPassword')?.errors?.['noNumber']) {
+                  <p class="error-msg">Mat khau yeu: phai co so.</p>
+                }
+              </div>
+              <div class="field">
+                <input class="input" type="password" formControlName="confirmNew" placeholder="Xac nhan mat khau moi" />
+                @if (passwordForm.get('confirmNew')?.touched && passwordForm.get('confirmNew')?.errors?.['required']) {
+                  <p class="error-msg">Vui long xac nhan mat khau.</p>
+                }
+                @if (passwordForm.get('confirmNew')?.touched && passwordForm.errors?.['passwordMismatch']) {
+                  <p class="error-msg">Mat khau khong khop.</p>
+                }
+              </div>
               <button class="btn btn--pri" type="submit" [disabled]="savingPw()">
                 {{ savingPw() ? 'Dang xu ly...' : 'Doi mat khau' }}
               </button>
-              @if (pwError()) { <p class="error-msg">{{ pwError() }}</p> }
-              @if (pwMsg())   { <p class="muted" style="color:#2e7d32">{{ pwMsg() }}</p> }
+              @if (pwMsg()) { <p class="muted" style="color:#2e7d32">{{ pwMsg() }}</p> }
             </form>
           </section>
         }

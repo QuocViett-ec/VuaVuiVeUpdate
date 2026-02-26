@@ -51,7 +51,16 @@ import { Order } from '../../../core/models/product.model';
                 <td>{{ o.phone }}</td>
                 <td>{{ o.totalAmount | number }}đ</td>
                 <td>
-                  <span class="badge" [attr.data-status]="o.status">{{ o.status }}</span>
+                  <span class="badge" [attr.data-status]="o.status">
+                    @switch (o.status) {
+                      @case ('pending') { 🕐 Chờ xác nhận }
+                      @case ('confirmed') { ✅ Đã xác nhận }
+                      @case ('shipping') { 🚚 Đang giao }
+                      @case ('delivered') { 📦 Đã giao }
+                      @case ('cancelled') { ❌ Đã hủy }
+                      @default { {{ o.status }} }
+                    }
+                  </span>
                 </td>
                 <td>
                   <span class="pay-badge" [class.paid]="o.paymentStatus === 'paid'">{{
