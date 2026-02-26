@@ -6,6 +6,7 @@ labels: backend, admin, priority-medium
 ---
 
 ## Mục tiêu
+
 API quản trị người dùng, audit logs, và dashboard statistics.
 
 ## Checklist
@@ -22,9 +23,11 @@ API quản trị người dùng, audit logs, và dashboard statistics.
 - [ ] Gọi `createAuditLog` trong auth.controller sau mỗi login/logout của admin
 
 ## Tham khảo
+
 Xem `/.github/copilot-instructions.md` phần TASK-6.
 
 ## Acceptance Criteria
+
 - GET /api/admin/dashboard/stats trả JSON có đủ 5 fields
 - Mọi admin endpoint trả 403 nếu không phải admin
 - Audit log được tạo tự động sau mỗi hành động admin

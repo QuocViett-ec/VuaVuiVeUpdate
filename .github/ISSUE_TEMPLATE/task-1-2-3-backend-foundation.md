@@ -6,11 +6,13 @@ labels: backend, priority-high
 ---
 
 ## Mục tiêu
+
 Tạo toàn bộ nền tảng backend theo kiến trúc MVC với MongoDB và Authentication.
 
 ## Checklist
 
 ### Task 1 — Cấu trúc Express MVC
+
 - [ ] `backend/config/db.js` — mongoose.connect() + retry logic
 - [ ] `backend/middleware/error.middleware.js` — global error handler
 - [ ] `backend/middleware/auth.middleware.js` — requireAuth, requireAdmin
@@ -18,6 +20,7 @@ Tạo toàn bộ nền tảng backend theo kiến trúc MVC với MongoDB và Au
 - [ ] `uploads/products/.gitkeep` — tạo thư mục upload
 
 ### Task 2 — MongoDB Models (Mongoose)
+
 - [ ] `backend/models/User.model.js` — schema + bcrypt pre-save hook
 - [ ] `backend/models/Product.model.js` — schema với slug auto-gen, category enum
 - [ ] `backend/models/Order.model.js` — schema với items[], delivery, payment, status
@@ -25,6 +28,7 @@ Tạo toàn bộ nền tảng backend theo kiến trúc MVC với MongoDB và Au
 - [ ] `backend/scripts/seed.js` — seed 1 admin user + sample products từ backoffice/data/products.json
 
 ### Task 3 — Auth API
+
 - [ ] `backend/controllers/auth.controller.js` — register, login, logout, me, updateProfile, changePassword, forgotPassword
 - [ ] `backend/routes/auth.routes.js` — map endpoints tới controller
 - [ ] Test: POST /api/auth/register tạo user mới
@@ -33,9 +37,11 @@ Tạo toàn bộ nền tảng backend theo kiến trúc MVC với MongoDB và Au
 - [ ] Test: POST /api/auth/logout xóa session
 
 ## Tham khảo
+
 Xem `/.github/copilot-instructions.md` phần TASK-1, TASK-2, TASK-3 để biết chi tiết schema và endpoints.
 
 ## Acceptance Criteria
+
 - `npm start` trong `backend/` chạy không lỗi
 - Kết nối được MongoDB (local hoặc Atlas)
 - Login trả `Set-Cookie: vvv.sid=...`

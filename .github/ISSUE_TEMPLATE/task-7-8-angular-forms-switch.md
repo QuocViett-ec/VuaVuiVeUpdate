@@ -6,11 +6,13 @@ labels: frontend, angular, priority-high
 ---
 
 ## Mục tiêu
+
 Bổ sung 2 tiêu chí còn thiếu của môn học: Reactive Forms và ngSwitch directive.
 
 ## Checklist
 
 ### Task 7 — Reactive Forms + Custom Validators
+
 - [ ] `register-page.component.ts`: Migrate từ Template-Driven sang Reactive Forms
   - [ ] Import `ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors`
   - [ ] Custom validator `phoneValidator` — regex `/^(0[3-9]\d{8})$/`
@@ -24,6 +26,7 @@ Bổ sung 2 tiêu chí còn thiếu của môn học: Reactive Forms và ngSwitc
   - [ ] Template: hiển thị error message real-time
 
 ### Task 8 — @switch Directive (ngSwitch)
+
 - [ ] `order-detail-page.component.ts`: `@switch(order.status)` cho 5 trạng thái đơn hàng
   - [ ] pending: "🕐 Chờ xác nhận"
   - [ ] confirmed: "✅ Đã xác nhận"
@@ -36,9 +39,11 @@ Bổ sung 2 tiêu chí còn thiếu của môn học: Reactive Forms và ngSwitc
 - [ ] `admin-orders.component.ts`: `@switch` cho màu badge theo status
 
 ## Tham khảo
+
 Xem `/.github/copilot-instructions.md` phần TASK-7, TASK-8.
 
 ## Acceptance Criteria
+
 - Register form validation hiển thị lỗi real-time khi blur
 - "Mật khẩu không khớp" hiện khi confirmPassword sai
 - "Mật khẩu yếu" hiện nếu thiếu uppercase hoặc số (account form)

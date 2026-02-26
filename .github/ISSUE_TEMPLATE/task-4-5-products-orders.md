@@ -6,11 +6,13 @@ labels: backend, priority-medium
 ---
 
 ## Mục tiêu
+
 API CRUD đầy đủ cho sản phẩm (kèm upload ảnh multer) và đơn hàng lưu MongoDB.
 
 ## Checklist
 
 ### Task 4 — Products CRUD + File Upload
+
 - [ ] `backend/controllers/product.controller.js`:
   - [ ] `getAll` — list với filter category, search text, pagination (?page=&limit=&sort=)
   - [ ] `getOne` — by id hoặc slug
@@ -22,6 +24,7 @@ API CRUD đầy đủ cho sản phẩm (kèm upload ảnh multer) và đơn hàn
 - [ ] Static serve `GET /uploads/*` từ server.js
 
 ### Task 5 — Orders CRUD
+
 - [ ] `backend/controllers/order.controller.js`:
   - [ ] `createOrder` — auth required, save to MongoDB, return orderId
   - [ ] `getMyOrders` — auth required, lịch sử của user hiện tại
@@ -31,9 +34,11 @@ API CRUD đầy đủ cho sản phẩm (kèm upload ảnh multer) và đơn hàn
 - [ ] `backend/routes/order.routes.js`
 
 ## Tham khảo
+
 Xem `/.github/copilot-instructions.md` phần TASK-4, TASK-5.
 
 ## Acceptance Criteria
+
 - `POST /api/products` với form-data (image file) → lưu file vào `uploads/products/`, lưu imageUrl vào DB
 - `GET /api/products?category=veg&page=1&limit=10` trả đúng kết quả phân trang
 - `POST /api/orders` → tạo đơn mới, trả `{ success: true, data: { orderId } }`
