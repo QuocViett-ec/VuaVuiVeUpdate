@@ -1,8 +1,18 @@
 import { HttpInterceptorFn } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 
+/**
+ * Tự động thêm `withCredentials: true` cho mọi request gửi đến API backend.
+ * Điều này giúp trình duyệt gửi kèm session cookie (vvv.sid) trong mỗi request.
+ */
 export const credentialsInterceptor: HttpInterceptorFn = (req, next) => {
-  // Future: attach JWT token from storage if available
-  // const token = localStorage.getItem('vvv_token');
-  // if (token) req = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
+  const isApiCall =
+    req.url.startsWith(environment.apiBase) ||
+    req.url.startsWith('/api/');
+
+  if (isApiCall) {
+    const cloned = req.clone({ withCredentials: true });
+    return next(cloned);
+  }
   return next(req);
 };

@@ -59,10 +59,23 @@ export class OrderService {
 
   // ─── List / get ───────────────────────────────────────────────────────────────
   getOrders(params?: { userId?: string; status?: string }): Observable<Order[]> {
-    let url = `${this.api}/orders?_sort=createdAt&_order=desc`;
-    if (params?.userId) url += `&userId=${params.userId}`;
-    if (params?.status && params.status !== 'all') url += `&status=${params.status}`;
-    return this.http.get<Order[]>(url).pipe(catchError(() => of([])));
+    // Thử /api/orders/me trước (backend mới với session)
+    const meUrl = `${this.api}/api/orders/me`;
+    return this.http.get<Order[]>(meUrl, { withCredentials: true }).pipe(
+      catchError(() => {
+        // Fallback: json-server cũ
+        let url = `${this.api}/orders?_sort=createdAt&_order=desc`;
+        if (params?.userId) url += `&userId=${params.userId}`;
+        if (params?.status && params.status !== 'all') url += `&status=${params.status}`;
+        return this.http.get<Order[]>(url).pipe(catchError(() => of([])));
+      }),
+    );
+  }
+
+  getMyOrders(): Observable<Order[]> {
+    return this.http
+      .get<Order[]>(`${this.api}/api/orders/me`, { withCredentials: true })
+      .pipe(catchError(() => of([])));
   }
 
   getOrderById(id: string): Observable<Order | null> {

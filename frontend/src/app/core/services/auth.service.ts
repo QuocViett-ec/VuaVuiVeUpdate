@@ -29,6 +29,31 @@ export class AuthService {
     private router: Router,
   ) {
     this._seedAdmin();
+    // Thử restore session từ server khi app khởi động (nếu backend đang chạy)
+    this._restoreServerSession();
+  }
+
+  // ─── Restore session từ server (GET /api/auth/me) ───────────────────────────
+  private _restoreServerSession(): void {
+    if (typeof window === 'undefined') return;
+    this.http
+      .get<any>(`${API_BASE}/api/auth/me`, { withCredentials: true })
+      .subscribe({
+        next: (res) => {
+          if (res?.user) {
+            const sess: AuthSession = {
+              id: res.user._id ?? res.user.id,
+              name: res.user.name,
+              email: res.user.email ?? '',
+              phone: res.user.phone ?? '',
+              address: res.user.address ?? '',
+              role: res.user.role ?? 'customer',
+            };
+            this._saveSession(sess);
+          }
+        },
+        error: () => { /* backend chưa chạy → dùng localStorage như cũ */ },
+      });
   }
 
   // ─── Seed default admin (runs once on first load) ────────────────────────────
@@ -82,6 +107,23 @@ export class AuthService {
 
   // ─── Register ───────────────────────────────────────────────────────────────
   async register(req: RegisterRequest): Promise<AuthResponse> {
+    // Thử gọi backend trước
+    try {
+      const res = await firstValueFrom(
+        this.http.post<any>(`${API_BASE}/api/auth/register`, req, { withCredentials: true })
+      );
+      if (res?.user) {
+        return { ok: true, user: res.user };
+      }
+    } catch (err: any) {
+      // Nếu backend trả lỗi rõ ràng (4xx) thì dừng lại
+      if (err?.status && err.status !== 0) {
+        return { ok: false, message: err.error?.message ?? 'Đăng ký thất bại.' };
+      }
+      // Nếu backend không chạy (status 0 / network error) → fallback localStorage
+    }
+
+    // ─── Fallback: localStorage (khi backend chưa chạy) ─────────────────────
     const users = this._getUsers();
     const phone = req.phone.replace(/\D/g, '');
     const email = (req.email || '').trim().toLowerCase();
@@ -109,18 +151,38 @@ export class AuthService {
     this._log('user.register', email || phone, { userId: user.id });
     return {
       ok: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        address: user.address,
-      },
+      user: { id: user.id, name: user.name, email: user.email, phone: user.phone, address: user.address },
     };
   }
 
   // ─── Login ──────────────────────────────────────────────────────────────────
   async login(req: LoginRequest): Promise<AuthResponse> {
+    // Thử gọi backend trước
+    try {
+      const res = await firstValueFrom(
+        this.http.post<any>(`${API_BASE}/api/auth/login`, req, { withCredentials: true })
+      );
+      if (res?.user) {
+        const sess: AuthSession = {
+          id: res.user._id ?? res.user.id,
+          name: res.user.name,
+          email: res.user.email ?? '',
+          phone: res.user.phone ?? '',
+          address: res.user.address ?? '',
+          role: res.user.role ?? 'customer',
+        };
+        this._saveSession(sess);
+        this._log('user.login', sess.email || sess.phone, { via: 'server' });
+        return { ok: true, user: sess as unknown as User };
+      }
+    } catch (err: any) {
+      if (err?.status && err.status !== 0) {
+        return { ok: false, message: err.error?.message ?? 'Đăng nhập thất bại.' };
+      }
+      // Network error → fallback localStorage
+    }
+
+    // ─── Fallback: localStorage ──────────────────────────────────────────────
     const users = this._getUsers();
     const email = (req.email || '').trim().toLowerCase();
     const phone = (req.phone || '').replace(/\D/g, '');
