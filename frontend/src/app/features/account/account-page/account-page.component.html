@@ -1,32 +1,36 @@
 <main class="section">
   <div class="container" style="max-width:1100px">
-    <div class="title"><h2>Tai khoan</h2></div>
+    <div class="title"><h2>Tài khoản</h2></div>
 
     <div class="account-tabs">
       <nav class="account-nav">
         <button class="account-item" [class.active]="tab() === 'profile'" (click)="tab.set('profile')">
-          <span>Sua thong tin ca nhan</span><span>›</span>
+          <span>Sửa thông tin cá nhân</span><span>›</span>
         </button>
         <button class="account-item" [class.active]="tab() === 'orders'" (click)="tab.set('orders')">
-          <span>Don hang tung mua</span><span>›</span>
+          <span>Đơn hàng từng mua</span><span>›</span>
         </button>
         <button class="account-item" [class.active]="tab() === 'security'" (click)="tab.set('security')">
-          <span>Doi mat khau</span><span>›</span>
+          <span>Đổi mật khẩu</span><span>›</span>
         </button>
       </nav>
 
       <div class="account-content">
-        <!-- Profile -->
+
+        <!-- Profile (Template-Driven) -->
         @if (tab() === 'profile') {
           <section class="account-panel">
             <form (ngSubmit)="saveProfile()" class="contact" style="padding:16px">
-              <input class="input" type="text" name="name" placeholder="Ho va ten" [(ngModel)]="editName" required />
-              <input class="input" type="email" [value]="user()?.email || ''" placeholder="Email (khong thay doi sau dang ky)" readonly />
-              <input class="input" type="tel" [value]="user()?.phone || ''" placeholder="So dien thoai (khong thay doi)" readonly />
-              <p class="muted">Dia chi mac dinh:</p>
-              <textarea class="input" name="address" rows="3" placeholder="Dia chi giao hang..." [(ngModel)]="editAddress"></textarea>
+              <label>Họ và tên</label>
+              <input class="input" type="text" name="name" placeholder="Họ và tên" [(ngModel)]="editName" required />
+              <label>Email</label>
+              <input class="input" type="email" [value]="user()?.email || ''" placeholder="Email (không thay đổi)" readonly />
+              <label>Số điện thoại</label>
+              <input class="input" type="tel" [value]="user()?.phone || ''" placeholder="Số điện thoại (không thay đổi)" readonly />
+              <label>Địa chỉ mặc định</label>
+              <textarea class="input" name="address" rows="3" placeholder="Địa chỉ giao hàng..." [(ngModel)]="editAddress"></textarea>
               <button class="btn btn--pri" type="submit" [disabled]="saving()">
-                {{ saving() ? 'Dang luu...' : 'Luu thong tin' }}
+                {{ saving() ? 'Đang lưu...' : 'Lưu thông tin' }}
               </button>
               @if (acctMsg()) { <p class="muted" style="margin-top:8px">{{ acctMsg() }}</p> }
             </form>
@@ -36,31 +40,92 @@
         <!-- Orders -->
         @if (tab() === 'orders') {
           <section class="account-panel" style="padding:16px">
-            <p class="muted">Xem toan bo lich su don hang cua ban.</p>
-            <a routerLink="/orders" class="btn btn--pri" style="display:inline-block;margin-top:12px">Xem don hang</a>
+            <p class="muted">Xem toàn bộ lịch sử đơn hàng của bạn.</p>
+            <a routerLink="/orders" class="btn btn--pri" style="display:inline-block;margin-top:12px">Xem đơn hàng</a>
           </section>
         }
 
-        <!-- Password -->
+        <!-- Password (Reactive Forms + Custom Validators) -->
         @if (tab() === 'security') {
           <section class="account-panel">
-            <form (ngSubmit)="changePassword()" class="contact" style="padding:16px">
-              <input class="input" type="password" name="current" placeholder="Mat khau hien tai" [(ngModel)]="oldPw" required />
-              <input class="input" type="password" name="new" placeholder="Mat khau moi" [(ngModel)]="newPw" required />
-              <input class="input" type="password" name="confirm" placeholder="Xac nhan mat khau moi" [(ngModel)]="confirmPw" required />
-              <button class="btn btn--pri" type="submit" [disabled]="savingPw()">
-                {{ savingPw() ? 'Dang xu ly...' : 'Doi mat khau' }}
+            <form [formGroup]="passwordForm" (ngSubmit)="changePassword()" class="contact" style="padding:16px" novalidate>
+
+              <!-- Mật khẩu hiện tại -->
+              <label for="acc-cur-pw">Mật khẩu hiện tại <span class="required">*</span></label>
+              <div class="input-pw">
+                <input
+                  id="acc-cur-pw"
+                  formControlName="currentPassword"
+                  [type]="showOldPw() ? 'text' : 'password'"
+                  placeholder="Nhập mật khẩu hiện tại"
+                  class="input"
+                  [class.input--error]="isPwInvalid('currentPassword')"
+                />
+                <button type="button" class="toggle-pw" (click)="showOldPw.set(!showOldPw())">
+                  {{ showOldPw() ? '🙈' : '👁' }}
+                </button>
+              </div>
+              @if (isPwInvalid('currentPassword')) {
+                @if (pf['currentPassword'].errors?.['required']) {
+                  <p class="field-error">Vui lòng nhập mật khẩu hiện tại.</p>
+                } @else if (pf['currentPassword'].errors?.['serverError']) {
+                  <p class="field-error">{{ pf['currentPassword'].errors?.['serverError'] }}</p>
+                }
+              }
+
+              <!-- Mật khẩu mới -->
+              <label for="acc-new-pw" style="margin-top:12px">Mật khẩu mới <span class="required">*</span></label>
+              <div class="input-pw">
+                <input
+                  id="acc-new-pw"
+                  formControlName="newPassword"
+                  [type]="showNewPw() ? 'text' : 'password'"
+                  placeholder="≥8 ký tự, 1 chữ hoa, 1 chữ số"
+                  class="input"
+                  [class.input--error]="isPwInvalid('newPassword')"
+                />
+                <button type="button" class="toggle-pw" (click)="showNewPw.set(!showNewPw())">
+                  {{ showNewPw() ? '🙈' : '👁' }}
+                </button>
+              </div>
+              @if (isPwInvalid('newPassword')) {
+                @if (pf['newPassword'].errors?.['required']) {
+                  <p class="field-error">Vui lòng nhập mật khẩu mới.</p>
+                } @else if (pf['newPassword'].errors?.['tooShort']) {
+                  <p class="field-error">Mật khẩu phải ít nhất 8 ký tự.</p>
+                } @else if (pf['newPassword'].errors?.['noUppercase']) {
+                  <p class="field-error">Mật khẩu cần ít nhất 1 chữ hoa (A-Z).</p>
+                } @else if (pf['newPassword'].errors?.['noNumber']) {
+                  <p class="field-error">Mật khẩu cần ít nhất 1 chữ số (0-9).</p>
+                }
+              }
+
+              <!-- Xác nhận mật khẩu mới -->
+              <label for="acc-confirm-pw" style="margin-top:12px">Xác nhận mật khẩu mới <span class="required">*</span></label>
+              <input
+                id="acc-confirm-pw"
+                formControlName="confirmNew"
+                type="password"
+                placeholder="Nhập lại mật khẩu mới"
+                class="input"
+                [class.input--error]="isPwInvalid('confirmNew') || passwordForm.errors?.['confirmMismatch']"
+              />
+              @if (passwordForm.errors?.['confirmMismatch'] && pf['confirmNew'].touched) {
+                <p class="field-error">Mật khẩu xác nhận không khớp.</p>
+              }
+
+              <button class="btn btn--pri" type="submit" [disabled]="savingPw()" style="margin-top:16px">
+                {{ savingPw() ? 'Đang xử lý...' : 'Đổi mật khẩu' }}
               </button>
-              @if (pwError()) { <p class="error-msg">{{ pwError() }}</p> }
-              @if (pwMsg())   { <p class="muted" style="color:#2e7d32">{{ pwMsg() }}</p> }
             </form>
           </section>
         }
+
       </div>
     </div>
 
     <div class="drawer__foot" style="margin-top:16px">
-      <button class="btn btn--danger" (click)="logout()">Dang xuat</button>
+      <button class="btn btn--danger" (click)="logout()">Đăng xuất</button>
     </div>
   </div>
 </main>
