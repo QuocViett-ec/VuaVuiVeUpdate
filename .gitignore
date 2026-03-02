@@ -1,0 +1,43 @@
+# ============================
+# ML - Large data & model files
+# ============================
+ml/VuaVuiVe_Recommender/.venv/
+ml/VuaVuiVe_Recommender/data/01_raw/*.csv
+ml/VuaVuiVe_Recommender/data/02_processed/*.parquet
+ml/VuaVuiVe_Recommender/data/03_features/cooccurrence_neighbors.json
+ml/VuaVuiVe_Recommender/data/03_features/user_item_matrix.npz
+ml/VuaVuiVe_Recommender/data/03_features/cf_mappings.json
+ml/VuaVuiVe_Recommender/models/*.pkl
+ml/VuaVuiVe_Recommender/models/*.joblib
+
+# ============================
+# Node modules
+# ============================
+node_modules/
+frontend/node_modules/
+backend/node_modules/
+vnpay_nodejs/node_modules/
+
+# ============================
+# Environment
+# ============================
+.env
+*.env.local
+
+# ============================
+# Build outputs
+# ============================
+frontend/dist/
+frontend/.angular/
+
+# ============================
+# Logs
+# ============================
+*.log
+npm-debug.log*
+
+# ============================
+# OS
+# ============================
+.DS_Store
+Thumbs.db

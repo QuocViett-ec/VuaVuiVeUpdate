@@ -22,10 +22,10 @@ router.post("/", async (req, res, next) => {
 
     if (!response.ok) {
       const text = await response.text();
+      console.error("Recommender service error:", text);
       return res.status(response.status).json({
         success: false,
-        message: "Recommender service error",
-        error: text,
+        message: "Recommender service unavailable",
       });
     }
 

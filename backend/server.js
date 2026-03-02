@@ -21,6 +21,7 @@ const orderRoutes = require("./routes/order.routes");
 const userRoutes = require("./routes/user.routes");
 const adminRoutes = require("./routes/admin.routes");
 const recommendRoutes = require("./routes/recommend.routes");
+const recipesRoutes = require("./routes/recipes.routes");
 const errorHandler = require("./middleware/error.middleware");
 const { csrfProtection } = require("./middleware/csrf.middleware");
 
@@ -41,7 +42,7 @@ app.use(
     origin: process.env.CLIENT_ORIGIN || "http://localhost:4200",
     credentials: true, // cho phép gửi cookie
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   }),
 );
 
@@ -83,6 +84,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/recommend", recommendRoutes);
+app.use("/api/recipes", recipesRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {

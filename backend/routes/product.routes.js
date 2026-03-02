@@ -10,6 +10,7 @@ const { uploadImage } = require("../middleware/upload.middleware");
 const readLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
+  skip: () => process.env.NODE_ENV === "development",
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: "Quá nhiều yêu cầu, vui lòng thử lại sau" },
@@ -18,9 +19,10 @@ const readLimiter = rateLimit({
 const writeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 50,
+  skip: () => process.env.NODE_ENV === "development",
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: "Quá nhiều yêu cầu, vui lòng thử lại sau" },
+  message: { success: false, message: "Qu\u00e1 nhi\u1ec1u y\u00eau c\u1ea7u, vui l\u00f2ng th\u1eed l\u1ea1i sau" },
 });
 
 // Public routes

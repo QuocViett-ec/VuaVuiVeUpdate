@@ -10,18 +10,20 @@ const { requireAuth } = require("../middleware/auth.middleware");
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
+  skip: () => process.env.NODE_ENV === "development",
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: "Quá nhiều yêu cầu, vui lòng thử lại sau" },
+  message: { success: false, message: "Qu\u00e1 nhi\u1ec1u y\u00eau c\u1ea7u, vui l\u00f2ng th\u1eed l\u1ea1i sau" },
 });
 
 // General rate limiter for read endpoints
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
+  skip: () => process.env.NODE_ENV === "development",
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: "Quá nhiều yêu cầu, vui lòng thử lại sau" },
+  message: { success: false, message: "Qu\u00e1 nhi\u1ec1u y\u00eau c\u1ea7u, vui l\u00f2ng th\u1eed l\u1ea1i sau" },
 });
 
 router.post("/register", authLimiter, authController.register);

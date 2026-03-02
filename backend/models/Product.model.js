@@ -3,7 +3,18 @@
 const crypto = require("crypto");
 const mongoose = require("mongoose");
 
-const CATEGORIES = ["veg", "fruit", "meat", "drink", "dry", "other"];
+const CATEGORIES = [
+  "veg",
+  "fruit",
+  "meat",
+  "drink",
+  "dry",
+  "spice",
+  "household",
+  "sweet",
+  "frozen",
+  "other",
+];
 
 function slugify(text) {
   return text

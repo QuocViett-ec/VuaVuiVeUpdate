@@ -268,11 +268,11 @@ exports.forgotPassword = async (req, res, next) => {
     user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1h
     await user.save({ validateBeforeSave: false });
 
-    // Trong thực tế sẽ gửi email/SMS. Ở đây trả token để test.
+    // Trong thực tế sẽ gửi email/SMS. Không trả token qua API để tránh rờ rỉ bảo mật.
     return res.json({
       success: true,
-      message: "Token đặt lại mật khẩu đã được tạo",
-      data: { resetToken: token },
+      message:
+        "Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu sẽ được gửi tới bạn",
     });
   } catch (err) {
     next(err);

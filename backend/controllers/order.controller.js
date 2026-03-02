@@ -1,21 +1,40 @@
 "use strict";
 
 const Order = require("../models/Order.model");
+const Product = require("../models/Product.model");
 
-const VALID_STATUSES = ["pending", "confirmed", "shipping", "delivered", "cancelled"];
+const VALID_STATUSES = [
+  "pending",
+  "confirmed",
+  "shipping",
+  "delivered",
+  "cancelled",
+];
 
 /**
  * POST /api/orders  (auth required)
  */
 exports.createOrder = async (req, res, next) => {
   try {
-    const { items, delivery, payment, voucherCode, shippingFee, discount, subtotal, totalAmount, note } =
-      req.body;
+    const {
+      items,
+      delivery,
+      payment,
+      voucherCode,
+      shippingFee,
+      discount,
+      subtotal,
+      totalAmount,
+      note,
+    } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res
         .status(400)
-        .json({ success: false, message: "Đơn hàng phải có ít nhất một sản phẩm" });
+        .json({
+          success: false,
+          message: "Đơn hàng phải có ít nhất một sản phẩm",
+        });
     }
 
     if (!delivery || !delivery.name || !delivery.phone || !delivery.address) {
@@ -42,6 +61,15 @@ exports.createOrder = async (req, res, next) => {
       totalAmount: Number(totalAmount),
       note,
     });
+
+    // Giảm stock sau khi đặt hàng thành công
+    await Promise.all(
+      items.map((item) =>
+        Product.findByIdAndUpdate(item.productId, {
+          $inc: { stock: -Math.max(0, item.quantity) },
+        }),
+      ),
+    );
 
     return res.status(201).json({
       success: true,
@@ -90,7 +118,10 @@ exports.getOrderById = async (req, res, next) => {
     if (!isOwner && !isAdmin) {
       return res
         .status(403)
-        .json({ success: false, message: "Bạn không có quyền xem đơn hàng này" });
+        .json({
+          success: false,
+          message: "Bạn không có quyền xem đơn hàng này",
+        });
     }
 
     return res.json({ success: true, data: order });

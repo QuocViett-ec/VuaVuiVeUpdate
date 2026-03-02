@@ -9,17 +9,19 @@ const { requireAuth, requireAdmin } = require("../middleware/auth.middleware");
 const readLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
+  skip: () => process.env.NODE_ENV === "development",
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: "Quá nhiều yêu cầu, vui lòng thử lại sau" },
+  message: { success: false, message: "Qu\u00e1 nhi\u1ec1u y\u00eau c\u1ea7u, vui l\u00f2ng th\u1eed l\u1ea1i sau" },
 });
 
 const writeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
+  skip: () => process.env.NODE_ENV === "development",
   standardHeaders: true,
   legacyHeaders: false,
-  message: { success: false, message: "Quá nhiều yêu cầu, vui lòng thử lại sau" },
+  message: { success: false, message: "Qu\u00e1 nhi\u1ec1u y\u00eau c\u1ea7u, vui l\u00f2ng th\u1eed l\u1ea1i sau" },
 });
 
 // User routes (auth required)
