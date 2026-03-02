@@ -17,7 +17,10 @@ export interface RecommendResponse {
 
 @Injectable({ providedIn: 'root' })
 export class RecommenderService {
+  /** Proxied through backend (works in production) */
   private readonly api = `${environment.apiBase}/api/recommend`;
+  /** Direct ML API (used in dev for similar-product queries) */
+  private readonly mlApi = environment.mlApi;
 
   constructor(private http: HttpClient) {}
 
@@ -32,7 +35,21 @@ export class RecommenderService {
 
   getTimeAwareRecommendations(userId: string, n = 8): Observable<Recommendation[]> {
     return this.http
-      .get<Recommendation[]>(`${environment.apiBase}/api/recommendations?userId=${userId}&n=${n}`, { withCredentials: true })
+      .get<
+        Recommendation[]
+      >(`${environment.apiBase}/api/recommendations?userId=${userId}&n=${n}`, { withCredentials: true })
       .pipe(catchError(() => of([])));
+  }
+
+  /** Direct call to ML API — get products similar to a given product id */
+  getSimilarProducts(productId: string | number, n = 6): Observable<Recommendation[]> {
+    return this.http
+      .post<{
+        similar_items: Recommendation[];
+      }>(`${this.mlApi}/api/similar`, { product_id: productId, n })
+      .pipe(
+        map((res) => res?.similar_items ?? []),
+        catchError(() => of([])),
+      );
   }
 }

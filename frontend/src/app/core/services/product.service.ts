@@ -47,43 +47,50 @@ export class ProductService {
     _limit?: number;
   }): Observable<Product[]> {
     let httpParams = new HttpParams();
-    if (params?.cat && params.cat !== 'all') httpParams = httpParams.set('cat', params.cat);
-    if (params?.sub && params.sub !== 'all') httpParams = httpParams.set('sub', params.sub);
-    if (params?.q) httpParams = httpParams.set('q', params.q);
-    if (params?._limit) httpParams = httpParams.set('_limit', params._limit.toString());
+    // Backend uses 'category' and 'search', not 'cat' and 'q'
+    if (params?.cat && params.cat !== 'all') httpParams = httpParams.set('category', params.cat);
+    if (params?.q) httpParams = httpParams.set('search', params.q);
+    if (params?._limit) httpParams = httpParams.set('limit', params._limit.toString());
 
-    return this.http.get<any[]>(`${this.api}/products`, { params: httpParams }).pipe(
-      map((list) =>
-        list.filter((p) => p.status === 'active' || !p.status).map((p) => this.normalize(p)),
-      ),
+    return this.http.get<any>(`${this.api}/api/products`, { params: httpParams }).pipe(
+      map((res: any) => {
+        const list = Array.isArray(res) ? res : (res?.data ?? []);
+        return list.filter((p: any) => p.isActive !== false).map((p: any) => this.normalize(p));
+      }),
       catchError(() => of([])),
     );
   }
 
   getProductById(id: string): Observable<Product | null> {
-    return this.http.get<any>(`${this.api}/products/${id}`).pipe(
-      map((p) => this.normalize(p)),
+    return this.http.get<any>(`${this.api}/api/products/${id}`).pipe(
+      map((res: any) => {
+        const p = res?.data ?? res;
+        return p ? this.normalize(p) : null;
+      }),
       catchError(() => of(null)),
     );
   }
 
   // ─── Admin: full product list ─────────────────────────────────────────────
   getAllProducts(): Observable<Product[]> {
-    return this.http.get<any[]>(`${this.api}/products`).pipe(
-      map((list) => list.map((p) => this.normalize(p))),
+    return this.http.get<any>(`${this.api}/api/products?limit=500`).pipe(
+      map((res: any) => {
+        const list = Array.isArray(res) ? res : (res?.data ?? []);
+        return list.map((p: any) => this.normalize(p));
+      }),
       catchError(() => of([])),
     );
   }
 
   createProduct(p: Partial<Product>): Observable<Product> {
-    return this.http.post<Product>(`${this.api}/products`, p);
+    return this.http.post<Product>(`${this.api}/api/products`, p);
   }
 
   updateProduct(id: string, p: Partial<Product>): Observable<Product> {
-    return this.http.patch<Product>(`${this.api}/products/${id}`, p);
+    return this.http.put<Product>(`${this.api}/api/products/${id}`, p);
   }
 
   deleteProduct(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.api}/products/${id}`);
+    return this.http.delete<void>(`${this.api}/api/products/${id}`);
   }
 }

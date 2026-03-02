@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, of } from 'rxjs';
+import { Observable, catchError, of, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Order, DeliverySlot, VoucherResult } from '../models/product.model';
 
@@ -49,8 +49,13 @@ export class OrderService {
   }
 
   // ─── Create order ─────────────────────────────────────────────────────────────
-  createOrder(payload: Partial<Order>): Observable<Order> {
-    return this.http.post<Order>(`${this.api}/orders`, payload);
+  createOrder(payload: Partial<Order>): Observable<any> {
+    return this.http.post<any>(`${this.api}/api/orders`, payload).pipe(
+      map((res: any) => res?.data ?? res),
+      catchError((err) => {
+        throw err;
+      }),
+    );
   }
 
   markOrderPaid(orderId: string): Observable<Order> {
@@ -61,29 +66,28 @@ export class OrderService {
   getOrders(params?: { userId?: string; status?: string }): Observable<Order[]> {
     // Thử /api/orders/me trước (backend mới với session)
     const meUrl = `${this.api}/api/orders/me`;
-    return this.http.get<Order[]>(meUrl, { withCredentials: true }).pipe(
-      catchError(() => {
-        // Fallback: json-server cũ
-        let url = `${this.api}/orders?_sort=createdAt&_order=desc`;
-        if (params?.userId) url += `&userId=${params.userId}`;
-        if (params?.status && params.status !== 'all') url += `&status=${params.status}`;
-        return this.http.get<Order[]>(url).pipe(catchError(() => of([])));
-      }),
+    return this.http.get<any>(meUrl, { withCredentials: true }).pipe(
+      map((res: any) => (Array.isArray(res) ? res : (res?.data ?? []))),
+      catchError(() => of([])),
     );
   }
 
   getMyOrders(): Observable<Order[]> {
-    return this.http
-      .get<Order[]>(`${this.api}/api/orders/me`, { withCredentials: true })
-      .pipe(catchError(() => of([])));
+    return this.http.get<any>(`${this.api}/api/orders/me`, { withCredentials: true }).pipe(
+      map((res: any) => (Array.isArray(res) ? res : (res?.data ?? []))),
+      catchError(() => of([])),
+    );
   }
 
   getOrderById(id: string): Observable<Order | null> {
-    return this.http.get<Order>(`${this.api}/orders/${id}`).pipe(catchError(() => of(null)));
+    return this.http.get<any>(`${this.api}/api/orders/${id}`).pipe(
+      map((res: any) => res?.data ?? res),
+      catchError(() => of(null)),
+    );
   }
 
   updateOrderStatus(id: string, status: string): Observable<Order> {
-    return this.http.patch<Order>(`${this.api}/orders/${id}`, { status });
+    return this.http.put<Order>(`${this.api}/api/orders/${id}/status`, { status });
   }
 
   // ─── Order ID generator ───────────────────────────────────────────────────────

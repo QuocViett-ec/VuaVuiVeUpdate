@@ -49,11 +49,29 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "**/*",
+                "input": "src/app/features/home/images-home",
+                "output": "images-home"
+              },
+              {
+                "glob": "**/*",
+                "input": "src/app/features/home/images-About",
+                "output": "images-About"
+              },
+              {
+                "glob": "**/*",
+                "input": "src/app/features/home/images-About2",
+                "output": "images-About2"
+              },
+              {
+                "glob": "**/*",
+                "input": "src/app/features/home/images-Job",
+                "output": "images-Job"
               }
             ],
-            "styles": [
-              "src/styles.scss"
-            ],
+            "styles": ["src/styles.scss"],
             "server": "src/main.server.ts",
             "outputMode": "server",
             "security": {
@@ -73,8 +91,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "32kB",
+                  "maximumError": "64kB"
                 }
               ],
               "outputHashing": "all"

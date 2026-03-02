@@ -1,10 +1,12 @@
-import { Injectable, signal, computed, effect } from '@angular/core';
+import { Injectable, signal, computed, effect, inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { Product, CartItem, Cart } from '../models/product.model';
 
 const LS_CART = 'vvv_cart';
 
 @Injectable({ providedIn: 'root' })
 export class CartService {
+  private platformId = inject(PLATFORM_ID);
   private _items = signal<CartItem[]>(this._load());
 
   readonly items = this._items.asReadonly();
@@ -19,14 +21,17 @@ export class CartService {
   }));
 
   constructor() {
-    effect(() => {
-      const raw: Record<string, number> = {};
-      this._items().forEach((i) => (raw[i.product.id] = i.quantity));
-      localStorage.setItem(LS_CART, JSON.stringify(raw));
-    });
+    if (isPlatformBrowser(this.platformId)) {
+      effect(() => {
+        const raw: Record<string, number> = {};
+        this._items().forEach((i) => (raw[i.product.id] = i.quantity));
+        localStorage.setItem(LS_CART, JSON.stringify(raw));
+      });
+    }
   }
 
   private _load(): CartItem[] {
+    if (typeof localStorage === 'undefined') return [];
     try {
       const raw: Record<string, number> = JSON.parse(localStorage.getItem(LS_CART) || '{}');
       // Items loaded without product details (resolved lazily when product data is available)
@@ -40,6 +45,7 @@ export class CartService {
 
   // ─── Load stored IDs + merge real product data ────────────────────────────
   hydrateFromProducts(products: Product[]): void {
+    if (typeof localStorage === 'undefined') return;
     const raw: Record<string, number> = {};
     try {
       Object.assign(raw, JSON.parse(localStorage.getItem(LS_CART) || '{}'));

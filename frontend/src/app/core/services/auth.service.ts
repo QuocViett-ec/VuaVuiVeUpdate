@@ -36,24 +36,24 @@ export class AuthService {
   // ─── Restore session từ server (GET /api/auth/me) ───────────────────────────
   private _restoreServerSession(): void {
     if (typeof window === 'undefined') return;
-    this.http
-      .get<any>(`${API_BASE}/api/auth/me`, { withCredentials: true })
-      .subscribe({
-        next: (res) => {
-          if (res?.user) {
-            const sess: AuthSession = {
-              id: res.user._id ?? res.user.id,
-              name: res.user.name,
-              email: res.user.email ?? '',
-              phone: res.user.phone ?? '',
-              address: res.user.address ?? '',
-              role: res.user.role ?? 'customer',
-            };
-            this._saveSession(sess);
-          }
-        },
-        error: () => { /* backend chưa chạy → dùng localStorage như cũ */ },
-      });
+    this.http.get<any>(`${API_BASE}/api/auth/me`, { withCredentials: true }).subscribe({
+      next: (res) => {
+        if (res?.data) {
+          const sess: AuthSession = {
+            id: res.data._id ?? res.data.id,
+            name: res.data.name,
+            email: res.data.email ?? '',
+            phone: res.data.phone ?? '',
+            address: res.data.address ?? '',
+            role: res.data.role ?? 'user',
+          };
+          this._saveSession(sess);
+        }
+      },
+      error: () => {
+        /* backend chưa chạy → dùng localStorage như cũ */
+      },
+    });
   }
 
   // ─── Seed default admin (runs once on first load) ────────────────────────────
@@ -110,10 +110,19 @@ export class AuthService {
     // Thử gọi backend trước
     try {
       const res = await firstValueFrom(
-        this.http.post<any>(`${API_BASE}/api/auth/register`, req, { withCredentials: true })
+        this.http.post<any>(`${API_BASE}/api/auth/register`, req, { withCredentials: true }),
       );
-      if (res?.user) {
-        return { ok: true, user: res.user };
+      if (res?.data) {
+        const sess: AuthSession = {
+          id: res.data._id ?? res.data.id,
+          name: res.data.name,
+          email: res.data.email ?? '',
+          phone: res.data.phone ?? '',
+          address: res.data.address ?? '',
+          role: res.data.role ?? 'user',
+        };
+        this._saveSession(sess);
+        return { ok: true, user: sess as unknown as User };
       }
     } catch (err: any) {
       // Nếu backend trả lỗi rõ ràng (4xx) thì dừng lại
@@ -143,7 +152,7 @@ export class AuthService {
       phone,
       password: req.password,
       address: (req.address || '').trim(),
-      role: 'customer',
+      role: 'user',
       createdAt: new Date().toISOString(),
     };
     users.push(user);
@@ -151,7 +160,13 @@ export class AuthService {
     this._log('user.register', email || phone, { userId: user.id });
     return {
       ok: true,
-      user: { id: user.id, name: user.name, email: user.email, phone: user.phone, address: user.address },
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        address: user.address,
+      },
     };
   }
 
@@ -160,16 +175,16 @@ export class AuthService {
     // Thử gọi backend trước
     try {
       const res = await firstValueFrom(
-        this.http.post<any>(`${API_BASE}/api/auth/login`, req, { withCredentials: true })
+        this.http.post<any>(`${API_BASE}/api/auth/login`, req, { withCredentials: true }),
       );
-      if (res?.user) {
+      if (res?.data) {
         const sess: AuthSession = {
-          id: res.user._id ?? res.user.id,
-          name: res.user.name,
-          email: res.user.email ?? '',
-          phone: res.user.phone ?? '',
-          address: res.user.address ?? '',
-          role: res.user.role ?? 'customer',
+          id: res.data._id ?? res.data.id,
+          name: res.data.name,
+          email: res.data.email ?? '',
+          phone: res.data.phone ?? '',
+          address: res.data.address ?? '',
+          role: res.data.role ?? 'user',
         };
         this._saveSession(sess);
         this._log('user.login', sess.email || sess.phone, { via: 'server' });
@@ -220,6 +235,10 @@ export class AuthService {
 
   // ─── Logout ─────────────────────────────────────────────────────────────────
   logout(): void {
+    // Hủy server session
+    this.http
+      .post(`${API_BASE}/api/auth/logout`, {}, { withCredentials: true })
+      .subscribe({ error: () => {} });
     localStorage.removeItem(LS_SESSION);
     this._session.set(null);
     this.router.navigate(['/auth/login']);
@@ -229,10 +248,31 @@ export class AuthService {
   async updateProfile(req: UpdateProfileRequest): Promise<AuthResponse> {
     const sess = this._session();
     if (!sess) return { ok: false, message: 'Chưa đăng nhập.' };
+
+    // Thử gọi backend trước
+    try {
+      const res = await firstValueFrom(
+        this.http.put<any>(`${API_BASE}/api/auth/profile`, req, { withCredentials: true }),
+      );
+      if (res?.data || res?.success) {
+        this._saveSession({
+          ...sess,
+          name: req.name || sess.name,
+          address: req.address || sess.address,
+        });
+        return { ok: true, user: res.data ?? sess };
+      }
+    } catch (err: any) {
+      if (err?.status && err.status !== 0) {
+        return { ok: false, message: err.error?.message ?? 'Cập nhật thất bại.' };
+      }
+      // Network error → fallback localStorage
+    }
+
+    // Fallback: localStorage
     const users = this._getUsers() as any[];
     let idx = users.findIndex((x: any) => x.id === sess.id);
     if (idx === -1) return { ok: false, message: 'Không tìm thấy người dùng.' };
-
     users[idx] = { ...users[idx], ...req };
     this._setUsers(users);
     this._saveSession({
@@ -247,6 +287,21 @@ export class AuthService {
   async changePassword(req: ChangePasswordRequest): Promise<AuthResponse> {
     const sess = this._session();
     if (!sess) return { ok: false, message: 'Chưa đăng nhập.' };
+
+    // Thử gọi backend trước
+    try {
+      const res = await firstValueFrom(
+        this.http.put<any>(`${API_BASE}/api/auth/password`, req, { withCredentials: true }),
+      );
+      if (res?.success || res?.data) return { ok: true };
+    } catch (err: any) {
+      if (err?.status && err.status !== 0) {
+        return { ok: false, message: err.error?.message ?? 'Đổi mật khẩu thất bại.' };
+      }
+      // Network error → fallback localStorage
+    }
+
+    // Fallback: localStorage
     const users = this._getUsers() as any[];
     const idx = users.findIndex((x: any) => x.id === sess.id);
     if (idx === -1) return { ok: false, message: 'Không tìm thấy người dùng.' };
@@ -256,7 +311,6 @@ export class AuthService {
       return { ok: false, reason: 'weak_password', message: 'Mật khẩu mới phải ≥ 6 ký tự.' };
     if (req.newPassword === req.oldPassword)
       return { ok: false, message: 'Mật khẩu mới không được trùng mật khẩu cũ.' };
-
     users[idx] = { ...users[idx], password: req.newPassword };
     this._setUsers(users);
     return { ok: true };
@@ -272,7 +326,9 @@ export class AuthService {
       timestamp: new Date().toISOString(),
     };
     try {
-      this.http.post(`${API_BASE}/auditLogs`, entry).subscribe({ error: () => {} });
+      this.http
+        .post(`${API_BASE}/api/users/audit-logs`, entry, { withCredentials: true })
+        .subscribe({ error: () => {} });
     } catch {}
   }
 }
