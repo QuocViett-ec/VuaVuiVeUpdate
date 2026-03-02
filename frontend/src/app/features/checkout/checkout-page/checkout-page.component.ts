@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -10,12 +10,12 @@ import { DeliverySlot, VoucherResult } from '../../../core/models/product.model'
 import { environment } from '../../../../environments/environment';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-checkout-page',
   standalone: true,
   imports: [CommonModule, RouterLink, FormsModule],
   templateUrl: './checkout-page.component.html',
-  styleUrl: './checkout-page.component.scss',
-})
+  styleUrl: './checkout-page.component.scss' })
 export class CheckoutPageComponent implements OnInit {
   protected cart = inject(CartService);
   private orderSvc = inject(OrderService);
@@ -54,7 +54,9 @@ export class CheckoutPageComponent implements OnInit {
     return v.value ?? 0;
   });
 
-  readonly totalAmount = computed(() => this.subtotal() + this.shippingFee() - this.discount());
+  readonly totalAmount = computed(() =>
+    Math.max(0, this.subtotal() + this.shippingFee() - this.discount()),
+  );
 
   ngOnInit(): void {
     this.slots.set(this.orderSvc.getDeliverySlots());
@@ -93,29 +95,25 @@ export class CheckoutPageComponent implements OnInit {
       productName: i.product.name,
       quantity: i.quantity,
       price: i.product.price,
-      subtotal: i.product.price * i.quantity,
-    }));
+      subtotal: i.product.price * i.quantity }));
 
     const payload = {
-      id: this.orderSvc.generateOrderId(),
       userId: this.auth.currentUser()?.id,
-      customerName: this.name,
-      email: this.email,
-      phone: this.phone,
-      address: this.address,
-      note: this.note,
       items,
+      delivery: {
+        name: this.name,
+        phone: this.phone,
+        address: this.address,
+        slot: this.selectedSlotId || '' },
+      payment: {
+        method: this.paymentMethod,
+        status: 'pending' },
+      note: this.note,
       subtotal: this.subtotal(),
       shippingFee: this.shippingFee(),
       discount: this.discount(),
       totalAmount: this.totalAmount(),
-      voucherCode: this.voucherCode || undefined,
-      deliverySlot: this.selectedSlotId || undefined,
-      paymentMethod: this.paymentMethod,
-      paymentStatus: 'unpaid' as const,
-      status: 'pending' as const,
-      createdAt: new Date().toISOString(),
-    };
+      voucherCode: this.voucherCode || undefined };
 
     this.orderSvc.createOrder(payload).subscribe({
       next: async (order) => {
@@ -127,18 +125,16 @@ export class CheckoutPageComponent implements OnInit {
           const vnpayUrl = `${environment.vnpayApi}/order/create_payment_url`;
           const body = {
             amount: order.totalAmount,
-            orderId: order.id,
-            orderInfo: `Thanh toan don hang ${order.id}`,
-          };
+            orderId: order.orderId ?? order._id,
+            orderInfo: `Thanh toan don hang ${order.orderId ?? order._id}` };
           try {
             const res = await fetch(vnpayUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-            });
+              body: JSON.stringify(body) });
             const data = await res.json();
-            if (data.url) {
-              window.location.href = data.url;
+            if (data.data) {
+              window.location.href = data.data;
               return;
             }
           } catch {
@@ -152,7 +148,6 @@ export class CheckoutPageComponent implements OnInit {
       error: () => {
         this.loading.set(false);
         this.toast.error('Đặt hàng thất bại. Vui lòng thử lại.');
-      },
-    });
+      } });
   }
 }

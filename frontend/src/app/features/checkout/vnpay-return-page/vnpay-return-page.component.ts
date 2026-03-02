@@ -1,16 +1,16 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { OrderService } from '../../../core/services/order.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-vnpay-return-page',
   standalone: true,
   imports: [CommonModule, RouterLink],
   templateUrl: './vnpay-return-page.component.html',
   styleUrl: './vnpay-return-page.component.scss',
-  host: { class: 'vnpay-page-host' },
-})
+  host: { class: 'vnpay-page-host' } })
 export class VnpayReturnPageComponent implements OnInit {
   loading  = signal(true);
   success  = signal(false);
@@ -63,8 +63,7 @@ export class VnpayReturnPageComponent implements OnInit {
           this.orderId.set(orderId);
           this.success.set(true);
           this.loading.set(false);
-        },
-      });
+        } });
     } else {
       const messages: Record<string, string> = {
         '07': 'Giao dịch bị nghi ngờ gian lận.',
@@ -76,8 +75,7 @@ export class VnpayReturnPageComponent implements OnInit {
         '51': 'Số dư không đủ.',
         '65': 'Vượt hạn mức giao dịch trong ngày.',
         '75': 'Ngân hàng bảo trì.',
-        '99': 'Lỗi không xác định.',
-      };
+        '99': 'Lỗi không xác định.' };
       this.message.set(messages[code] ?? 'Thanh toán không thành công.');
       this.loading.set(false);
     }

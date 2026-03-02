@@ -1,177 +1,672 @@
-<!-- ── Popup quảng cáo khi vào trang ───────────────────────────────────── -->
+﻿<!-- ═══════════════════════════════════════════════════════════
+     POP-UP VÀO TRANG
+     ═══════════════════════════════════════════════════════════ -->
 @if (showPopup()) {
   <div class="popup-backdrop" (click)="closePopup()">
     <div class="popup-modal" (click)="$event.stopPropagation()">
-      <button class="popup-close" (click)="closePopup()" aria-label="Dong">×</button>
+      <button class="popup-close" (click)="closePopup()" aria-label="Đóng">×</button>
       <img
         class="popup-image"
         src="images/brand/PopUp.png"
-        alt="Khuyen mai"
+        alt="Khuyến mãi"
         onerror="this.src = 'images/brand/Banner.png'"
       />
     </div>
   </div>
 }
 
-<!-- ── Hero Slider ─────────────────────────────────────────────────────── -->
-<section class="hero-slider">
-  <div class="hero-slider__track" [style.transform]="'translateX(-' + slideIdx() * 100 + '%)'">
-    @for (slide of slides; track slide.img) {
-      <div class="hero-slider__slide">
-        <img [src]="slide.img" [alt]="slide.alt" loading="eager" />
-      </div>
-    }
-  </div>
-  <button class="hero-nav prev" (click)="prevSlide()">&#8249;</button>
-  <button class="hero-nav next" (click)="nextSlide()">&#8250;</button>
-  <div class="hero-pagi">
-    @for (slide of slides; track slide.img; let i = $index) {
-      <span [class.active]="slideIdx() === i" (click)="goSlide(i)"></span>
-    }
+<!-- ═══════════════════════════════════════════════════════════
+     HERO SLIDER (cấu trúc y hệt Hôm/index.html)
+     ═══════════════════════════════════════════════════════════ -->
+<section class="hero" id="hero">
+  <div class="container hero-grid">
+    <div class="hero-left">
+      @for (slide of slides; track slide.img; let i = $index) {
+        <img
+          class="hero-slide"
+          [class.active]="slideIdx() === i"
+          [src]="slide.img"
+          [alt]="slide.alt"
+          loading="eager"
+        />
+      }
+    </div>
+    <div class="hero-right" aria-hidden="true">
+      <div class="ribbon a"></div>
+      <div class="ribbon b"></div>
+      <div class="ribbon c"></div>
+      <div class="parachute"></div>
+    </div>
+    <button class="hero-nav prev" (click)="prevSlide()">&#8249;</button>
+    <button class="hero-nav next" (click)="nextSlide()">&#8250;</button>
   </div>
 </section>
 
-<!-- ── Awards marquee ──────────────────────────────────────────────────── -->
+<!-- Pagination gạch-gạch -->
+<div class="hero-pagination" id="hero-pagi">
+  @for (slide of slides; track slide.img; let i = $index) {
+    <span [class.active]="slideIdx() === i" (click)="goSlide(i)"></span>
+  }
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     AWARDS MARQUEE
+     ═══════════════════════════════════════════════════════════ -->
 <section class="awards">
   <div class="marquee-wrapper">
     <div class="marquee-track">
-      <span class="award-item">🏆 GIAO HANG NHANH</span>
-      <span class="award-item">🏆 HANG TUOI MOI NGAY</span>
-      <span class="award-item">🏆 GIA TOT NHAT</span>
-      <span class="award-item">🏆 FREESHIP &gt; 299K</span>
-      <span class="award-item">🏆 DAM BAO CHAT LUONG</span>
-      <span class="award-item">🏆 GIAO HANG NHANH</span>
-      <span class="award-item">🏆 HANG TUOI MOI NGAY</span>
-      <span class="award-item">🏆 GIA TOT NHAT</span>
-      <span class="award-item">🏆 FREESHIP &gt; 299K</span>
-      <span class="award-item">🏆 DAM BAO CHAT LUONG</span>
+      <div class="award-item">🏆 SUPERIOR TASTE</div>
+      <div class="award-item">🏆 MONDE SELECTION</div>
+      <div class="award-item">🏆 WORLD DAIRY INNOVATION 2025</div>
+      <div class="award-item">🏆 PURITY AWARD</div>
+      <div class="award-item">🏆 CARBON NEUTRALITY 2060</div>
+      <div class="award-item">🏆 SUPERIOR TASTE</div>
+      <div class="award-item">🏆 MONDE SELECTION</div>
+      <div class="award-item">🏆 WORLD DAIRY INNOVATION 2025</div>
+      <div class="award-item">🏆 PURITY AWARD</div>
+      <div class="award-item">🏆 CARBON NEUTRALITY 2060</div>
     </div>
   </div>
 </section>
 
-<!-- ── Flash Sale ──────────────────────────────────────────────────────── -->
-<section class="section" id="flashsale">
-  <div class="container">
-    <div class="section__head">
-      <div>
-        <h2 class="flash-title">Flash Sale</h2>
-        <p class="flash-sub">
-          Khung gio dang xem:
-          <strong>{{ flashSlot() === 'morning' ? '6:00–8:00' : '16:00–18:00' }}</strong> &nbsp;• Con
-          lai: <span class="flash-timer">{{ countdown() }}</span>
-        </p>
-      </div>
-      <div class="flash-pills">
-        <button
-          class="pill"
-          [class.active]="flashSlot() === 'morning'"
-          (click)="setSlot('morning')"
-        >
-          06:00–08:00
-        </button>
-        <button
-          class="pill"
-          [class.active]="flashSlot() === 'afternoon'"
-          (click)="setSlot('afternoon')"
-        >
-          16:00–18:00
-        </button>
-      </div>
-    </div>
-    @if (loading()) {
-      <div class="products-grid">
-        @for (i of [1, 2, 3, 4]; track i) {
-          <div class="skeleton-card"></div>
-        }
-      </div>
-    } @else {
-      <div class="products-grid">
-        @for (p of flashProducts(); track p.id) {
-          <app-product-card [product]="p" />
-        }
-      </div>
-    }
+<!-- ═══════════════════════════════════════════════════════════
+     ICE VISUAL
+     ═══════════════════════════════════════════════════════════ -->
+<section class="ice-visual">
+  <div class="ice-left">
+    <img alt="Kem" src="images-home/ad.jpg" onerror="this.style.display = 'none'" />
+  </div>
+  <div class="ice-right">
+    <img alt="Sản phẩm mới" src="images-home/moi.png" onerror="this.style.display = 'none'" />
   </div>
 </section>
 
-<!-- ── Danh muc ────────────────────────────────────────────────────────── -->
-<section class="section section--categories" id="catalog">
+<!-- ═══════════════════════════════════════════════════════════
+     SHOP SLIDER – SẮP RA MẮT
+     ═══════════════════════════════════════════════════════════ -->
+<section id="shop" class="shop">
   <div class="container">
-    <div class="section__head"><h2 class="section__title">Danh muc</h2></div>
-    <div class="cat-grid">
-      @for (cat of categories; track cat.key) {
-        <a [routerLink]="['/products']" [queryParams]="{ cat: cat.key }" class="cat-card">
-          <span class="cat-icon">{{ cat.icon }}</span>
-          <span class="cat-label">{{ cat.label }}</span>
+    <h1 class="title">Sắp ra mắt !!!</h1>
+    <div class="showcase">
+      <button class="nav left" type="button" aria-label="Cuộn trái" (click)="shopScroll(-360)">
+        &#8249;
+      </button>
+      <button class="nav right" type="button" aria-label="Cuộn phải" (click)="shopScroll(360)">
+        &#8250;
+      </button>
+
+      <div class="scroller" id="scroll" role="region" aria-label="Băng chuyền sản phẩm">
+        <a class="pcard" data-name="Coca-Cola Zero" data-line="Nước ngọt có gas • 330ml">
+          <div class="media">
+            <img class="front" src="images-home/cocafront.jpg" alt="Coca-Cola - mặt trước" />
+            <img class="side" src="images-home/cocaside.jpg" alt="Coca-Cola - cạnh bên" />
+          </div>
+          <div class="pop"><b>Coca-Cola Zero</b><span>Nước ngọt có gas • 330ml</span></div>
         </a>
-      }
+        <a class="pcard" data-name="Pepsi không đường" data-line="Nước ngọt có gas • 330ml">
+          <div class="media">
+            <img class="front" src="images-home/pepsifront.jpg" alt="Pepsi - mặt trước" />
+            <img class="side" src="images-home/pepsiside.jpg" alt="Pepsi - mặt sau" />
+          </div>
+          <div class="pop"><b>Pepsi</b><span>Nước ngọt có gas • 330ml</span></div>
+        </a>
+        <a class="pcard" data-name="Cà phê sữa lon" data-line="Đóng lon • 330ml">
+          <div class="media">
+            <img class="front" src="images-home/caphefront.jpg" alt="Cà phê sữa lon - mặt trước" />
+            <img class="side" src="images-home/capheside.jpg" alt="Cà phê sữa lon - cạnh bên" />
+          </div>
+          <div class="pop"><b>Cà phê sữa lon</b><span>Đóng lon • 330ml</span></div>
+        </a>
+        <a class="pcard" data-name="Fanta dâu" data-line="Nước ngọt vị dâu • 330ml">
+          <div class="media">
+            <img class="front" src="images-home/fantafront.jpg" alt="Fanta - mặt trước" />
+            <img class="side" src="images-home/fantaside.jpg" alt="Fanta - cạnh bên" />
+          </div>
+          <div class="pop"><b>Fanta dâu</b><span>Nước ngọt vị dâu • 330ml</span></div>
+        </a>
+        <a class="pcard" data-name="Nutriboost Cam" data-line="Sữa trái cây • 297ml">
+          <div class="media">
+            <img class="front" src="images-home/nutrifront.jpg" alt="Nutriboost - mặt trước" />
+            <img class="side" src="images-home/nutriside.jpg" alt="Nutriboost - cạnh bên" />
+          </div>
+          <div class="pop"><b>Nutriboost Cam</b><span>Sữa trái cây • 297ml</span></div>
+        </a>
+        <a class="pcard" data-name="C2 dâu anh đào" data-line="Nước ngọt • 330ml">
+          <div class="media">
+            <img class="front" src="images-home/c2f.jpg" alt="C2 - mặt trước" />
+            <img class="side" src="images-home/c2s.jpg" alt="C2 - cạnh bên" />
+          </div>
+          <div class="pop"><b>C2 dâu anh đào</b><span>Nước ngọt • 330ml</span></div>
+        </a>
+        <a class="pcard" data-name="Sữa hạt dinh dưỡng" data-line="Ngũ cốc • 180ml">
+          <div class="media">
+            <img class="front" src="images-home/suahatfront.jpg" alt="Sữa hạt - mặt trước" />
+            <img class="side" src="images-home/suahatside.jpg" alt="Sữa hạt - cạnh bên" />
+          </div>
+          <div class="pop"><b>Sữa hạt dinh dưỡng</b><span>Ngũ cốc • 180ml</span></div>
+        </a>
+        <a class="pcard" data-name="Snickers" data-line="Thanh socola • 35g">
+          <div class="media">
+            <img class="front" src="images-home/snickerfront.jpg" alt="Snickers - mặt trước" />
+            <img class="side" src="images-home/snickerside.jpg" alt="Snickers - cạnh bên" />
+          </div>
+          <div class="pop"><b>Snickers</b><span>Thanh socola • 35g</span></div>
+        </a>
+        <a class="pcard" data-name="KitKat" data-line="Wafer phủ socola • 35g">
+          <div class="media">
+            <img class="front" src="images-home/kitkatfront.jpg" alt="KitKat - mặt trước" />
+            <img class="side" src="images-home/kitkatside.jpg" alt="KitKat - cạnh bên" />
+          </div>
+          <div class="pop"><b>KitKat</b><span>Wafer phủ socola • 35g</span></div>
+        </a>
+        <a class="pcard" data-name="Xoài sấy dẻo" data-line="Trái cây sấy • 100g">
+          <div class="media">
+            <img class="front" src="images-home/xoaisayfront.jpg" alt="Xoài sấy - mặt trước" />
+            <img class="side" src="images-home/xoaisayside.jpg" alt="Xoài sấy - cạnh bên" />
+          </div>
+          <div class="pop"><b>Xoài sấy dẻo</b><span>Trái cây sấy • 100g</span></div>
+        </a>
+        <a class="pcard" data-name="Poca Khoai Tây" data-line="Snack giòn • 45g">
+          <div class="media">
+            <img class="front" src="images-home/pocafront.jpg" alt="Poca - mặt trước" />
+            <img class="side" src="images-home/pocaside.jpg" alt="Poca - cạnh bên" />
+          </div>
+          <div class="pop"><b>Poca Khoai Tây</b><span>Snack giòn • 45g</span></div>
+        </a>
+        <a
+          class="pcard"
+          data-name="Kem Magnum Almond"
+          data-line="Kem que phủ socola hạnh nhân • 80ml"
+        >
+          <div class="media">
+            <img class="front" src="images-home/kemfront.jpg" alt="Kem Magnum - mặt trước" />
+            <img class="side" src="images-home/kemside.jpg" alt="Kem Magnum - cạnh bên" />
+          </div>
+          <div class="pop">
+            <b>Kem Magnum Almond</b><span>Kem que phủ socola hạnh nhân • 80ml</span>
+          </div>
+        </a>
+      </div>
+      <br />
+      <div class="hover-pill" id="hover-pill">
+        <div class="pill-name" id="pill-name">Sản phẩm</div>
+        <div class="pill-line" id="pill-line">Mô tả</div>
+        <span class="pill-arrow">→</span>
+      </div>
+      <br />
+      <div class="progress"><div class="bar" id="bar"></div></div>
     </div>
   </div>
 </section>
 
-<!-- ── San pham noi bat ────────────────────────────────────────────────── -->
-<section class="section" id="featured">
-  <div class="container">
-    <div class="section__head">
-      <h2 class="section__title">San pham noi bat</h2>
-      <a routerLink="/products" class="see-all">Xem tat ca →</a>
+<!-- ═══════════════════════════════════════════════════════════
+     TECH – CẦU TIẾN LÀ BÍ QUYẾT (→ About)
+     ═══════════════════════════════════════════════════════════ -->
+<section id="tech" class="tech">
+  <div class="tech-grid">
+    <div class="tech-text">
+      <h2>Cầu tiến là bí quyết</h2>
+      <p>
+        <strong
+          >Không ngừng tìm kiếm, ứng dụng công nghệ sản xuất tiên tiến nhất để đáp ứng những tiêu
+          chuẩn khắt khe nhất của chính Vựa Vui Vẻ.</strong
+        >
+      </p>
+      <a class="btn-outline" routerLink="/about">Tìm hiểu thêm</a>
     </div>
-    @if (loading()) {
-      <div class="products-grid">
-        @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
-          <div class="skeleton-card"></div>
-        }
-      </div>
-    } @else {
-      <div class="products-grid">
-        @for (p of featured(); track p.id) {
-          <app-product-card [product]="p" />
-        }
-      </div>
-    }
+    <div class="tech-img">
+      <img
+        src="images/brand/TuNongTraiXa.png"
+        alt="Từ nông trại xa về bếp nhà ta"
+        onerror="this.style.display = 'none'"
+      />
+    </div>
   </div>
 </section>
 
-<!-- ── Khuyen mai goc ──────────────────────────────────────────────────── -->
-@if (!loading() && deals().length) {
-  <section class="section section--deals">
-    <div class="container">
-      <div class="section__head">
-        <h2 class="section__title">Khuyen mai hot 🔥</h2>
-        <a routerLink="/products" class="see-all">Xem them →</a>
-      </div>
-      <div class="products-grid">
-        @for (p of deals(); track p.id) {
-          <app-product-card [product]="p" />
-        }
+<!-- ═══════════════════════════════════════════════════════════
+     ABOUT – CÔNG NGHỆ SẢN XUẤT (nội dung từ About/index.html)
+     ═══════════════════════════════════════════════════════════ -->
+<section class="about-section">
+  <!-- Hero About -->
+  <div class="about-hero container" style="text-align: center; padding: 48px 20px 24px">
+    <p class="eyebrow">CÔNG NGHỆ TẠI VỰA VUI VẺ</p>
+    <h2>Để tâm - Cải tiến</h2>
+    <p>
+      Chúng mình không ngừng nghiên cứu và áp dụng công nghệ hiện đại để tạo ra sản phẩm ngon – sạch
+      – lành cho mọi nhà.
+    </p>
+    <figure style="margin: 24px 0 0">
+      <img
+        src="images-About/xe.jpg"
+        alt="Dây chuyền công nghệ"
+        loading="lazy"
+        style="width: 100%; max-width: 960px; border-radius: 16px"
+      />
+    </figure>
+  </div>
+
+  <!-- Tech cards -->
+  <div class="container" style="padding-top: 32px">
+    <h2 class="title">Công nghệ sản xuất chuẩn quốc tế</h2>
+    <p class="subtitle">
+      Nhà máy Vựa Vui Vẻ hoạt động trên dây chuyền khép kín, tự động hoá 100% từ khâu nguyên liệu
+      đầu vào đến đầu ra sản phẩm.
+    </p>
+    <div class="tcard-grid">
+      <article class="tcard">
+        <figure class="tmedia">
+          <img src="images-About/snack.jpg" alt="Snack" loading="lazy" />
+        </figure>
+        <header class="thead"><h3>Bí kíp giữ trọn niềm vui</h3></header>
+        <div class="tbody">
+          <p>
+            Mỗi gói snack được đóng gói bằng công nghệ chống ẩm hiện đại, giữ trọn độ giòn rụm và
+            hương vị khó cưỡng ngay từ lần mở đầu tiên.
+          </p>
+        </div>
+      </article>
+      <article class="tcard">
+        <figure class="tmedia">
+          <img src="images-About/sprite.jpg" alt="Sprite" loading="lazy" />
+        </figure>
+        <header class="thead"><h3>Hương vị khuấy động cuộc vui</h3></header>
+        <div class="tbody">
+          <p>
+            Pha trộn tinh tế giữa vị ngọt nhẹ và hương trái cây tươi, mỗi ngụm là một nguồn năng
+            lượng mới.
+          </p>
+        </div>
+      </article>
+      <article class="tcard">
+        <figure class="tmedia">
+          <img src="images-About/fanta.jpg" alt="Fanta" loading="lazy" />
+        </figure>
+        <header class="thead"><h3>Đóng chai trọn vị tươi mới</h3></header>
+        <div class="tbody">
+          <p>
+            Quy trình đóng chai hiện đại giúp giữ nguyên hương vị tươi mát và bọt ga tự nhiên. Mỗi
+            chai đều như vừa mới "ra lò"!
+          </p>
+        </div>
+      </article>
+    </div>
+  </div>
+
+  <!-- LGV Robot -->
+  <section class="lgv" id="lgv">
+    <div class="container lgv-grid">
+      <figure class="lgv-media">
+        <img src="images-home/system.jpg" alt="Robot LGV" loading="lazy" />
+      </figure>
+      <div class="lgv-text">
+        <p class="lgv-kicker">CÔNG NGHỆ TẠI VỰA VUI VẺ</p>
+        <h3 class="lgv-title">Hệ thống robot LGV thông minh <br />tự động <span>100%</span></h3>
+        <p class="lgv-lead">
+          Robot LGV được lập trình điều khiển từ hệ thống trung tâm để tối ưu nhân lực, nâng cao
+          hiệu suất và đồng bộ chất lượng sản phẩm trong toàn nhà máy.
+        </p>
+        <ul class="lgv-features">
+          <li class="lgv-row">
+            <div class="lgv-key">VẬN CHUYỂN PALLET</div>
+            <div class="lgv-val">Tự động vận chuyển pallet thành phẩm đến kho chứa thông minh.</div>
+          </li>
+          <li class="lgv-row">
+            <div class="lgv-key">VẬN CHUYỂN VẬT LIỆU</div>
+            <div class="lgv-val">
+              Vận chuyển các cuộn bao bì và vật liệu bao gói đến các máy sản xuất.
+            </div>
+          </li>
+          <li class="lgv-row">
+            <div class="lgv-key">TỰ SẠC PIN</div>
+            <div class="lgv-val">
+              Tự sạc pin ngay khi hết mà không cần sự can thiệp của con người.
+            </div>
+          </li>
+        </ul>
       </div>
     </div>
   </section>
-}
 
-<!-- ── Cong thuc nau an CTA ────────────────────────────────────────────── -->
+  <!-- About Feature (Tetra Plant Master) -->
+  <section class="about-feature">
+    <div class="about-feature__content">
+      <h5 class="about-feature__tag">TETRA PLANT MASTER</h5>
+      <h2 class="about-feature__title">Hệ thống vận hành 100% tự động</h2>
+      <p class="about-feature__text">
+        Hệ thống vận hành dựa trên giải pháp tự động hoá Tetra Plant Master cho phép kết nối và tích
+        hợp toàn bộ nhà máy từ nguyên liệu đầu vào cho đến thành phẩm.
+      </p>
+    </div>
+    <div class="about-feature__image">
+      <img src="images-home/robot.jpg" alt="Hệ thống vận hành tự động" loading="lazy" />
+    </div>
+  </section>
+
+  <!-- Achievements -->
+  <section class="achieve" id="achieve">
+    <div class="container">
+      <h2 class="title" style="text-align: center">Thành tựu</h2>
+      <div class="achieve-grid">
+        <article class="acard">
+          <header class="acard-head">
+            <span class="acard-no">01</span>
+            <h4>
+              Tại Vựa Vui Vẻ, chúng tôi không ngừng đầu tư vào nghiên cứu, cải tiến chất lượng sản
+              phẩm
+            </h4>
+          </header>
+          <figure class="acard-media">
+            <img src="images-About/search.jpg" alt="" loading="lazy" />
+          </figure>
+        </article>
+        <article class="acard">
+          <header class="acard-head">
+            <span class="acard-no">02</span>
+            <h4>
+              Đội ngũ kiểm nghiệm gồm Trung tâm R&D, Bộ phận An toàn thực phẩm &amp; Tác nghiệp sản
+              xuất
+            </h4>
+          </header>
+          <figure class="acard-media">
+            <img src="images-About/s1.jpg" alt="" loading="lazy" />
+          </figure>
+        </article>
+        <article class="acard">
+          <header class="acard-head">
+            <span class="acard-no">03</span>
+            <h4>
+              Hợp tác cùng các viện/trung tâm kiểm nghiệm để phát triển quy trình đạt chuẩn an toàn
+              thực phẩm
+            </h4>
+          </header>
+          <figure class="acard-media">
+            <img src="images-About/s2.jpg" alt="" loading="lazy" />
+          </figure>
+        </article>
+        <article class="acard">
+          <header class="acard-head">
+            <span class="acard-no">04</span>
+            <h4>100% phòng thí nghiệm đáp ứng yêu cầu tiêu chuẩn ISO/IEC 17025</h4>
+          </header>
+          <figure class="acard-media">
+            <img src="images-About/s3.jpg" alt="" loading="lazy" />
+          </figure>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ISO Accordion -->
+  <section class="standards" id="standards">
+    <div class="container">
+      <h3 class="title">Đạt chuẩn quốc tế về hệ thống quản lý môi trường, năng lượng</h3>
+      <div class="iso-acc">
+        <details class="iso-item">
+          <summary>HALAL – Chứng nhận thực phẩm cho người Hồi giáo</summary>
+          <p>Áp dụng cho chuỗi sản xuất/kiểm soát nguyên liệu – quy trình – phân phối.</p>
+        </details>
+        <details class="iso-item">
+          <summary>ISO 14001 – Hệ thống quản lý &amp; bảo vệ môi trường</summary>
+          <p>Tối ưu tiêu thụ năng lượng, nước và giảm phát thải.</p>
+        </details>
+        <details class="iso-item">
+          <summary>FSSC 22000 – Hệ thống an toàn thực phẩm</summary>
+          <p>Quản trị rủi ro ATTP theo chuẩn quốc tế.</p>
+        </details>
+        <details class="iso-item">
+          <summary>ISO 50001 – Hệ thống quản lý năng lượng</summary>
+          <p>Giảm chi phí vận hành – tăng hiệu suất sử dụng năng lượng.</p>
+        </details>
+        <details class="iso-item">
+          <summary>BRCGS – Quản lý chất lượng &amp; an toàn thực phẩm theo chuẩn Anh</summary>
+          <p>Trấn an nhà bán lẻ toàn cầu về chất lượng &amp; truy xuất nguồn gốc.</p>
+        </details>
+        <details class="iso-item">
+          <summary>ISO/IEC 17025 – Năng lực phòng thử nghiệm</summary>
+          <p>Chuẩn hóa phương pháp đo – đảm bảo kết quả đáng tin cậy.</p>
+        </details>
+        <details class="iso-item">
+          <summary>ISO 9001 – Hệ thống quản lý chất lượng</summary>
+          <p>Thiết lập – vận hành – cải tiến liên tục quy trình chất lượng.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     STORIES – ĐỂ TÂM HÀNH ĐỘNG (→ About2)
+     ═══════════════════════════════════════════════════════════ -->
+<section id="stories-cta" class="tech">
+  <div class="tech-grid">
+    <div class="tech-text">
+      <h2>Để tâm hành động</h2>
+      <p>
+        <strong
+          >Chỉ 1 năm sau kế hoạch Net Zero 2050, có 3 đơn vị đạt chứng nhận trung hoà
+          Carbon.</strong
+        >
+      </p>
+      <a class="btn-outline" routerLink="/about2">Tìm hiểu thêm</a>
+    </div>
+    <section id="green" class="stories">
+      <div class="grid3">
+        <article class="story">
+          <img alt="Nhà máy xanh" src="images-home/nhamay.jpg" loading="lazy" />
+          <div class="meta"><span>01</span></div>
+          <h3>Mảnh ghép nhà máy "xanh"</h3>
+          <p>Nhà máy giải khát đạt trung hoà Carbon theo PAS.</p>
+        </article>
+        <article class="story">
+          <img alt="ESG" src="images-home/esg.jpg" loading="lazy" />
+          <div class="meta"><span>02</span></div>
+          <h3>3 đơn vị đạt chứng nhận trung hoà</h3>
+          <p>Bước tiến quan trọng trên con đường Net Zero.</p>
+        </article>
+        <article class="story">
+          <img
+            alt="Net Zero"
+            src="images-home/net0.jpg"
+            loading="lazy"
+            onerror="this.style.display = 'none'"
+          />
+          <div class="meta"><span>03</span></div>
+          <h3>Lộ trình đến Net Zero 2050</h3>
+          <p>Cắt giảm 15% 2027, 50% 2035 và đạt 0 vào 2050.</p>
+        </article>
+      </div>
+    </section>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     ABOUT2 – PHÁT TRIỂN BỀN VỮNG (nội dung About2/index.html)
+     ═══════════════════════════════════════════════════════════ -->
+<section class="about2-section">
+  <!-- Hero About2 -->
+  <div class="about2-hero container" style="text-align: center; padding: 48px 20px 24px">
+    <p class="eyebrow">Phát triển bền vững</p>
+    <h2>Để tâm - Bền vững</h2>
+    <p class="sub">
+      Ngay từ đầu, Vựa Vui Vẻ đã xác định rõ vai trò tiên phong và trách nhiệm của một doanh nghiệp
+      đầu ngành; cả trong sản xuất kinh doanh và trên hành trình kiến tạo giá trị bền vững cho con
+      người, cộng đồng và hành tinh.
+    </p>
+    <figure style="margin: 24px 0 0">
+      <img
+        src="images-About2/ptbv_home_banner_desktop_c62cda042a.webp"
+        alt="Phát triển bền vững"
+        loading="lazy"
+        style="width: 100%; max-width: 960px; border-radius: 16px"
+      />
+    </figure>
+  </div>
+
+  <!-- About2 Feature quote -->
+  <section class="about-feature">
+    <div class="about-feature__content">
+      <h2 class="about-feature__title">"Để tâm hiện tại. Vững vàng tương lai"</h2>
+      <p class="about-feature__text">
+        "Chúng tôi nhận thức rõ ràng thách thức về biến đổi khí hậu và sự cạn kiệt tài nguyên thiên
+        nhiên đang đe dọa tương lai của chúng ta. Vì vậy, chúng tôi đã đặt ra mục tiêu và hành động
+        cụ thể để giảm thiểu tác động của hoạt động chuỗi giá trị lên môi trường và xã hội."
+      </p>
+      <br />
+      <h3>Tổng Giám Đốc Nguyễn Chí Đức</h3>
+    </div>
+    <div class="about-feature__image">
+      <img
+        src="images-About2/Screenshot%202025-11-06%20181837.png"
+        alt="Tổng Giám Đốc"
+        loading="lazy"
+      />
+    </div>
+  </section>
+
+  <!-- Pillars -->
+  <section class="pillars" id="pillars">
+    <div class="container pillars-head">
+      <h2 class="pillars-title">Để tâm: 3 yếu tố cốt lõi</h2>
+      <p class="pillars-subtitle">
+        Trong nỗ lực hướng tới một tương lai bền vững, chúng tôi xác định Thiên nhiên, Con người và
+        Sức khỏe là những yếu tố cốt lõi đồng hành cùng mình trên con đường tạo dựng giá trị bền
+        vững cho cộng đồng.
+      </p>
+    </div>
+    <article class="pillar">
+      <figure class="pillar-figure">
+        <img src="images-About2/TD.jpg" alt="Yêu Trái Đất" loading="lazy" />
+      </figure>
+      <div class="pillar-card">
+        <h3>Yêu Trái Đất</h3>
+        <p>
+          Với Vựa Vui Vẻ, Trái Đất là bạn đồng hành trong hành trình phát triển bền vững. Chúng tôi
+          giảm dấu chân carbon, ưu tiên năng lượng &amp; công nghệ xanh.
+        </p>
+      </div>
+    </article>
+    <article class="pillar">
+      <figure class="pillar-figure">
+        <img src="images-About2/com.jpg" alt="Quan tâm cộng đồng" loading="lazy" />
+      </figure>
+      <div class="pillar-card">
+        <h3>Quan tâm cộng đồng</h3>
+        <p>
+          Chúng tôi tin rằng phát triển con người là nền tảng cho xã hội bền vững: chăm sóc dinh
+          dưỡng học đường, đóng góp cho cộng đồng và thúc đẩy tăng trưởng địa phương.
+        </p>
+      </div>
+    </article>
+    <article class="pillar">
+      <figure class="pillar-figure">
+        <img src="images-About2/h.jpg" alt="Hành động vì sức khỏe" loading="lazy" />
+      </figure>
+      <div class="pillar-card">
+        <h3>Hành động vì sức khỏe</h3>
+        <p>
+          Chúng tôi chọn những gì tốt nhất cho sức khỏe của bạn: chuẩn hóa nguyên liệu an toàn, nâng
+          chuẩn chất lượng quốc tế, cải tiến quy trình sản xuất.
+        </p>
+      </div>
+    </article>
+  </section>
+
+  <!-- About2 Tech Cards -->
+  <div class="container" style="padding: 32px 20px">
+    <h2 class="title">Quyết tâm tiến tới tương lai bền vững</h2>
+    <div class="tcard-grid">
+      <article class="tcard">
+        <figure class="tmedia">
+          <img src="images-About2/or.jpg" alt="Nguyên liệu tươi" loading="lazy" />
+        </figure>
+        <header class="thead"><h3>Nguyên liệu tươi – chọn kỹ từng món</h3></header>
+        <div class="tbody">
+          <p>
+            Từ trái cây, hạt, đến nguyên liệu thiên nhiên đều được chọn lựa cẩn thận mỗi ngày, giữ
+            trọn vị ngon tươi mới trong từng sản phẩm.
+          </p>
+        </div>
+      </article>
+      <article class="tcard">
+        <figure class="tmedia">
+          <img src="images-About2/congnghe.jpg" alt="Công nghệ chế biến" loading="lazy" />
+        </figure>
+        <header class="thead"><h3>Công nghệ chế biến sạch</h3></header>
+        <div class="tbody">
+          <p>
+            Mọi sản phẩm tại Vựa Vui Vẻ đều được sản xuất trong quy trình khép kín, đảm bảo an toàn
+            vệ sinh, không chất bảo quản.
+          </p>
+        </div>
+      </article>
+      <article class="tcard">
+        <figure class="tmedia">
+          <img src="images-About2/pack.jpg" alt="Bao bì xanh" loading="lazy" />
+        </figure>
+        <header class="thead"><h3>Bao bì xanh – lan tỏa niềm vui bền vững</h3></header>
+        <div class="tbody">
+          <p>
+            Chúng tôi ưu tiên sử dụng bao bì tái chế và vật liệu thân thiện môi trường, để mỗi sản
+            phẩm không chỉ ngon mà còn góp phần lan tỏa lối sống xanh.
+          </p>
+        </div>
+      </article>
+    </div>
+  </div>
+
+  <!-- Sustain News -->
+  <section class="sustain-news">
+    <div class="container">
+      <div class="news-header"><h2>Các Chính Sách Của Trang Trại</h2></div>
+      <div class="news-grid">
+        <div class="news-item">
+          <img src="images-About2/dongvat.jpg" alt="Phúc lợi động vật" loading="lazy" />
+          <h3>Chính sách phúc lợi động vật</h3>
+          <p class="date">25/03/2025</p>
+        </div>
+        <div class="news-item">
+          <img src="images-About2/thu%20mua.jpg" alt="Thu mua bền vững" loading="lazy" />
+          <h3>Chính sách thu mua bền vững</h3>
+          <p class="date">18/01/2025</p>
+        </div>
+        <div class="news-item">
+          <img src="images-About2/bo.jpg" alt="Sản xuất bền vững" loading="lazy" />
+          <h3>Chính sách thực hành sản xuất nông nghiệp bền vững</h3>
+          <p class="date">02/11/2025</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CÔNG THỨC NẤU ĂN CTA
+     ═══════════════════════════════════════════════════════════ -->
 <section class="section section--recipe">
   <div class="container recipe-cta">
     <div class="recipe-cta__text">
-      <h2>Tro ly Cong thuc Nau an</h2>
+      <h2>Trợ lý Công thức Nấu ăn</h2>
       <p>
-        Tim cong thuc yeu thich va them tat ca nguyen lieu vao gio hang chi voi mot cu nhap chuot
+        Tìm công thức yêu thích và thêm tất cả nguyên liệu vào giỏ hàng chỉ với một cú nhấp chuột
       </p>
-      <a routerLink="/recipes" class="btn btn--white">Kham pha ngay →</a>
+      <a routerLink="/recipes" class="btn btn--white">Khám phá ngay →</a>
     </div>
   </div>
 </section>
 
-<!-- ── Goi y danh rieng ────────────────────────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════════════
+     GỢI Ý DÀNH RIÊNG
+     ═══════════════════════════════════════════════════════════ -->
 @if (recommended().length) {
   <section class="section">
     <div class="container">
       <div class="section__head">
         <div>
-          <p class="eyebrow">CA NHAN HOA</p>
-          <h2 class="section__title">Goi y danh rieng cho ban</h2>
+          <p class="eyebrow">CÁ NHÂN HÓA</p>
+          <h2 class="section__title">Gợi ý dành riêng cho bạn</h2>
         </div>
-        <a routerLink="/recommended" class="see-all">Xem them →</a>
+        <a routerLink="/recommended" class="see-all">Xem thêm →</a>
       </div>
       <div class="products-grid">
         @for (r of recommended().slice(0, 4); track r.product_id) {
@@ -180,10 +675,10 @@
               [src]="r.image"
               [alt]="r.name"
               class="rec-card__img"
-              onerror="this.src = 'images/icon/placeholder.png'"
+              onerror="this.src = 'images/brand/LogoVVV.png'"
             />
             <p class="rec-card__name">{{ r.name }}</p>
-            <p class="rec-card__price">{{ r.price | number }}d</p>
+            <p class="rec-card__price">{{ r.price | number }}đ</p>
           </div>
         }
       </div>
@@ -191,27 +686,376 @@
   </section>
 }
 
-<!-- ── About section ───────────────────────────────────────────────────── -->
-<section class="section section--about" id="about">
+<!-- ═══════════════════════════════════════════════════════════
+     JOIN – MỜI VÀO ĐỘI (từ Hôm/index.html)
+     ═══════════════════════════════════════════════════════════ -->
+<section class="join">
+  <div class="join-wrap">
+    <figure class="join-media">
+      <img src="images-home/group.jpg" alt="Đồng đội Vựa Vui Vẻ năng động" loading="lazy" />
+    </figure>
+    <div class="join-pane">
+      <h2 class="join-title">Mời vào đội</h2>
+      <ol class="join-list">
+        <li>
+          <b>Job phấp phới, chờ đồng đội mới!</b>
+          <p>Vựa Vui Vẻ mong sánh vai cùng bạn.</p>
+          <hr />
+        </li>
+        <li>
+          <b>Chất Vựa Vui Vẻ</b>
+          <p>Chung tinh thần. Chung hành động. Chung giá trị.</p>
+        </li>
+        <hr />
+        <li>
+          <b>Nhịp sống Vựa Vui Vẻ</b>
+          <p>Những câu chuyện đồng đội kể.</p>
+        </li>
+        <hr />
+      </ol>
+      <a class="join-cta" routerLink="/job">Ứng tuyển ngay →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     JOB – NỘI DUNG TUYỂN DỤNG (nội dung Job/index.html)
+     ═══════════════════════════════════════════════════════════ -->
+<section class="job-section">
+  <!-- Banner -->
+  <section class="hero-banner">
+    <figure>
+      <img
+        class="hero-img"
+        src="images/brand/CungDoiDong.png"
+        alt="Cùng đồng đội sánh vai"
+        loading="lazy"
+        onerror="this.style.display = 'none'"
+      />
+    </figure>
+  </section>
+
+  <!-- Chất Vui Vẻ – flip cards -->
+  <section class="culture">
+    <h2 style="color: green; text-align: center">Chất Vui Vẻ</h2>
+    <div class="flip-container">
+      <div class="flip-card">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <img
+              src="images-Job/Nội%20dung%20đoạn%20văn%20bản%20của%20bạn%20(2).png"
+              alt="Tận tâm"
+              loading="lazy"
+            />
+            <h3>Tận tâm</h3>
+          </div>
+          <div class="flip-back">
+            <p>
+              Chúng tôi đặt tâm huyết trong từng hành động, hướng đến chất lượng và sự tin yêu của
+              khách hàng.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="flip-card">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <img src="images-Job/15.png" alt="Sáng tạo" loading="lazy" />
+            <h3>Sáng tạo</h3>
+          </div>
+          <div class="flip-back">
+            <p>
+              Không ngừng đổi mới trong công việc, dám nghĩ dám làm để tạo ra giá trị vượt trội.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="flip-card">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <img src="images-Job/16.png" alt="Hợp tác" loading="lazy" />
+            <h3>Hợp tác</h3>
+          </div>
+          <div class="flip-back">
+            <p>
+              Tinh thần đồng đội, gắn kết và cùng nhau phát triển là nền tảng trong văn hóa Vựa Vui
+              Vẻ.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="flip-card">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <img src="images-Job/17.png" alt="Phát triển" loading="lazy" />
+            <h3>Phát triển</h3>
+          </div>
+          <div class="flip-back">
+            <p>
+              Hướng đến sự cân bằng giữa tăng trưởng kinh doanh, bảo vệ môi trường và trách nhiệm xã
+              hội.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Đội ngũ tại Vựa Vui Vẻ -->
+  <section class="team-section">
+    <h1 class="team-title">Đội ngũ Vui Vẻ</h1>
+    <div class="team-grid">
+      <div class="team-card">
+        <span class="team-number">01</span>
+        <h2>Bán hàng trực tiếp đến người tiêu dùng</h2>
+        <p class="team-sub">5 vị trí đang tuyển</p>
+        <p class="team-desc">
+          Quản lý các kênh bán lẻ trực tiếp như chuỗi cửa hàng Vựa Vui Vẻ và thương mại điện tử. Tập
+          trung cá nhân hóa trải nghiệm khách hàng.
+        </p>
+      </div>
+      <div class="team-card">
+        <span class="team-number">02</span>
+        <h2>Hoạch định Chiến lược &amp; Đổi mới sáng tạo</h2>
+        <p class="team-sub">1 vị trí đang tuyển</p>
+        <p class="team-desc">
+          Dẫn dắt quá trình hoạch định chiến lược dài hạn, phân tích xu hướng thị trường và khởi
+          xướng các sáng kiến đổi mới.
+        </p>
+      </div>
+      <div class="team-card">
+        <span class="team-number">03</span>
+        <h2>Kinh doanh (Nội địa &amp; Quốc tế)</h2>
+        <p class="team-sub">14 vị trí đang tuyển</p>
+        <p class="team-desc">
+          Tổ chức và phát triển hoạt động kinh doanh trên toàn thị trường trong và ngoài nước. Tối
+          ưu hệ thống phân phối, xây dựng mối quan hệ chiến lược.
+        </p>
+      </div>
+      <div class="team-card">
+        <span class="team-number">04</span>
+        <h2>Chuyển đổi số</h2>
+        <p class="team-sub">1 vị trí đang tuyển</p>
+        <p class="team-desc">
+          Trung tâm công nghệ số toàn diện, thúc đẩy hiện đại hóa quy trình, khai thác sức mạnh dữ
+          liệu và chuyển đổi cách thức vận hành.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Phiên bản mới -->
+  <section class="version-section">
+    <div class="version-text">
+      <h2>Phiên bản mới.</h2>
+      <h1>Chưa từng nghĩ tới.</h1>
+      <p>
+        Bạn nghĩ mình có bao nhiêu phiên bản? Xông xáo, thâm lặng, quyết liệt, hiền hòa? Tại Vựa Vui
+        Vẻ, khi bung hết sức giải để bài mới mỗi ngày, tất cả phiên bản bạn từng nghĩ về mình chỉ là
+        số ít.
+      </p>
+    </div>
+    <div class="version-image">
+      <img src="images-Job/team.jpg" alt="Nhân viên Vựa Vui Vẻ" loading="lazy" />
+    </div>
+  </section>
+
+  <!-- History Hero -->
+  <section class="history-hero" id="history">
+    <div class="history-wrap">
+      <div class="history-left">
+        <span class="history-badge">LIFE AT VỰA VUI VẺ</span>
+        <figure class="polaroid pic-main tilt-1">
+          <img src="images-Job/team4.jpg" alt="Team tại nông trại" loading="lazy" />
+        </figure>
+        <figure class="polaroid pic-top tilt-2">
+          <img src="images-Job/team3.jpg" alt="Nụ cười Vựa Vui Vẻ" loading="lazy" />
+        </figure>
+        <figure class="polaroid pic-bottom tilt-3">
+          <img src="images-Job/vuavuiveTeam.jpg" alt="Khoảnh khắc đời thường" loading="lazy" />
+        </figure>
+        <div class="confetti"></div>
+        <div class="scribble s1"></div>
+        <div class="scribble s2"></div>
+      </div>
+      <div class="history-right">
+        <h2 class="history-title">Để tâm, cùng<br />nhau làm nên lịch<br />sử</h2>
+        <p class="history-desc">
+          Cùng nhau, nhiều thế hệ người Vựa Vui Vẻ đã làm nên một Vựa Vui Vẻ táo bạo, quyết tâm, cầu
+          tiến không ngừng. Chúng tôi mong cùng bạn sánh vai, tiếp bước hành trình lịch sử gần nửa
+          thế kỷ.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Nhịp sống Vui Vẻ -->
+  <section class="life" id="life">
+    <div class="life__wrap">
+      <h2 class="life__title">Nhịp sống Vui Vẻ</h2>
+      <div class="life__grid">
+        <a class="life__item life__item--lg" href="#" aria-label="Trang trại bò sữa"
+          ><img loading="lazy" src="images-Job/farm.jpg" alt="Trang trại bò sữa"
+        /></a>
+        <a class="life__item life__item--a" href="#" aria-label="Văn phòng"
+          ><img loading="lazy" src="images-Job/office.jpg" alt="Văn phòng Vựa Vui Vẻ"
+        /></a>
+        <a class="life__item life__item--b" href="#" aria-label="Nhà máy"
+          ><img loading="lazy" src="images-Job/factory.jpg" alt="Nhà máy"
+        /></a>
+        <a class="life__item life__item--c" href="#" aria-label="Team building"
+          ><img loading="lazy" src="images-Job/teamă.jpg" alt="Team building"
+        /></a>
+        <a class="life__item life__item--d" href="#" aria-label="Kiểm tra chất lượng"
+          ><img loading="lazy" src="images-Job/1.jpg" alt="Kiểm tra chất lượng"
+        /></a>
+      </div>
+    </div>
+  </section>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     EDU NEWS CTA – LUÔN VUI VẺ (→ Rss)
+     ═══════════════════════════════════════════════════════════ -->
+<section id="edu-news" class="tech">
+  <div class="tech-grid">
+    <div class="tech-text">
+      <h2>Luôn Vui Vẻ</h2>
+      <p><strong>Cập nhật nhanh tin tức từ Dân Trí.</strong></p>
+      <a class="btn-outline" routerLink="/news">Xem tin tức</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     RSS – VỰA TIN TỨC (nội dung Rss/rss.html)
+     ═══════════════════════════════════════════════════════════ -->
+<section class="rss-section">
+  <div class="container">
+    <div class="page-title-wrap">
+      <h1 class="page-title">Vựa Tin Tức</h1>
+    </div>
+    <nav class="tabs" aria-label="Chuyên mục">
+      <a class="tab is-active" href="#rss-depda">Sức khỏe</a>
+      <a class="tab" href="#rss-dinhduong">Công nghệ</a>
+      <a class="tab" href="#rss-chuyengia">Giáo dục</a>
+      <a class="tab" href="#rss-congnghe">Du lịch</a>
+      <a class="tab" href="#rss-monngon">Đời sống</a>
+    </nav>
+    <section id="rss-depda" data-section>
+      <div class="row-head">
+        <h2>Sức khỏe</h2>
+        <a class="more" target="_blank" rel="noopener"
+          >Xem thêm
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path
+              d="M5 12h14M13 5l7 7-7 7"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            /></svg
+        ></a>
+      </div>
+      <div class="lead-grid" data-mount="depda"><p class="rss-loading">Đang tải tin tức...</p></div>
+    </section>
+    <section id="rss-dinhduong" data-section>
+      <div class="row-head">
+        <h2>Công nghệ</h2>
+        <a class="more" target="_blank" rel="noopener"
+          >Xem thêm
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path
+              d="M5 12h14M13 5l7 7-7 7"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            /></svg
+        ></a>
+      </div>
+      <div class="mini-grid" data-mount="dinhduong">
+        <p class="rss-loading">Đang tải tin tức...</p>
+      </div>
+    </section>
+    <section id="rss-chuyengia" data-section>
+      <div class="row-head">
+        <h2>Giáo dục</h2>
+        <a class="more" target="_blank" rel="noopener"
+          >Xem thêm
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path
+              d="M5 12h14M13 5l7 7-7 7"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            /></svg
+        ></a>
+      </div>
+      <div class="mini-grid" data-mount="chuyengia">
+        <p class="rss-loading">Đang tải tin tức...</p>
+      </div>
+    </section>
+    <section id="rss-congnghe" data-section>
+      <div class="row-head">
+        <h2>Du lịch</h2>
+        <a class="more" target="_blank" rel="noopener"
+          >Xem thêm
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path
+              d="M5 12h14M13 5l7 7-7 7"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            /></svg
+        ></a>
+      </div>
+      <div class="mini-grid" data-mount="congnghe">
+        <p class="rss-loading">Đang tải tin tức...</p>
+      </div>
+    </section>
+    <section id="rss-monngon" data-section>
+      <div class="row-head">
+        <h2>Đời sống</h2>
+        <a class="more" target="_blank" rel="noopener"
+          >Xem thêm
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path
+              d="M5 12h14M13 5l7 7-7 7"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            /></svg
+        ></a>
+      </div>
+      <div class="mini-grid" data-mount="monngon">
+        <p class="rss-loading">Đang tải tin tức...</p>
+      </div>
+    </section>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     VỀ CHÚNG TÔI
+     ═══════════════════════════════════════════════════════════ -->
+<section class="section section--about" id="about-us">
   <div class="container about-grid">
     <div class="about-text">
-      <p class="eyebrow">VE CHUNG TOI</p>
-      <h2>Tu nong trai xa ve bep nha ta</h2>
+      <p class="eyebrow">VỀ CHÚNG TÔI</p>
+      <h2>Từ nông trại xa về bếp nhà ta</h2>
       <p>
-        Vua Vui Ve chuyen cung cap thuc pham tuoi sach, giao hang trong ngay, dam bao chat luong
-        tung san pham.
+        Vựa Vui Vẻ chuyên cung cấp thực phẩm tươi sạch, giao hàng trong ngày, đảm bảo chất lượng
+        từng sản phẩm.
       </p>
       <ul class="about-values">
-        <li>🌿 Tuoi sach — kiem soat tu nguon goc</li>
-        <li>⚡ Giao nhanh — trong ngay</li>
-        <li>💚 An toan — cho ca gia dinh</li>
-        <li>💰 Gia tot — cac khuyen mai hang ngay</li>
+        <li>🌿 Tươi sạch — kiểm soát từ nguồn gốc</li>
+        <li>⚡ Giao nhanh — trong ngày</li>
+        <li>💚 An toàn — cho cả gia đình</li>
+        <li>💰 Giá tốt — các khuyến mãi hàng ngày</li>
       </ul>
     </div>
     <div class="about-img">
       <img
         src="images/brand/TuNongTraiXa.png"
-        alt="Vua Vui Ve"
+        alt="Vựa Vui Vẻ"
         onerror="
           this.style.background = '#e8f5e9';
           this.style.borderRadius = '16px';
@@ -222,24 +1066,26 @@
   </div>
 </section>
 
-<!-- ── USP strip ───────────────────────────────────────────────────────── -->
+<!-- ═══════════════════════════════════════════════════════════
+     USP STRIP
+     ═══════════════════════════════════════════════════════════ -->
 <section class="usp-strip">
   <div class="container usp-grid">
     <div class="usp-item">
       <span class="usp-icon">🚚</span><strong>Freeship &gt; 299k</strong
-      ><small>Giao hang trong ngay</small>
+      ><small>Giao hàng trong ngày</small>
     </div>
     <div class="usp-item">
-      <span class="usp-icon">🌿</span><strong>Hang tuoi moi ngay</strong
-      ><small>Nhap truc tiep tu vuon</small>
+      <span class="usp-icon">🌿</span><strong>Hàng tươi mỗi ngày</strong
+      ><small>Nhập trực tiếp từ vườn</small>
     </div>
     <div class="usp-item">
-      <span class="usp-icon">✅</span><strong>Kiem soat chat luong</strong
-      ><small>100% kiem tra truoc khi xuat</small>
+      <span class="usp-icon">✅</span><strong>Kiểm soát chất lượng</strong
+      ><small>100% kiểm tra trước khi xuất</small>
     </div>
     <div class="usp-item">
-      <span class="usp-icon">💬</span><strong>Ho tro 24/7</strong
-      ><small>Phan hoi nhanh chong</small>
+      <span class="usp-icon">💬</span><strong>Hỗ trợ 24/7</strong
+      ><small>Phản hồi nhanh chóng</small>
     </div>
   </div>
 </section>

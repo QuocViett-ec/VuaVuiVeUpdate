@@ -1,0 +1,228 @@
+// ─── About2 Page ─────────────────────────────────────────────
+.about2-hero {
+  position: relative;
+  background: #f0faf0;
+  padding: 80px 20px 0;
+  text-align: center;
+  overflow: hidden;
+
+  .hero__inner {
+    max-width: 720px;
+    margin: 0 auto;
+    padding-bottom: 32px;
+  }
+
+  .eyebrow {
+    font-size: 0.8rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #4caf50;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    color: #1b4332;
+    margin-bottom: 16px;
+  }
+
+  .sub {
+    font-size: 1.05rem;
+    color: #555;
+    line-height: 1.7;
+  }
+
+  .hero-media img {
+    width: 100%;
+    max-height: 480px;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+// ─── Feature quote ─────────────────────────────────────────────
+.about-feature {
+  display: flex;
+  gap: 48px;
+  align-items: center;
+  padding: 64px clamp(16px, 5vw, 80px);
+  max-width: 1200px;
+  margin: 0 auto;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+
+  &__content {
+    flex: 1;
+  }
+  &__title {
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    color: #1b4332;
+    margin-bottom: 16px;
+  }
+  &__text {
+    color: #555;
+    line-height: 1.75;
+    font-style: italic;
+  }
+
+  &__image img {
+    width: 320px;
+    border-radius: 16px;
+    object-fit: cover;
+    @media (max-width: 768px) {
+      width: 100%;
+    }
+  }
+}
+
+// ─── Pillars ─────────────────────────────────────────────────
+.pillars {
+  padding: 64px clamp(16px, 5vw, 80px);
+  background: #f9fef9;
+
+  .pillars-head {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .pillars-title {
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    color: #1b4332;
+  }
+  .pillars-subtitle {
+    color: #666;
+    max-width: 700px;
+    margin: 12px auto 0;
+    line-height: 1.7;
+  }
+
+  .pillar {
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    max-width: 900px;
+    margin: 0 auto 48px;
+    @media (max-width: 640px) {
+      flex-direction: column;
+    }
+
+    .pillar-figure img {
+      width: 280px;
+      border-radius: 12px;
+      object-fit: cover;
+      @media (max-width: 640px) {
+        width: 100%;
+      }
+    }
+
+    .pillar-card h3 {
+      font-size: 1.3rem;
+      color: #1b4332;
+      margin-bottom: 8px;
+    }
+    .pillar-card p {
+      color: #555;
+      line-height: 1.7;
+    }
+  }
+}
+
+// ─── Tech grid ─────────────────────────────────────────────────
+.tech {
+  padding: 64px clamp(16px, 5vw, 80px);
+
+  .title {
+    text-align: center;
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    color: #1b4332;
+    margin-bottom: 40px;
+  }
+
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .tcard {
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid #e0f2e0;
+    transition: box-shadow 0.2s;
+    &:hover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+
+    .tmedia img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+    }
+    .thead {
+      padding: 16px 16px 8px;
+      h3 {
+        font-size: 1rem;
+        color: #1b4332;
+      }
+    }
+    .tbody {
+      padding: 0 16px 16px;
+      p {
+        color: #666;
+        font-size: 0.9rem;
+        line-height: 1.6;
+      }
+    }
+  }
+}
+
+// ─── Sustain News ─────────────────────────────────────────────
+.sustain-news {
+  background: #f0faf0;
+  padding: 64px clamp(16px, 5vw, 80px);
+
+  .news-header {
+    text-align: center;
+    margin-bottom: 36px;
+    h2 {
+      font-size: clamp(1.4rem, 3vw, 1.8rem);
+      color: #1b4332;
+    }
+  }
+
+  .news-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .news-item {
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    img {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+    }
+    h3 {
+      padding: 12px 16px 4px;
+      font-size: 0.95rem;
+      color: #1b4332;
+    }
+    .date {
+      padding: 0 16px 16px;
+      font-size: 0.8rem;
+      color: #999;
+    }
+  }
+}

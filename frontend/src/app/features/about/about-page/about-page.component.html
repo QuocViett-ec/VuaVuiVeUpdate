@@ -1,0 +1,90 @@
+<!-- Hero video banner -->
+<section class="about-hero-video">
+  <div class="hero-video-wrap">
+    <video autoplay muted loop playsinline class="hero-video">
+      <source src="vid/intro.mp4" type="video/mp4" />
+    </video>
+    <div class="hero-overlay">
+      <h1 class="hero-title gradient-title">Vựa Vui Vẻ</h1>
+      <p class="hero-sub">Thực phẩm tươi sạch – Giao tận tay – Giá thật tốt</p>
+    </div>
+  </div>
+</section>
+
+<!-- Full-bleed brand image -->
+<section class="section section--brand">
+  <img
+    src="images-About/Aboutus.png"
+    alt="Giới thiệu Vựa Vui Vẻ"
+    class="brand-img"
+    onerror="this.style.display = 'none'"
+  />
+</section>
+
+<!-- Values grid -->
+<section class="section section--values" id="values">
+  <div class="container">
+    <div class="title">
+      <h2>Giá trị mang đến</h2>
+    </div>
+    <div class="values-grid">
+      @for (v of values; track v.title) {
+        <div class="value-card">
+          <span class="value-icon">{{ v.icon }}</span>
+          <h3>{{ v.title }}</h3>
+          <p>{{ v.desc }}</p>
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- Journey section with video -->
+<section class="section section--journey">
+  <div class="container">
+    <div class="journey-intro">
+      <h2 class="gradient-title journey-title">Hành Trình Của Chúng Tôi</h2>
+      <p class="journey-sub">Khám phá quy trình từ nông trại đến bàn ăn của Vựa Vui Vẻ</p>
+    </div>
+    <div class="journey-video-wrap">
+      <video controls class="journey-video">
+        <source src="vid/tvc_vuavuive2.mp4" type="video/mp4" />
+      </video>
+    </div>
+    <p class="about-text">
+      Vựa Vui Vẻ ra đời từ niềm đam mê mang đến những sản phẩm tươi ngon, sạch sẽ đến tay người tiêu
+      dùng Việt Nam một cách nhanh chóng và tiện lợi nhất. Chúng tôi hợp tác trực tiếp với các nông
+      trại, loại bỏ trung gian để đảm bảo chất lượng và giá cả tốt nhất.
+    </p>
+  </div>
+</section>
+
+<!-- Mission -->
+<section class="section section--mission" id="mission">
+  <div class="container">
+    <div class="title">
+      <h2>Sứ mệnh</h2>
+    </div>
+    <p class="about-text">
+      Mang lại bữa ăn ngon, lành mạnh cho mọi gia đình Việt với chi phí hợp lý, giao hàng đúng giờ
+      và dịch vụ tận tâm.
+    </p>
+    <div class="contact-info">
+      <p>📞 Hotline: <strong>012 345 678</strong></p>
+      <p>📍 Địa chỉ: Vựa Vui Vẻ, TP.HCM</p>
+      <p>📧 Email: hello&#64;vuavuive.vn</p>
+    </div>
+  </div>
+</section>
+
+<!-- Contact CTA -->
+<section class="section section--cta">
+  <div class="container cta-inner">
+    <h2 class="cta-title">Hãy Bắt Đầu Hành Trình Mua Sắm</h2>
+    <p class="cta-sub">Trải nghiệm chất lượng và dịch vụ tốt nhất ngay hôm nay</p>
+    <div class="cta-btns">
+      <a routerLink="/products" class="btn btn--cta-white">🛒 Mua sắm ngay</a>
+      <a routerLink="/about" class="btn btn--cta-outline">📞 Liên hệ ngay</a>
+    </div>
+  </div>
+</section>
