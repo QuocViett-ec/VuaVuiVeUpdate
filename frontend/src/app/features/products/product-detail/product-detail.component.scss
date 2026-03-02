@@ -8,6 +8,10 @@
   font-size: 0.85rem;
   color: #888;
   margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
   a {
     color: #2e7d32;
     text-decoration: none;
@@ -15,6 +19,14 @@
       text-decoration: underline;
     }
   }
+}
+.bc-sep {
+  color: #bbb;
+  margin: 0 2px;
+}
+.bc-current {
+  color: #1b2a1e;
+  font-weight: 600;
 }
 
 .pd-grid {
@@ -200,4 +212,69 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1rem;
+}
+
+// ── Category badge ────────────────────────────────────────────────────────────
+.pd-cat-badge {
+  display: inline-block;
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-radius: 20px;
+  padding: 4px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+// ── Related products ──────────────────────────────────────────────────────────
+.related-section {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 2px solid #e8e0c8;
+}
+.related-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: #1b2a1e;
+  margin-bottom: 1.25rem;
+}
+.related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+}
+.related-card {
+  background: #fff;
+  border: 1.5px solid #e8e0c8;
+  border-radius: 14px;
+  padding: 1rem;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  }
+}
+.related-img {
+  width: 100%;
+  height: 100px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f5fdf5;
+  margin-bottom: 0.5rem;
+}
+.related-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1b2a1e;
+  margin-bottom: 0.25rem;
+}
+.related-price {
+  font-size: 0.85rem;
+  color: #2e7d32;
+  font-weight: 700;
 }

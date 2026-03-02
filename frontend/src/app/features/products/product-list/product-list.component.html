@@ -4,19 +4,34 @@
     <div class="title">
       <h2>Flash Sale</h2>
       <div class="flash-actions">
-        <button class="pill" [class.active]="flashSlot() === 'morning'"   (click)="onSlotChange('morning')">06:00&ndash;08:00</button>
-        <button class="pill" [class.active]="flashSlot() === 'afternoon'" (click)="onSlotChange('afternoon')">16:00&ndash;18:00</button>
+        <button
+          class="pill"
+          [class.active]="flashSlot() === 'morning'"
+          (click)="onSlotChange('morning')"
+        >
+          06:00&ndash;08:00
+        </button>
+        <button
+          class="pill"
+          [class.active]="flashSlot() === 'afternoon'"
+          (click)="onSlotChange('afternoon')"
+        >
+          16:00&ndash;18:00
+        </button>
       </div>
     </div>
     <div class="flash-banner">
-      Khung gio dang xem: <strong>{{ flashSlot() === 'morning' ? '6:00-8:00' : '16:00-18:00' }}</strong>
+      Khung giờ đang xem:
+      <strong>{{ flashSlot() === 'morning' ? '6:00-8:00' : '16:00-18:00' }}</strong>
       <span class="muted"> &#x2022; </span>
-      Con lai: <span class="countdown">{{ countdown() }}</span>
+      Còn lại: <span class="countdown">{{ countdown() }}</span>
     </div>
 
     @if (loading()) {
       <div class="grid">
-        @for (i of [1,2,3,4]; track i) { <div class="skeleton-card"></div> }
+        @for (i of [1, 2, 3, 4]; track i) {
+          <div class="skeleton-card"></div>
+        }
       </div>
     } @else {
       <div class="grid">
@@ -31,17 +46,29 @@
 <!-- ===== DANH MUC ===== -->
 <section id="catalog-cats" class="section section--light">
   <div class="container">
-    <div class="title"><h2>Danh muc</h2></div>
+    <div class="title"><h2>Danh Mục</h2></div>
     <div class="cat-grid">
-      <button class="cat-card" [class.cat-card--active]="selectedCat() === 'all'" (click)="setCat('all')">
+      <button
+        class="cat-card"
+        [class.cat-card--active]="selectedCat() === 'all'"
+        (click)="setCat('all')"
+      >
         <div class="cat-card__icon">&#128722;</div>
-        <span class="cat-card__label">Tat ca</span>
+        <span class="cat-card__label">Tất cả</span>
       </button>
       @for (cat of catList; track cat.key) {
-        <button class="cat-card" [class.cat-card--active]="selectedCat() === cat.key" (click)="setCat(cat.key)">
+        <button
+          class="cat-card"
+          [class.cat-card--active]="selectedCat() === cat.key"
+          (click)="setCat(cat.key)"
+        >
           <div class="cat-card__icon">
-            <img [src]="'images/icon/' + cat.key + '.png'" [alt]="cat.label"
-                 (error)="onImgErr($event, cat.icon)" class="cat-card__img" />
+            <img
+              [src]="'images/icon/' + cat.key + '.png'"
+              [alt]="cat.label"
+              (error)="onImgErr($event, cat.icon)"
+              class="cat-card__img"
+            />
           </div>
           <span class="cat-card__label">{{ cat.label }}</span>
         </button>
@@ -54,14 +81,19 @@
 <section id="catalog" class="section">
   <div class="container">
     <div class="title">
-      <h2>San pham</h2>
+      <h2>Sản Phẩm</h2>
     </div>
     <div class="controls">
-      <input type="search" class="input" placeholder="Tim san pham..."
-             [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" />
+      <input
+        type="search"
+        class="input"
+        placeholder="Tìm sản phẩm..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+      />
 
       <select class="input" [ngModel]="selectedCat()" (ngModelChange)="setCat($event)">
-        <option value="all">Tat Ca</option>
+        <option value="all">Tất Cả</option>
         @for (cat of catList; track cat.key) {
           <option [value]="cat.key">{{ cat.label }}</option>
         }
@@ -74,23 +106,32 @@
       </select>
 
       <div class="range-wrap">
-        <label>Gia toi da:</label>
-        <input type="range" min="10000" max="1000000" step="10000"
-               [ngModel]="maxPrice()" (ngModelChange)="maxPrice.set(+$event)" class="range-input" />
-        <span class="pill">{{ maxPrice() | number }}d</span>
+        <label>Giá tối đa:</label>
+        <input
+          type="range"
+          min="10000"
+          max="1000000"
+          step="10000"
+          [ngModel]="maxPrice()"
+          (ngModelChange)="maxPrice.set(+$event)"
+          class="range-input"
+        />
+        <span class="pill">{{ maxPrice() | number }}đ</span>
       </div>
     </div>
 
-    <p class="result-count muted">{{ filtered().length }} san pham</p>
+    <p class="result-count muted">{{ filtered().length }} sản phẩm</p>
 
     @if (loading()) {
       <div class="grid">
-        @for (i of [1,2,3,4,5,6,7,8]; track i) { <div class="skeleton-card"></div> }
+        @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
+          <div class="skeleton-card"></div>
+        }
       </div>
     } @else if (!filtered().length) {
       <div class="empty-state">
-        <p>Khong tim thay san pham nao.</p>
-        <button class="btn btn--outline" (click)="resetFilters()">Xoa bo loc</button>
+        <p>Không tìm thấy sản phẩm nào.</p>
+        <button class="btn btn--outline" (click)="resetFilters()">Xóa bộ lọc</button>
       </div>
     } @else {
       <div class="grid">

@@ -28,7 +28,7 @@ import { CartItem } from '../../core/models/product.model';
           @for (item of cart().items; track item.product.id) {
             <div class="cart-item">
               <img
-                [src]="item.product.img || 'assets/no-image.png'"
+                [src]="item.product.img || 'images/brand/LogoVVV.png'"
                 [alt]="item.product.name"
                 class="item-img"
               />

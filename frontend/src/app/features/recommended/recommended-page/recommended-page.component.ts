@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RecommenderService } from '../../../core/services/recommender.service';
@@ -10,12 +10,12 @@ import { Product, Recommendation } from '../../../core/models/product.model';
 import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-recommended-page',
   standalone: true,
   imports: [CommonModule, RouterLink, ProductCardComponent],
   templateUrl: './recommended-page.component.html',
-  styleUrl: './recommended-page.component.scss',
-})
+  styleUrl: './recommended-page.component.scss' })
 export class RecommendedPageComponent implements OnInit {
   private recommenderSvc = inject(RecommenderService);
   private productSvc = inject(ProductService);

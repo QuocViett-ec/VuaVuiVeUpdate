@@ -1,0 +1,167 @@
+<!-- HERO BANNER -->
+<section class="hero-banner">
+  <figure>
+    <img
+      class="hero-img"
+      src="/images/brand/CungDoiDong.png"
+      alt="Cùng đồng đội sánh vai"
+      loading="eager"
+      onerror="
+        this.style.background = '#e8f5e9';
+        this.removeAttribute('src');
+      "
+    />
+  </figure>
+</section>
+
+<!-- CULTURE – FLIP CARDS -->
+<section class="culture">
+  <h2>Chất Vui Vẻ</h2>
+  <div class="flip-container">
+    @for (card of cards; track card.id) {
+      <div class="flip-card" [class.flipped]="card.flipped" (click)="flip(card)">
+        <div class="flip-inner">
+          <div class="flip-front">
+            <img
+              [src]="card.icon"
+              [alt]="card.title"
+              loading="lazy"
+              onerror="this.style.display = 'none'"
+            />
+            <h3>{{ card.title }}</h3>
+          </div>
+          <div class="flip-back">
+            <p>{{ card.back }}</p>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+</section>
+
+<!-- ĐỘI NGŨ -->
+<section class="team-section">
+  <h1 class="team-title">Đội ngũ Vui Vẻ</h1>
+  <div class="team-grid">
+    @for (t of teams; track t.num) {
+      <div class="team-card">
+        <span class="team-number">{{ t.num }}</span>
+        <h2>{{ t.title }}</h2>
+        <p class="team-sub">{{ t.sub }}</p>
+        <p class="team-desc">{{ t.desc }}</p>
+      </div>
+    }
+  </div>
+</section>
+
+<!-- PHIÊN BẢN MỚI -->
+<section class="version-section">
+  <div class="version-text">
+    <h2>Phiên bản mới.</h2>
+    <h1>Chưa từng nghĩ tới.</h1>
+    <p>
+      Bạn nghĩ mình có bao nhiêu phiên bản? Xông xáo, thâm lặng, quyết liệt, hiền hòa? Tại Vựa Vui
+      Vẻ, khi bung hết sức giải để bài mới mỗi ngày, tất cả phiên bản bạn từng nghĩ về mình chỉ là
+      số ít.
+    </p>
+  </div>
+  <div class="version-image">
+    <img
+      src="/images-Job/team.jpg"
+      alt="Nhân viên Vựa Vui Vẻ"
+      loading="lazy"
+      onerror="this.style.display = 'none'"
+    />
+  </div>
+</section>
+
+<!-- HISTORY HERO -->
+<section class="history-hero">
+  <div class="history-wrap">
+    <div class="history-left">
+      <span class="history-badge">LIFE AT VỰA VUI VẺ</span>
+      <figure class="polaroid pic-main tilt-1">
+        <img
+          src="/images-Job/team4.jpg"
+          alt="Team tại nông trại"
+          loading="lazy"
+          onerror="this.style.display = 'none'"
+        />
+      </figure>
+      <figure class="polaroid pic-top tilt-2">
+        <img
+          src="/images-Job/team3.jpg"
+          alt="Nụ cười Vựa Vui Vẻ"
+          loading="lazy"
+          onerror="this.style.display = 'none'"
+        />
+      </figure>
+      <figure class="polaroid pic-bottom tilt-3">
+        <img
+          src="/images-Job/vuavuiveTeam.jpg"
+          alt="Khoảnh khắc đời thường"
+          loading="lazy"
+          onerror="this.style.display = 'none'"
+        />
+      </figure>
+      <div class="confetti"></div>
+    </div>
+    <div class="history-right">
+      <h2 class="history-title">Để tâm, cùng<br />nhau làm nên lịch<br />sử</h2>
+      <p class="history-desc">
+        Cùng nhau, nhiều thế hệ người Vựa Vui Vẻ đã làm nên một Vựa Vui Vẻ táo bạo, quyết tâm, cầu
+        tiến không ngừng. Chúng tôi mong cùng bạn sánh vai, tiếp bước hành trình lịch sử gần nửa thế
+        kỷ.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- NHỊP SỐNG -->
+<section class="life">
+  <div class="life__wrap">
+    <h2 class="life__title">Nhịp sống Vui Vẻ</h2>
+    <div class="life__grid">
+      <a class="life__item life__item--lg" href="#" aria-label="Trang trại bò sữa">
+        <img
+          loading="lazy"
+          src="/images-Job/farm.jpg"
+          alt="Trang trại bò sữa"
+          onerror="this.style.display = 'none'"
+        />
+      </a>
+      <a class="life__item life__item--a" href="#" aria-label="Văn phòng">
+        <img
+          loading="lazy"
+          src="/images-Job/office.jpg"
+          alt="Văn phòng Vựa Vui Vẻ"
+          onerror="this.style.display = 'none'"
+        />
+      </a>
+      <a class="life__item life__item--b" href="#" aria-label="Nhà máy">
+        <img
+          loading="lazy"
+          src="/images-Job/factory.jpg"
+          alt="Nhà máy"
+          onerror="this.style.display = 'none'"
+        />
+      </a>
+      <a class="life__item life__item--c" href="#" aria-label="Team building">
+        <img
+          loading="lazy"
+          src="/images-Job/teamă.jpg"
+          alt="Team building"
+          onerror="this.style.display = 'none'"
+        />
+      </a>
+      <a class="life__item life__item--d" href="#" aria-label="Kiểm tra chất lượng">
+        <img
+          loading="lazy"
+          src="/images-Job/1.jpg"
+          alt="Kiểm tra chất lượng"
+          onerror="this.style.display = 'none'"
+        />
+      </a>
+    </div>
+  </div>
+</section>

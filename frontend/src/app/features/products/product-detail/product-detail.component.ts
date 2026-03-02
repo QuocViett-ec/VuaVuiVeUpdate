@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ProductService } from '../../../core/services/product.service';
@@ -6,96 +6,18 @@ import { CartService } from '../../../core/services/cart.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Product } from '../../../core/models/product.model';
 
+const CAT_LABELS: Record<string, string> = {
+  veg: '🥦 Rau củ', fruit: '🍎 Trái cây', meat: '🥩 Thịt & Cá',
+  drink: '🥤 Đồ uống', dry: '🌾 Hàng khô', sweet: '🍬 Bánh kẹo',
+  spice: '🧂 Gia vị', household: '🧴 Gia dụng', frozen: '🧊 Đông lạnh' };
+
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-product-detail',
   standalone: true,
   imports: [CommonModule, RouterLink],
-  template: `
-    <div class="container pd-page">
-      <nav class="breadcrumb">
-        <a routerLink="/">Trang chủ</a> / <a routerLink="/products">Sản phẩm</a> /
-        {{ product()?.name }}
-      </nav>
-
-      @if (loading()) {
-        <div class="skeleton-detail"></div>
-      } @else if (!product()) {
-        <div class="not-found">
-          <h2>Không tìm thấy sản phẩm</h2>
-          <a routerLink="/products" class="btn btn--primary">Quay lại</a>
-        </div>
-      } @else {
-        <div class="pd-grid">
-          <!-- Image -->
-          <div class="pd-img-wrap">
-            <img
-              [src]="product()!.img || 'assets/no-image.png'"
-              [alt]="product()!.name"
-              class="pd-img"
-            />
-            @if (product()!.oldPrice && product()!.oldPrice! > product()!.price) {
-              <span class="badge-sale">Giảm {{ discountPct() }}%</span>
-            }
-          </div>
-
-          <!-- Info -->
-          <div class="pd-info">
-            <span class="pd-cat">
-              @switch (product()!.cat) {
-                @case ('veg') { 🥦 Rau củ }
-                @case ('fruit') { 🍎 Trái cây }
-                @case ('meat') { 🥩 Thịt & Cá }
-                @case ('drink') { 🥤 Đồ uống }
-                @case ('dry') { 🌾 Hàng khô }
-                @case ('sweet') { 🍬 Bánh kẹo }
-                @case ('spice') { 🧂 Gia vị }
-                @case ('household') { 🧴 Gia dụng }
-                @case ('frozen') { 🧊 Đông lạnh }
-                @default { 🛒 {{ product()!.cat }} }
-              }
-            </span>
-            <h1 class="pd-name">{{ product()!.name }}</h1>
-
-            <div class="pd-price">
-              <span class="price-main">{{ product()!.price | number }}đ</span>
-              @if (product()!.unit) {
-                <span class="price-unit">/ {{ product()!.unit }}</span>
-              }
-              @if (product()!.oldPrice && product()!.oldPrice! > product()!.price) {
-                <del class="price-old">{{ product()!.oldPrice | number }}đ</del>
-              }
-            </div>
-
-            <p class="pd-stock" [class.out]="product()!.stock === 0">
-              {{ product()!.stock === 0 ? '⚠ Hết hàng' : '✓ Còn hàng (' + product()!.stock + ')' }}
-            </p>
-
-            @if (product()!.description) {
-              <p class="pd-desc">{{ product()!.description }}</p>
-            }
-
-            <!-- Quantity + Add to cart -->
-            <div class="pd-actions">
-              <div class="qty-wrap">
-                <button class="qty-btn" (click)="decQty()">−</button>
-                <span class="qty-val">{{ qty() }}</span>
-                <button class="qty-btn" (click)="incQty()">+</button>
-              </div>
-              <button
-                class="btn btn--primary btn--lg"
-                (click)="addToCart()"
-                [disabled]="product()!.stock === 0"
-              >
-                🛒 Thêm vào giỏ
-              </button>
-            </div>
-          </div>
-        </div>
-      }
-    </div>
-  `,
-  styleUrl: './product-detail.component.scss',
-})
+  templateUrl: './product-detail.component.html',
+  styleUrl: './product-detail.component.scss' })
 export class ProductDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private prodSvc = inject(ProductService);
@@ -103,14 +25,30 @@ export class ProductDetailComponent implements OnInit {
   private toast = inject(ToastService);
 
   product = signal<Product | null>(null);
+  related = signal<Product[]>([]);
   loading = signal(true);
   qty = signal(1);
+
+  catLabel = computed(() => {
+    const p = this.product();
+    if (!p) return '';
+    return CAT_LABELS[p.cat] ?? ('🛒 ' + p.cat);
+  });
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') || '';
     this.prodSvc.getProductById(id).subscribe((p) => {
       this.product.set(p);
       this.loading.set(false);
+      if (p) this.loadRelated(p.cat, p.id);
+    });
+  }
+
+  private loadRelated(cat: string, excludeId: string): void {
+    this.prodSvc.getProducts({ cat }).subscribe((all) => {
+      this.related.set(
+        all.filter((p) => p.id !== excludeId).slice(0, 6)
+      );
     });
   }
 
@@ -121,7 +59,8 @@ export class ProductDetailComponent implements OnInit {
   }
 
   incQty(): void {
-    this.qty.update((q) => q + 1);
+    const maxStock = this.product()?.stock ?? 999;
+    this.qty.update((q) => Math.min(q + 1, maxStock));
   }
   decQty(): void {
     this.qty.update((q) => Math.max(1, q - 1));

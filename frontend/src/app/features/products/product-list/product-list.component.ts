@@ -1,6 +1,5 @@
-import { Component, inject, OnInit, OnDestroy, signal, computed, PLATFORM_ID } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import { CommonModule } from '@angular/common';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit, OnDestroy, PLATFORM_ID } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProductService } from '../../../core/services/product.service';
@@ -9,29 +8,29 @@ import { Product } from '../../../core/models/product.model';
 import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
 
 const CATS = [
-  { key: 'veg', label: 'Rau cu', icon: '🥬' },
-  { key: 'fruit', label: 'Trai cay', icon: '🍎' },
-  { key: 'meat', label: 'Thit ca', icon: '🥩' },
-  { key: 'drink', label: 'Do uong', icon: '🧃' },
-  { key: 'dry', label: 'Do kho', icon: '🌾' },
-  { key: 'spice', label: 'Gia vi', icon: '🧂' },
-  { key: 'household', label: 'Gia dung', icon: '🏠' },
-  { key: 'sweet', label: 'Do ngot', icon: '🍰' },
+  { key: 'veg', label: 'Rau Củ', icon: '🥬' },
+  { key: 'fruit', label: 'Trái Cây', icon: '🍎' },
+  { key: 'meat', label: 'Thịt & Cá', icon: '🥩' },
+  { key: 'drink', label: 'Đồ Uống', icon: '🧃' },
+  { key: 'dry', label: 'Hàng Khô', icon: '🌾' },
+  { key: 'spice', label: 'Gia Vị', icon: '🧂' },
+  { key: 'household', label: 'Gia Dụng', icon: '🏠' },
+  { key: 'sweet', label: 'Bánh Kẹo', icon: '🍰' },
 ];
 const SORTS = [
-  { key: 'default', label: 'Mac dinh' },
-  { key: 'price-asc', label: 'Gia tang dan' },
-  { key: 'price-desc', label: 'Gia giam dan' },
-  { key: 'name-asc', label: 'Ten A-Z' },
+  { key: 'default', label: 'Mặc định' },
+  { key: 'price-asc', label: 'Giá tăng dần' },
+  { key: 'price-desc', label: 'Giá giảm dần' },
+  { key: 'name-asc', label: 'Tên A-Z' },
 ];
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-product-list',
   standalone: true,
   imports: [CommonModule, FormsModule, ProductCardComponent],
   templateUrl: './product-list.component.html',
-  styleUrl: './product-list.component.scss',
-})
+  styleUrl: './product-list.component.scss' })
 export class ProductListComponent implements OnInit, OnDestroy {
   private productSvc = inject(ProductService);
   private cartSvc = inject(CartService);
@@ -99,8 +98,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
     this.selectedCat.set(cat);
     this.router.navigate([], {
       queryParams: { cat: cat === 'all' ? null : cat },
-      queryParamsHandling: 'merge',
-    });
+      queryParamsHandling: 'merge' });
   }
 
   resetFilters(): void {

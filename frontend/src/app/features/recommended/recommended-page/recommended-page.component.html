@@ -23,15 +23,23 @@
       <span class="eyebrow">💚 Cho riêng bạn</span>
       <h2>Tiếp nối những gì bạn thích</h2>
       <p class="section-desc">
-        @if (loading()) { Đang phân tích đơn hàng... }
-        @else if (personal().length === 0) { Hãy mua sắm để nhận gợi ý cá nhân! }
-        @else { Dựa trên {{ personal().length }} sản phẩm được gợi ý từ lịch sử của bạn. }
+        @if (loading()) {
+          Đang phân tích đơn hàng...
+        } @else if (personal().length === 0) {
+          Hãy mua sắm để nhận gợi ý cá nhân!
+        } @else {
+          Dựa trên {{ personal().length }} sản phẩm được gợi ý từ lịch sử của bạn.
+        }
       </p>
     </div>
     <button class="btn btn--outline" (click)="load()">🔄 Làm mới</button>
   </div>
   @if (loading()) {
-    <div class="skeleton-grid">@for (i of [1,2,3,4,5,6]; track i) { <div class="skeleton-card"></div> }</div>
+    <div class="skeleton-grid">
+      @for (i of [1, 2, 3, 4, 5, 6]; track i) {
+        <div class="skeleton-card"></div>
+      }
+    </div>
   } @else if (personal().length === 0) {
     <div class="empty-state">
       <p>🛒 Chưa có gợi ý cá nhân. Hãy mua thêm để nhận gợi ý!</p>
@@ -41,11 +49,13 @@
     <div class="products-grid">
       @for (r of personal(); track r.product_id) {
         <div class="rec-card">
-          <img [src]="r.image || 'assets/placeholder.png'" [alt]="r.name" class="rec-img" />
+          <img [src]="r.image || 'images/brand/LogoVVV.png'" [alt]="r.name" class="rec-img" />
           <div class="rec-info">
             <p class="rec-name">{{ r.name }}</p>
             <p class="rec-price">{{ r.price | number }}đ</p>
-            @if (r.reason) { <p class="rec-reason">{{ r.reason }}</p> }
+            @if (r.reason) {
+              <p class="rec-reason">{{ r.reason }}</p>
+            }
           </div>
         </div>
       }
@@ -63,7 +73,9 @@
     </div>
   </div>
   <div class="products-grid">
-    @for (p of similar(); track p.id) { <app-product-card [product]="p" /> }
+    @for (p of similar(); track p.id) {
+      <app-product-card [product]="p" />
+    }
   </div>
 </section>
 
@@ -77,6 +89,8 @@
     </div>
   </div>
   <div class="products-grid">
-    @for (p of trending(); track p.id) { <app-product-card [product]="p" /> }
+    @for (p of trending(); track p.id) {
+      <app-product-card [product]="p" />
+    }
   </div>
 </section>

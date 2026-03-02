@@ -1,10 +1,13 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, ActivatedRoute } from '@angular/router';
+import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { OrderService } from '../../../core/services/order.service';
+import { CartService } from '../../../core/services/cart.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { Order } from '../../../core/models/product.model';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-order-detail-page',
   standalone: true,
   imports: [CommonModule, RouterLink],
@@ -25,12 +28,24 @@ import { Order } from '../../../core/models/product.model';
             </div>
             <span class="status-badge" [attr.data-status]="order()!.status">
               @switch (order()!.status) {
-                @case ('pending') { 🕐 Chờ xác nhận }
-                @case ('confirmed') { ✅ Đã xác nhận }
-                @case ('shipping') { 🚚 Đang giao hàng }
-                @case ('delivered') { 📦 Đã giao }
-                @case ('cancelled') { ❌ Đã hủy }
-                @default { {{ order()!.status }} }
+                @case ('pending') {
+                  🕐 Chờ xác nhận
+                }
+                @case ('confirmed') {
+                  ✅ Đã xác nhận
+                }
+                @case ('shipping') {
+                  🚚 Đang giao hàng
+                }
+                @case ('delivered') {
+                  📦 Đã giao
+                }
+                @case ('cancelled') {
+                  ❌ Đã hủy
+                }
+                @default {
+                  {{ order()!.status }}
+                }
               }
             </span>
           </div>
@@ -105,17 +120,32 @@ import { Order } from '../../../core/models/product.model';
               </div>
             </div>
           </section>
+
+          <!-- Action buttons -->
+          <div class="od-actions">
+            @if (order()!.status === 'pending' || order()!.status === 'confirmed') {
+              <button class="btn btn--danger" (click)="cancelOrder()" [disabled]="cancelling()">
+                {{ cancelling() ? 'Đang hủy...' : '✕ Hủy đơn hàng' }}
+              </button>
+            }
+            <button class="btn btn--outline" (click)="reorder()">🔄 Mua lại</button>
+            <a routerLink="/orders" class="btn btn--ghost">← Quay lại</a>
+          </div>
         </div>
       }
     </div>
   `,
-  styleUrl: './order-detail-page.component.scss',
-})
+  styleUrl: './order-detail-page.component.scss' })
 export class OrderDetailPageComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private orderSvc = inject(OrderService);
+  private cartSvc = inject(CartService);
+  private toast = inject(ToastService);
+
   order = signal<Order | null>(null);
   loading = signal(true);
+  cancelling = signal(false);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') || '';
@@ -123,5 +153,40 @@ export class OrderDetailPageComponent implements OnInit {
       this.order.set(o);
       this.loading.set(false);
     });
+  }
+
+  cancelOrder(): void {
+    const o = this.order();
+    if (!o) return;
+    if (!confirm('Bạn có chắc muốn hủy đơn hàng này?')) return;
+    this.cancelling.set(true);
+    this.orderSvc.updateOrderStatus(o.id, 'cancelled').subscribe({
+      next: (updated) => {
+        this.order.set(updated);
+        this.cancelling.set(false);
+        this.toast.success('Đơn hàng đã được hủy.');
+      },
+      error: () => {
+        this.cancelling.set(false);
+        this.toast.error('Không thể hủy đơn hàng. Vui lòng thử lại.');
+      } });
+  }
+
+  reorder(): void {
+    const o = this.order();
+    if (!o) return;
+    o.items.forEach((item) => {
+      this.cartSvc.addToCart(
+        {
+          id: item.productId,
+          name: item.productName,
+          price: item.price,
+          cat: '',
+          stock: 99 } as any,
+        item.quantity,
+      );
+    });
+    this.toast.success(`Đã thêm ${o.items.length} sản phẩm vào giỏ!`);
+    this.router.navigate(['/cart']);
   }
 }

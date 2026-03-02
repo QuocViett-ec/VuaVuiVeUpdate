@@ -13,7 +13,7 @@ import { inject } from '@angular/core';
     <div class="product-card">
       <a [routerLink]="['/products', product.id]" class="card-img-wrap">
         <img
-          [src]="product.img || 'assets/no-image.png'"
+          [src]="product.img || 'images/brand/LogoVVV.png'"
           [alt]="product.name"
           class="card-img"
           loading="lazy"
