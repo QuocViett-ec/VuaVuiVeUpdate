@@ -1,0 +1,184 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <a routerLink="/" class="auth-logo-link">
+      <img
+        src="images/brand/LogoVVV.png"
+        alt="Vựa Vui Vẻ"
+        class="auth-logo-img"
+        onerror="
+          this.style.display = 'none';
+          this.nextElementSibling.style.display = 'block';
+        "
+      />
+      <span class="auth-logo-text" style="display: none">🛒 Vựa Vui Vẻ</span>
+    </a>
+    <h1 class="auth-title blenda">Đăng Ký Tài Khoản</h1>
+
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="auth-form" novalidate>
+      <!-- Họ và tên -->
+      <div class="field">
+        <label for="reg-name">Họ và tên <span class="required">*</span></label>
+        <input
+          id="reg-name"
+          formControlName="name"
+          type="text"
+          placeholder="Nguyễn Văn A"
+          class="input"
+          [class.input--error]="isInvalid('name')"
+        />
+        @if (isInvalid('name')) {
+          @if (f['name'].errors?.['required']) {
+            <p class="field-error">Vui lòng nhập họ tên.</p>
+          } @else if (f['name'].errors?.['minlength']) {
+            <p class="field-error">Họ tên ít nhất 2 ký tự.</p>
+          }
+        }
+      </div>
+
+      <!-- Số điện thoại -->
+      <div class="field">
+        <label for="reg-phone">Số điện thoại <span class="required">*</span></label>
+        <input
+          id="reg-phone"
+          formControlName="phone"
+          type="tel"
+          placeholder="0912345678"
+          class="input"
+          [class.input--error]="isInvalid('phone')"
+        />
+        @if (isInvalid('phone')) {
+          @if (f['phone'].errors?.['required']) {
+            <p class="field-error">Vui lòng nhập số điện thoại.</p>
+          } @else if (f['phone'].errors?.['invalidPhone']) {
+            <p class="field-error">Số điện thoại không hợp lệ (VD: 0912345678).</p>
+          }
+        }
+      </div>
+
+      <!-- Ngày sinh -->
+      <div class="field">
+        <label for="reg-dob">Ngày sinh (tùy chọn)</label>
+        <input id="reg-dob" formControlName="dob" type="date" class="input" />
+      </div>
+
+      <!-- Email -->
+      <div class="field">
+        <label for="reg-email">Email (tùy chọn)</label>
+        <input
+          id="reg-email"
+          formControlName="email"
+          type="email"
+          placeholder="example@gmail.com"
+          class="input"
+          [class.input--error]="isInvalid('email')"
+        />
+        @if (isInvalid('email')) {
+          <p class="field-error">Email không đúng định dạng.</p>
+        }
+      </div>
+
+      <!-- Địa chỉ -->
+      <div class="field">
+        <label for="reg-address">Địa chỉ (tùy chọn)</label>
+        <input
+          id="reg-address"
+          formControlName="address"
+          type="text"
+          placeholder="Số nhà, đường, phường, quận"
+          class="input"
+        />
+      </div>
+
+      <!-- Mật khẩu -->
+      <div class="field">
+        <label for="reg-pw">Mật khẩu <span class="required">*</span></label>
+        <div class="input-pw">
+          <input
+            id="reg-pw"
+            formControlName="password"
+            [type]="showPw() ? 'text' : 'password'"
+            placeholder="Ít nhất 6 ký tự"
+            class="input"
+            [class.input--error]="isInvalid('password')"
+          />
+          <button type="button" class="toggle-pw" (click)="showPw.set(!showPw())">
+            {{ showPw() ? '🙈' : '👁' }}
+          </button>
+        </div>
+        @if (isInvalid('password')) {
+          @if (f['password'].errors?.['required']) {
+            <p class="field-error">Vui lòng nhập mật khẩu.</p>
+          } @else if (f['password'].errors?.['minlength']) {
+            <p class="field-error">Mật khẩu ít nhất 6 ký tự.</p>
+          }
+        }
+      </div>
+
+      <!-- Xác nhận mật khẩu -->
+      <div class="field">
+        <label for="reg-confirm">Xác nhận mật khẩu <span class="required">*</span></label>
+        <div class="input-pw">
+          <input
+            id="reg-confirm"
+            formControlName="confirmPassword"
+            [type]="showPw() ? 'text' : 'password'"
+            placeholder="Nhập lại mật khẩu"
+            class="input"
+            [class.input--error]="
+              isInvalid('confirmPassword') || registerForm.errors?.['passwordMismatch']
+            "
+          />
+        </div>
+        @if (registerForm.errors?.['passwordMismatch'] && f['confirmPassword'].touched) {
+          <p class="field-error">Mật khẩu xác nhận không khớp.</p>
+        }
+      </div>
+
+      @if (serverError()) {
+        <p class="error-msg">{{ serverError() }}</p>
+      }
+
+      <button
+        type="submit"
+        class="btn btn--primary btn--full"
+        [disabled]="loading() || registerForm.invalid"
+      >
+        {{ loading() ? 'Đang xử lý...' : 'Đăng ký' }}
+      </button>
+    </form>
+
+    <!-- OTP overlay (shown after submit if OTP needed) -->
+    @if (showOtp()) {
+      <div class="otp-overlay">
+        <div class="otp-card">
+          <h3>Xác thực OTP</h3>
+          <p>
+            Nhập mã 6 chữ số gửi đến <strong>{{ registerForm.get('phone')?.value }}</strong>
+          </p>
+          <div class="otp-inputs">
+            @for (i of [0, 1, 2, 3, 4, 5]; track i) {
+              <input
+                type="text"
+                maxlength="1"
+                class="otp-box"
+                (input)="onOtpInput($event, i)"
+                (keydown)="onOtpKeydown($event, i)"
+                [id]="'otp-' + i"
+              />
+            }
+          </div>
+          <button class="btn btn--primary btn--full" (click)="verifyOtp()">Xác nhận</button>
+          <p class="otp-resend">
+            @if (resendCountdown() > 0) {
+              Gửi lại sau {{ resendCountdown() }}s
+            } @else {
+              <button class="link-btn" (click)="resendOtp()">Gửi lại mã</button>
+            }
+          </p>
+        </div>
+      </div>
+    }
+
+    <p class="auth-links">Đã có tài khoản? <a routerLink="/auth/login">Đăng nhập</a></p>
+  </div>
+</div>

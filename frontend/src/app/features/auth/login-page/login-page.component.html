@@ -1,0 +1,84 @@
+<div class="auth-page">
+  <div class="auth-card">
+    <a routerLink="/" class="auth-logo-link">
+      <img
+        src="images/brand/LogoVVV.png"
+        alt="Vựa Vui Vẻ"
+        class="auth-logo-img"
+        onerror="
+          this.style.display = 'none';
+          this.nextElementSibling.style.display = 'block';
+        "
+      />
+      <span class="auth-logo-text" style="display: none">🛒 Vựa Vui Vẻ</span>
+    </a>
+    <h1 class="auth-title blenda">Đăng Nhập</h1>
+
+    <form (ngSubmit)="onSubmit()" class="auth-form" novalidate>
+      <!-- Credential -->
+      <div class="field">
+        <label for="login-cred">Tài khoản (SĐT hoặc Email)</label>
+        <input
+          id="login-cred"
+          [(ngModel)]="credential"
+          name="credential"
+          type="text"
+          placeholder="0912345678 hoặc email@example.com"
+          class="input"
+          autocomplete="username"
+          required
+        />
+      </div>
+
+      <!-- Password -->
+      <div class="field">
+        <label for="login-pw">Mật khẩu</label>
+        <div class="input-pw">
+          <input
+            id="login-pw"
+            [(ngModel)]="password"
+            name="password"
+            [type]="showPw ? 'text' : 'password'"
+            placeholder="Mật khẩu"
+            class="input"
+            autocomplete="current-password"
+            (keydown)="onKeydown($event)"
+            required
+          />
+          <button
+            type="button"
+            class="toggle-pw"
+            (click)="showPw = !showPw"
+            [attr.aria-label]="showPw ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
+          >
+            {{ showPw ? '🙈' : '👁' }}
+          </button>
+        </div>
+        @if (capsLock()) {
+          <p class="hint-caps">⚠ Caps Lock đang bật</p>
+        }
+      </div>
+
+      <!-- Remember + Forgot -->
+      <div class="field-row">
+        <label class="remember-label">
+          <input type="checkbox" [(ngModel)]="rememberMe" name="rememberMe" />
+          <span>Ghi nhớ tài khoản</span>
+        </label>
+        <a routerLink="/auth/forgot-password" class="link-forgot">Quên mật khẩu?</a>
+      </div>
+
+      @if (error()) {
+        <p class="error-msg">{{ error() }}</p>
+      }
+
+      <button type="submit" class="btn btn--primary btn--full" [disabled]="loading()">
+        {{ loading() ? 'Đang đăng nhập...' : 'Đăng nhập' }}
+      </button>
+    </form>
+
+    <div class="auth-links">
+      <span>Chưa có tài khoản? <a routerLink="/auth/register">Đăng ký ngay</a></span>
+    </div>
+  </div>
+</div>

@@ -1,2 +1,77 @@
 // Same layout as login page - reuse styles via shared SCSS
 @use '../login-page/login-page.component.scss';
+
+// ── OTP Overlay ───────────────────────────────────────────────────────────────
+.otp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.otp-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
+  h3 {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+  p {
+    color: #555;
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+  }
+}
+.otp-inputs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+.otp-box {
+  width: 44px;
+  height: 52px;
+  border: 2px solid #ddd;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  outline: none;
+  transition: border-color 0.2s;
+  &:focus {
+    border-color: #2e7d32;
+  }
+}
+.otp-resend {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: #888;
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: #2e7d32;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  &:hover {
+    color: #1b5e20;
+  }
+}
+.required {
+  color: #c62828;
+}
+.field-error {
+  color: #c62828;
+  font-size: 0.8rem;
+  margin: 0;
+}

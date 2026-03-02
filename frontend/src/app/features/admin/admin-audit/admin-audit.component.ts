@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, computed, PLATFORM_ID } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit, PLATFORM_ID } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -23,16 +23,15 @@ const ACTION_LABELS: Record<string, string> = {
   'product.delete': 'Xóa sản phẩm',
   'profile.update': 'Cập nhật thông tin',
   'password.change': 'Đổi mật khẩu',
-  seed: 'Khởi tạo dữ liệu',
-};
+  seed: 'Khởi tạo dữ liệu' };
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-admin-audit',
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './admin-audit.component.html',
-  styleUrl: './admin-audit.component.scss',
-})
+  styleUrl: './admin-audit.component.scss' })
 export class AdminAuditComponent implements OnInit {
   private http = inject(HttpClient);
   private platformId = inject(PLATFORM_ID);
@@ -77,8 +76,7 @@ export class AdminAuditComponent implements OnInit {
             this.allLogs.set([]);
           }
         }
-      },
-    });
+      } });
   }
 
   exportCsv(): void {

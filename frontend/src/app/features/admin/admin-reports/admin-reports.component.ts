@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal, PLATFORM_ID } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit, PLATFORM_ID } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -11,12 +11,12 @@ interface MonthStat {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-admin-reports',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './admin-reports.component.html',
-  styleUrl: './admin-reports.component.scss',
-})
+  styleUrl: './admin-reports.component.scss' })
 export class AdminReportsComponent implements OnInit {
   private http = inject(HttpClient);
   private platformId = inject(PLATFORM_ID);
@@ -71,20 +71,14 @@ export class AdminReportsComponent implements OnInit {
             backgroundColor: 'rgba(16,185,129,.75)',
             borderColor: '#10b981',
             borderWidth: 1,
-            borderRadius: 6,
-          },
-        ],
-      },
+            borderRadius: 6 },
+        ] },
       options: {
         plugins: { legend: { display: false } },
         scales: {
           y: {
             beginAtZero: true,
-            ticks: { callback: (v: any) => v.toLocaleString('vi-VN') + 'đ' },
-          },
-        },
-      },
-    });
+            ticks: { callback: (v: any) => v.toLocaleString('vi-VN') + 'đ' } } } } });
   }
 
   exportCsv(): void {

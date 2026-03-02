@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   ReactiveFormsModule,
@@ -7,8 +7,7 @@ import {
   FormGroup,
   Validators,
   AbstractControl,
-  ValidationErrors,
-} from '@angular/forms';
+  ValidationErrors } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -37,12 +36,12 @@ function confirmNewMatchValidator(group: AbstractControl): ValidationErrors | nu
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-account-page',
   standalone: true,
   imports: [CommonModule, FormsModule, ReactiveFormsModule, RouterLink],
   templateUrl: './account-page.component.html',
-  styleUrl: './account-page.component.scss',
-})
+  styleUrl: './account-page.component.scss' })
 export class AccountPageComponent implements OnInit {
   private auth  = inject(AuthService);
   private toast = inject(ToastService);
@@ -66,8 +65,7 @@ export class AccountPageComponent implements OnInit {
     {
       currentPassword: ['', Validators.required],
       newPassword:     ['', [Validators.required, strongPasswordValidator]],
-      confirmNew:      ['', Validators.required],
-    },
+      confirmNew:      ['', Validators.required] },
     { validators: confirmNewMatchValidator },
   );
 
@@ -100,8 +98,7 @@ export class AccountPageComponent implements OnInit {
     const { currentPassword, newPassword } = this.passwordForm.value;
     const r = await this.auth.changePassword({
       oldPassword: currentPassword,
-      newPassword,
-    });
+      newPassword });
     this.savingPw.set(false);
     if (r.ok) {
       this.toast.success('Đổi mật khẩu thành công!');

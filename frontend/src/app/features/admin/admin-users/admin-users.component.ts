@@ -1,10 +1,11 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { User } from '../../../core/models/user.model';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-admin-users',
   standalone: true,
   imports: [CommonModule],
@@ -47,8 +48,7 @@ import { User } from '../../../core/models/user.model';
       </div>
     </div>
   `,
-  styleUrl: './admin-users.component.scss',
-})
+  styleUrl: './admin-users.component.scss' })
 export class AdminUsersComponent implements OnInit {
   private http = inject(HttpClient);
   users = signal<User[]>([]);

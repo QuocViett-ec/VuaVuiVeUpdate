@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { OrderService } from '../../../core/services/order.service';
@@ -6,6 +6,7 @@ import { ToastService } from '../../../core/services/toast.service';
 import { Order } from '../../../core/models/product.model';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-admin-orders',
   standalone: true,
   imports: [CommonModule, FormsModule],
@@ -53,12 +54,24 @@ import { Order } from '../../../core/models/product.model';
                 <td>
                   <span class="badge" [attr.data-status]="o.status">
                     @switch (o.status) {
-                      @case ('pending') { 🕐 Chờ xác nhận }
-                      @case ('confirmed') { ✅ Đã xác nhận }
-                      @case ('shipping') { 🚚 Đang giao }
-                      @case ('delivered') { 📦 Đã giao }
-                      @case ('cancelled') { ❌ Đã hủy }
-                      @default { {{ o.status }} }
+                      @case ('pending') {
+                        🕐 Chờ xác nhận
+                      }
+                      @case ('confirmed') {
+                        ✅ Đã xác nhận
+                      }
+                      @case ('shipping') {
+                        🚚 Đang giao
+                      }
+                      @case ('delivered') {
+                        📦 Đã giao
+                      }
+                      @case ('cancelled') {
+                        ❌ Đã hủy
+                      }
+                      @default {
+                        {{ o.status }}
+                      }
                     }
                   </span>
                 </td>
