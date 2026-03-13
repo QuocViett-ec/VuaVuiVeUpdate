@@ -24,11 +24,26 @@ export class ProductService {
 
   // ─── Normalize ───────────────────────────────────────────────────────────────
   private normalize(p: any): Product {
+    const id = String(p.id ?? p._id ?? p.slug ?? '');
     const catRaw = p.cat ?? p.category ?? '';
-    const subRaw = p.sub ?? p.subcategory ?? '';
+    const subRaw = p.sub ?? p.subCategory ?? p.subcategory ?? '';
     const slug = this._slugify(catRaw);
     const cat = (CATEGORY_MAP[slug] ?? slug) || 'all';
-    return { ...p, cat, sub: subRaw || 'all' };
+    const oldPrice = p.oldPrice ?? p.originalPrice;
+    // Map backend imageUrl → frontend img
+    const img = p.img ?? p.imageUrl ?? p.image ?? '';
+    // Build image URL: if it's a relative path (not starting with http or /),
+    // prefix with the API base so ProductCard can display it
+    const resolvedImg =
+      img && !img.startsWith('http') && !img.startsWith('/') ? `${this.api}/${img}` : img;
+    return {
+      ...p,
+      id,
+      oldPrice,
+      cat,
+      sub: subRaw || 'all',
+      img: resolvedImg,
+    };
   }
 
   private _slugify(s: string): string {

@@ -35,16 +35,22 @@ import { inject } from '@angular/core';
         }
         <div class="card-actions">
           @if (cartQty() > 0) {
-            <div class="qty-ctrl">
-              <button (click)="dec()" class="qty-btn">−</button>
-              <span>{{ cartQty() }}</span>
-              <button (click)="inc()" class="qty-btn">+</button>
-            </div>
-          } @else {
-            <button class="btn-add" (click)="add()" [disabled]="product.stock === 0">
-              {{ product.stock === 0 ? 'Hết hàng' : 'Thêm vào giỏ' }}
-            </button>
+            <span class="cart-badge">&#x1F6D2; ×{{ cartQty() }} trong giỏ</span>
           }
+          <button
+            class="btn-add"
+            [class.btn-add--incart]="cartQty() > 0"
+            (click)="add()"
+            [disabled]="product.stock === 0"
+          >
+            @if (product.stock === 0) {
+              Hết hàng
+            } @else if (cartQty() > 0) {
+              + Thêm nữa
+            } @else {
+              Thêm vào giỏ
+            }
+          </button>
         </div>
       </div>
     </div>
@@ -64,11 +70,5 @@ export class ProductCardComponent {
   }
   add() {
     this.cart.addToCart(this.product);
-  }
-  inc() {
-    this.cart.updateQuantity(this.product.id, this.cartQty() + 1);
-  }
-  dec() {
-    this.cart.updateQuantity(this.product.id, this.cartQty() - 1);
   }
 }

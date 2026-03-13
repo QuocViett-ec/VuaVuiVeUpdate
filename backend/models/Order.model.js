@@ -23,7 +23,8 @@ const orderSchema = new mongoose.Schema(
     orderId: {
       type: String,
       unique: true,
-      default: () => "ORD-" + crypto.randomBytes(4).toString("hex").toUpperCase(),
+      default: () =>
+        "ORD-" + crypto.randomBytes(4).toString("hex").toUpperCase(),
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -40,7 +41,7 @@ const orderSchema = new mongoose.Schema(
     payment: {
       method: {
         type: String,
-        enum: ["cod", "vnpay"],
+        enum: ["cod", "vnpay", "momo"],
         default: "cod",
       },
       status: {

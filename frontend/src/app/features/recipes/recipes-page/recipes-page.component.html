@@ -3,7 +3,7 @@
   <div class="container">
     <div class="recipe-hero__inner">
       <h1>Trợ lý Công thức Nấu ăn</h1>
-      <p>Tìm công thức yêu thích và thêm tất cả nguyên liệu vào giỏ hàng chỉ với một cú nhấp chuột</p>
+      <p>Tìm công thức yêu thích và thêm tất cả nguyên liệu vào giỏ hàng chỉ với một cú nhấp</p>
       <video class="hero-video" autoplay muted loop playsinline>
         <source src="../../../../vid/introVuavuive.mp4" type="video/mp4" />
       </video>
@@ -11,40 +11,53 @@
   </div>
 </section>
 
-<!-- Recipe Assistant -->
+<!-- Search + Browse -->
 <section class="section" style="background:#effeee">
   <div class="container">
     <div class="title"><h2>Tìm công thức</h2></div>
+
+    <!-- Search bar -->
     <div class="recipe-row">
-      <input [(ngModel)]="query" (keyup.enter)="search()" type="search" class="input"
-             placeholder="Nhập món: canh bí đỏ, canh chua cá, rau muống xào..."
-             list="recipeList" aria-label="Tên món ăn" />
+      <input
+        [(ngModel)]="query"
+        (keyup.enter)="search()"
+        type="search"
+        class="input"
+        placeholder="Nhập món: canh bí đỏ, cá kho tộ, rau muống xào..."
+        list="recipeList"
+        aria-label="Tên món ăn"
+      />
       <datalist id="recipeList">
-        @for (r of recipes(); track r.id) { <option [value]="r.name"></option> }
+        @for (r of allRecipes(); track r.id) { <option [value]="r.name"></option> }
       </datalist>
-      <button class="btn btn--outline" (click)="search()">🔍 Tìm kiếm</button>
+      <button class="btn btn--outline" (click)="search()">🔍 Tìm</button>
+      @if (!showAll()) {
+        <button class="btn btn--outline" (click)="showAll.set(true)">📋 Xem tất cả ({{ allRecipes().length }})</button>
+      } @else {
+        <button class="btn btn--outline" (click)="showAll.set(false)">✕ Thu lại</button>
+      }
       @if (selected()) {
-        <button class="btn btn--primary" (click)="addAllToCart()">+ Thêm tất cả nguyên liệu</button>
+        <button class="btn btn--primary" (click)="addAllToCart()">🛒 Thêm tất cả nguyên liệu</button>
       }
     </div>
-    <p class="muted">Mẹo: Chọn món trong gợi ý để đúng công thức dữ liệu mẫu.</p>
 
-    <!-- Search results -->
-    @if (results().length > 0 && !selected()) {
-      <div class="recipe-results">
-        @for (r of results(); track r.id) {
-          <button class="recipe-item" (click)="select(r)">
-            <strong>{{ r.name }}</strong>
-            <span class="muted">{{ (r.ingredients || []).length }} nguyên liệu</span>
-          </button>
-        }
-      </div>
-    }
-
-    <!-- Selected recipe -->
+    <!-- Recipe detail -->
     @if (selected(); as recipe) {
       <div class="recipe-detail">
-        <h3>{{ recipe.name }}</h3>
+        <button class="btn btn--outline btn--sm" (click)="back()" style="margin-bottom:12px">← Quay lại</button>
+        <div class="recipe-detail__header">
+          <img
+            [src]="recipeImg(recipe)"
+            [alt]="recipe.name"
+            class="recipe-detail__img"
+            (error)="$any($event.target).src='images/brand/LogoVVV.png'"
+          />
+          <div>
+            <h3>{{ recipe.name }}</h3>
+            <p class="muted">{{ recipe.ingredients.length }} nguyên liệu</p>
+            <button class="btn btn--primary" (click)="addAllToCart()">🛒 Thêm tất cả vào giỏ</button>
+          </div>
+        </div>
         <table class="ingredients-table">
           <thead><tr><th>Nguyên liệu</th><th>Số lượng</th><th>Đơn vị</th></tr></thead>
           <tbody>
@@ -53,12 +66,72 @@
             }
           </tbody>
         </table>
-        <button class="btn btn--primary" (click)="addAllToCart()">🛒 Thêm tất cả vào giỏ</button>
       </div>
     }
 
-    @if (results().length === 0 && query) {
-      <p class="muted" style="padding:1rem 0">Không tìm thấy công thức cho "{{ query }}". Hãy thử từ khóa khác.</p>
+    <!-- Search results -->
+    @else if (results().length > 0) {
+      <div class="recipe-cards">
+        @for (r of results(); track r.id) {
+          <button class="recipe-card" (click)="select(r)" type="button">
+            <img
+              [src]="recipeImg(r)"
+              [alt]="r.name"
+              class="recipe-card__img"
+              loading="lazy"
+              (error)="$any($event.target).src='images/brand/LogoVVV.png'"
+            />
+            <div class="recipe-card__body">
+              <strong>{{ r.name }}</strong>
+              <span class="muted">{{ r.ingredients.length }} nguyên liệu</span>
+            </div>
+          </button>
+        }
+      </div>
+    }
+
+    <!-- No results -->
+    @else if (query && results().length === 0 && !loading()) {
+      <p class="muted" style="padding:1rem 0">Không tìm thấy công thức cho "{{ query }}". Hãy thử từ khác hoặc xem tất cả bên dưới.</p>
+    }
+
+    <!-- Featured / Browse all -->
+    @if (!selected()) {
+      @if (loading()) {
+        <div class="recipe-cards">
+          @for (i of [1,2,3,4,5,6]; track i) {
+            <div class="skeleton-card" style="height:220px;border-radius:12px"></div>
+          }
+        </div>
+      } @else {
+        <div class="title" style="margin-top:2rem">
+          <h2>{{ showAll() ? 'Tất cả công thức (' + allRecipes().length + ')' : 'Công thức nổi bật' }}</h2>
+        </div>
+        <div class="recipe-cards">
+          @for (r of (showAll() ? browseList() : featured()); track r.id) {
+            <button class="recipe-card" (click)="select(r)" type="button">
+              <img
+                [src]="recipeImg(r)"
+                [alt]="r.name"
+                class="recipe-card__img"
+                loading="lazy"
+                (error)="$any($event.target).src='images/brand/LogoVVV.png'"
+              />
+              <div class="recipe-card__body">
+                <strong>{{ r.name }}</strong>
+                <span class="muted">{{ r.ingredients.length }} nguyên liệu</span>
+              </div>
+            </button>
+          }
+        </div>
+        @if (!showAll() && allRecipes().length > 12) {
+          <div style="text-align:center;margin-top:1.5rem">
+            <button class="btn btn--outline" (click)="showAll.set(true)">
+              Xem tất cả {{ allRecipes().length }} công thức
+            </button>
+          </div>
+        }
+      }
     }
   </div>
 </section>

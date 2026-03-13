@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, catchError, of, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Recommendation } from '../models/product.model';
+import { Recommendation, Product } from '../models/product.model';
 
 export interface RecommendRequest {
   user_id: number | string;
@@ -49,6 +49,19 @@ export class RecommenderService {
       }>(`${this.mlApi}/api/similar`, { product_id: productId, n })
       .pipe(
         map((res) => res?.similar_items ?? []),
+        catchError(() => of([])),
+      );
+  }
+
+  /** Backend content-based: sản phẩm tương tự dựa trên category + tags */
+  getSimilarProductsFromBackend(productId: string, n = 8): Observable<Product[]> {
+    return this.http
+      .get<{ success: boolean; data: Product[] }>(
+        `${environment.apiBase}/api/recommend/similar/${productId}?n=${n}`,
+        { withCredentials: true },
+      )
+      .pipe(
+        map((res) => res?.data ?? []),
         catchError(() => of([])),
       );
   }

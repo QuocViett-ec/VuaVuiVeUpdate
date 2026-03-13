@@ -1,0 +1,80 @@
+<main class="section" aria-label="Trang Giỏ hàng">
+  <div class="container cart-container">
+    <!-- Header -->
+    <div class="cart-header">
+      <h2 class="cart-title">🛒 Giỏ hàng</h2>
+      @if (items().length > 0) {
+        <label class="select-all-label">
+          <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($event)" />
+          <span>Chọn tất cả ({{ items().length }})</span>
+        </label>
+      }
+    </div>
+
+    <!-- Empty state -->
+    @if (!items().length) {
+      <div class="empty-cart">
+        <div class="empty-cart__icon">🛒</div>
+        <h3>Giỏ hàng trống</h3>
+        <p>Hãy khám phá sản phẩm tươi ngon của chúng tôi!</p>
+        <a routerLink="/products" class="btn btn--primary">Mua sắm ngay →</a>
+      </div>
+    } @else {
+      <!-- Cart body -->
+      <div class="cart-body">
+        @for (item of items(); track item.product.id) {
+          <div class="cart-row" [class.cart-row--unselected]="!selected().has(item.product.id)">
+            <input
+              type="checkbox"
+              [checked]="selected().has(item.product.id)"
+              (change)="toggle(item.product.id, $event)"
+              class="cart-checkbox"
+            />
+            <img
+              [src]="item.product.img || (item.product.images?.[0] ?? '')"
+              [alt]="item.product.name"
+              class="cart-img"
+              onerror="this.src = '/images/brand/LogoVVV.png'"
+            />
+            <div class="cart-info">
+              <p class="cart-name">{{ item.product.name }}</p>
+              <p class="cart-price">
+                {{ item.product.price | number }}đ
+                @if (item.product.unit) {
+                  <span class="cart-unit">/ {{ item.product.unit }}</span>
+                }
+              </p>
+            </div>
+            <div class="cart-qty">
+              <button (click)="dec(item)" class="qty-btn" aria-label="Giảm">−</button>
+              <span class="qty-val">{{ item.quantity }}</span>
+              <button (click)="inc(item)" class="qty-btn" aria-label="Tăng">+</button>
+            </div>
+            <p class="cart-subtotal">{{ item.product.price * item.quantity | number }}đ</p>
+            <button class="cart-remove" (click)="remove(item.product.id)" aria-label="Xóa sản phẩm">
+              ✕
+            </button>
+          </div>
+        }
+      </div>
+
+      <!-- Footer -->
+      <div class="cart-footer">
+        <div class="cart-summary">
+          <span class="summary-label">Tạm tính:</span>
+          <strong class="summary-total">{{ subtotal() | number }}đ</strong>
+        </div>
+        <div class="cart-actions">
+          <button
+            class="btn btn--primary btn--lg"
+            [disabled]="selectedCount() === 0"
+            (click)="checkout()"
+          >
+            Thanh toán
+          </button>
+          <button class="btn btn--outline" (click)="clearCart()">Làm sạch giỏ hàng</button>
+        </div>
+      </div>
+    }
+  </div>
+</main>

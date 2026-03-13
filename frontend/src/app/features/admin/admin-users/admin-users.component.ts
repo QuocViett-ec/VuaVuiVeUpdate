@@ -48,12 +48,18 @@ import { User } from '../../../core/models/user.model';
       </div>
     </div>
   `,
-  styleUrl: './admin-users.component.scss' })
+  styleUrl: './admin-users.component.scss',
+})
 export class AdminUsersComponent implements OnInit {
   private http = inject(HttpClient);
   users = signal<User[]>([]);
 
   ngOnInit(): void {
-    this.http.get<User[]>(`${environment.apiBase}/users`).subscribe((u) => this.users.set(u));
+    this.http
+      .get<any>(`${environment.apiBase}/api/users/users`, { withCredentials: true })
+      .subscribe((res) => {
+        const list: User[] = Array.isArray(res) ? res : (res?.data ?? []);
+        this.users.set(list);
+      });
   }
 }

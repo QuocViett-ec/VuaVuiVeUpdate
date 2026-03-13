@@ -35,11 +35,13 @@ export interface OrderItem {
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'shipping' | 'delivered' | 'cancelled';
-export type PaymentMethod = 'cod' | 'vnpay';
-export type PaymentStatus = 'unpaid' | 'paid' | 'refunded';
+export type PaymentMethod = 'cod' | 'vnpay' | 'momo';
+export type PaymentStatus = 'pending' | 'paid' | 'refunded';
 
 export interface Order {
   id: string;
+  orderId?: string;
+  dbId?: string;
   userId?: string;
   customerName: string;
   email: string;

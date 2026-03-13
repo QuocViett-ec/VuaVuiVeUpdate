@@ -66,11 +66,21 @@ import { Order } from '../../../core/models/product.model';
               <h3>Thanh toán</h3>
               <p>
                 <strong>Phương thức:</strong>
-                {{ order()!.paymentMethod === 'vnpay' ? '🏦 VNPay' : '💵 COD' }}
+                @switch (order()!.paymentMethod) {
+                  @case ('vnpay') {
+                    🏦 VNPay
+                  }
+                  @case ('momo') {
+                    📱 MoMo
+                  }
+                  @default {
+                    💵 COD
+                  }
+                }
               </p>
               <p>
                 <strong>Trạng thái:</strong>
-                {{ order()!.paymentStatus === 'paid' ? '✅ Đã thanh toán' : '⏳ Chưa thanh toán' }}
+                {{ order()!.paymentStatus === 'paid' ? '✅ Đã thanh toán' : '⏳ Chờ thanh toán' }}
               </p>
               @if (order()!.paidAt) {
                 <p><strong>Thanh toán lúc:</strong> {{ order()!.paidAt | date: 'dd/MM HH:mm' }}</p>
@@ -135,7 +145,8 @@ import { Order } from '../../../core/models/product.model';
       }
     </div>
   `,
-  styleUrl: './order-detail-page.component.scss' })
+  styleUrl: './order-detail-page.component.scss',
+})
 export class OrderDetailPageComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
@@ -169,7 +180,8 @@ export class OrderDetailPageComponent implements OnInit {
       error: () => {
         this.cancelling.set(false);
         this.toast.error('Không thể hủy đơn hàng. Vui lòng thử lại.');
-      } });
+      },
+    });
   }
 
   reorder(): void {
@@ -182,7 +194,8 @@ export class OrderDetailPageComponent implements OnInit {
           name: item.productName,
           price: item.price,
           cat: '',
-          stock: 99 } as any,
+          stock: 99,
+        } as any,
         item.quantity,
       );
     });

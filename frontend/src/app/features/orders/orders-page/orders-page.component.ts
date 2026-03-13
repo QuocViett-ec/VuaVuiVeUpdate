@@ -76,7 +76,7 @@ const STATUS_COLORS: Record<string, string> = {
               <div class="order-foot">
                 <span class="total">{{ order.totalAmount | number }}đ</span>
                 <span class="pay-badge" [class.paid]="order.paymentStatus === 'paid'">
-                  {{ order.paymentStatus === 'paid' ? '💳 Đã thanh toán' : '💵 COD' }}
+                  {{ order.paymentStatus === 'paid' ? '💳 Đã thanh toán' : '⏳ Chờ thanh toán' }}
                 </span>
                 <a [routerLink]="['/orders', order.id]" class="btn btn--outline btn--sm"
                   >Chi tiết</a

@@ -58,6 +58,7 @@ const productSchema = new mongoose.Schema(
     unit: { type: String, default: "kg", trim: true },
     tags: [{ type: String, trim: true }],
     isActive: { type: Boolean, default: true },
+    externalId: { type: String, default: null, index: true }, // ID gốc từ data cũ (100, 101...)
   },
   { timestamps: true },
 );

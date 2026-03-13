@@ -1,8 +1,14 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnInit, PLATFORM_ID } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  OnInit,
+  PLATFORM_ID,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { isPlatformBrowser } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '../../../../environments/environment';
+import { OrderService } from '../../../core/services/order.service';
 
 interface MonthStat {
   month: string;
@@ -16,9 +22,10 @@ interface MonthStat {
   standalone: true,
   imports: [CommonModule],
   templateUrl: './admin-reports.component.html',
-  styleUrl: './admin-reports.component.scss' })
+  styleUrl: './admin-reports.component.scss',
+})
 export class AdminReportsComponent implements OnInit {
-  private http = inject(HttpClient);
+  private orderSvc = inject(OrderService);
   private platformId = inject(PLATFORM_ID);
 
   byMonth = signal<MonthStat[]>([]);
@@ -26,7 +33,7 @@ export class AdminReportsComponent implements OnInit {
   totalOrders = signal(0);
 
   ngOnInit(): void {
-    this.http.get<any[]>(`${environment.apiBase}/orders`).subscribe((orders) => {
+    this.orderSvc.getAdminOrders({ limit: 1000 }).subscribe((orders) => {
       const map: Record<string, MonthStat> = {};
       orders.forEach((o) => {
         const m = new Date(o.createdAt).toISOString().slice(0, 7);
@@ -71,14 +78,20 @@ export class AdminReportsComponent implements OnInit {
             backgroundColor: 'rgba(16,185,129,.75)',
             borderColor: '#10b981',
             borderWidth: 1,
-            borderRadius: 6 },
-        ] },
+            borderRadius: 6,
+          },
+        ],
+      },
       options: {
         plugins: { legend: { display: false } },
         scales: {
           y: {
             beginAtZero: true,
-            ticks: { callback: (v: any) => v.toLocaleString('vi-VN') + 'đ' } } } } });
+            ticks: { callback: (v: any) => v.toLocaleString('vi-VN') + 'đ' },
+          },
+        },
+      },
+    });
   }
 
   exportCsv(): void {

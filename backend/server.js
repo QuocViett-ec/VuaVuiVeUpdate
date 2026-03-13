@@ -18,6 +18,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/auth.routes");
 const productRoutes = require("./routes/product.routes");
 const orderRoutes = require("./routes/order.routes");
+const paymentRoutes = require("./routes/payment.routes");
 const userRoutes = require("./routes/user.routes");
 const adminRoutes = require("./routes/admin.routes");
 const recommendRoutes = require("./routes/recommend.routes");
@@ -74,6 +75,10 @@ app.use(
 // ─── Static Files (uploaded images) ──────────────────────────────────────────
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// ─── Static: phục vụ ảnh sản phẩm từ frontend/public (không cần copy file) ────────
+// => GET /images/VEG/leaf/raumuong.jpg ⇒ frontend/public/images/VEG/leaf/raumuong.jpg
+app.use("/", express.static(path.join(__dirname, "../frontend/public")));
+
 // ─── CSRF Protection ──────────────────────────────────────────────────────────
 app.use(csrfProtection);
 
@@ -81,6 +86,7 @@ app.use(csrfProtection);
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/payment", paymentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/recommend", recommendRoutes);

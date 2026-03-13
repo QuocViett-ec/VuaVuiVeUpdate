@@ -1,6 +1,6 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnDestroy, input } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, Router } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ToastService } from '../../../core/services/toast.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -16,7 +16,6 @@ import { AuthService } from '../../../core/services/auth.service';
 export class ForgotPasswordPageComponent implements OnDestroy {
   private toast = inject(ToastService);
   private auth = inject(AuthService);
-  private router = inject(Router);
 
   step = signal(1);
   loading = signal(false);
@@ -30,20 +29,32 @@ export class ForgotPasswordPageComponent implements OnDestroy {
   newPassword = '';
   confirmPassword = '';
 
-  sendOtp(): void {
-    if (!this.credential.trim()) {
+  async sendOtp(): Promise<void> {
+    const normalized = this.credential.trim();
+    if (!normalized) {
       this.error.set('Vui lòng nhập SĐT hoặc email.');
       return;
     }
+
+    const isEmail = normalized.includes('@');
+
     this.loading.set(true);
     this.error.set('');
-    // Simulate OTP send (replace with real backend call)
-    setTimeout(() => {
-      this.loading.set(false);
+
+    const result = await this.auth.forgotPassword({
+      email: isEmail ? normalized.toLowerCase() : undefined,
+      phone: isEmail ? undefined : normalized,
+    });
+
+    this.loading.set(false);
+    if (result.ok) {
       this.step.set(2);
-      this.toast.success('Mã OTP đã gửi (Demo: dùng mã 123456)');
+      this.toast.success(result.message ?? 'Yêu cầu đặt lại mật khẩu đã được ghi nhận.');
       this.startResendCountdown();
-    }, 800);
+      return;
+    }
+
+    this.error.set(result.message ?? 'Gửi yêu cầu thất bại.');
   }
 
   onOtpInput(e: Event, i: number): void {

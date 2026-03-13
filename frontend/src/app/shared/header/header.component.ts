@@ -31,7 +31,7 @@ export class HeaderComponent {
   }
 
   openCart(): void {
-    document.dispatchEvent(new CustomEvent('cart:toggle'));
+    this.router.navigate(['/cart']);
   }
   toggleAccountDropdown(): void {
     this.showAccountDropdown.update((v) => !v);

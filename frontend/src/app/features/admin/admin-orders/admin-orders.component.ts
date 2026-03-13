@@ -127,7 +127,7 @@ export class AdminOrdersComponent implements OnInit {
   };
 
   ngOnInit(): void {
-    this.orderSvc.getOrders().subscribe((o) => this.orders.set(o));
+    this.orderSvc.getAdminOrders({ limit: 200 }).subscribe((o) => this.orders.set(o));
   }
   onFilter(s: string): void {
     this.statusFilter = s;

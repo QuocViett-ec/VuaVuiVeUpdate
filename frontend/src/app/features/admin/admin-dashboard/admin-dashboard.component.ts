@@ -1,4 +1,11 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnInit, PLATFORM_ID } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  OnInit,
+  PLATFORM_ID,
+} from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { ProductService } from '../../../core/services/product.service';
 import { OrderService } from '../../../core/services/order.service';
@@ -12,7 +19,8 @@ import { forkJoin } from 'rxjs';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './admin-dashboard.component.html',
-  styleUrl: './admin-dashboard.component.scss' })
+  styleUrl: './admin-dashboard.component.scss',
+})
 export class AdminDashboardComponent implements OnInit {
   private http = inject(HttpClient);
   private prodSvc = inject(ProductService);
@@ -25,9 +33,11 @@ export class AdminDashboardComponent implements OnInit {
   ngOnInit(): void {
     forkJoin({
       products: this.prodSvc.getAllProducts(),
-      orders: this.orderSvc.getOrders(),
+      orders: this.orderSvc.getAdminOrders({ limit: 500 }),
       usersRes: this.http.get<any>(`${environment.apiBase}/api/users/users`, {
-        withCredentials: true }) }).subscribe(({ products, orders, usersRes }) => {
+        withCredentials: true,
+      }),
+    }).subscribe(({ products, orders, usersRes }) => {
       const users: any[] = usersRes?.data ?? [];
       const paid = orders.filter((o: any) => o.payment?.status === 'paid');
       const revenue = paid.reduce((s: number, o: any) => s + (o.totalAmount ?? 0), 0);
@@ -37,25 +47,29 @@ export class AdminDashboardComponent implements OnInit {
           label: 'Sản phẩm',
           value: products.length.toLocaleString(),
           bg: '#dcfce7',
-          color: '#15803d' },
+          color: '#15803d',
+        },
         {
           icon: '📦',
           label: 'Đơn hàng',
           value: orders.length.toLocaleString(),
           bg: '#dbeafe',
-          color: '#1d4ed8' },
+          color: '#1d4ed8',
+        },
         {
           icon: '👥',
           label: 'Người dùng',
           value: users.length.toLocaleString(),
           bg: '#fef9c3',
-          color: '#a16207' },
+          color: '#a16207',
+        },
         {
           icon: '💰',
           label: 'Doanh thu',
           value: revenue.toLocaleString('vi-VN') + 'đ',
           bg: '#fce7f3',
-          color: '#be185d' },
+          color: '#be185d',
+        },
       ]);
       this.recentOrders.set(orders.slice(-10).reverse());
       if (isPlatformBrowser(this.platformId)) {
@@ -106,12 +120,17 @@ export class AdminDashboardComponent implements OnInit {
               backgroundColor: 'rgba(16,185,129,.1)',
               tension: 0.4,
               fill: true,
-              pointBackgroundColor: '#10b981' },
-          ] },
+              pointBackgroundColor: '#10b981',
+            },
+          ],
+        },
         options: {
           plugins: { legend: { display: false } },
           scales: {
-            y: { beginAtZero: true, ticks: { callback: (v: any) => v.toLocaleString('vi-VN') } } } } });
+            y: { beginAtZero: true, ticks: { callback: (v: any) => v.toLocaleString('vi-VN') } },
+          },
+        },
+      });
     }
     // Status donut
     const cnt: Record<string, number> = {};
@@ -128,11 +147,15 @@ export class AdminDashboardComponent implements OnInit {
           datasets: [
             {
               data: Object.values(cnt),
-              backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'] },
-          ] },
+              backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'],
+            },
+          ],
+        },
         options: {
           plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
-          cutout: '60%' } });
+          cutout: '60%',
+        },
+      });
     }
   }
 }

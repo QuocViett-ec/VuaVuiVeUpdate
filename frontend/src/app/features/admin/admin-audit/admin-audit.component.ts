@@ -1,4 +1,12 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit, PLATFORM_ID } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  computed,
+  OnInit,
+  PLATFORM_ID,
+} from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -13,6 +21,10 @@ export interface AuditEntry {
 }
 
 const ACTION_LABELS: Record<string, string> = {
+  ADMIN_LOGIN: 'Đăng nhập admin',
+  ADMIN_LOGOUT: 'Đăng xuất admin',
+  UPDATE_USER: 'Cập nhật người dùng',
+  DELETE_USER: 'Vô hiệu hóa người dùng',
   login: 'Đăng nhập',
   logout: 'Đăng xuất',
   'order.create': 'Tạo đơn hàng',
@@ -23,7 +35,8 @@ const ACTION_LABELS: Record<string, string> = {
   'product.delete': 'Xóa sản phẩm',
   'profile.update': 'Cập nhật thông tin',
   'password.change': 'Đổi mật khẩu',
-  seed: 'Khởi tạo dữ liệu' };
+  seed: 'Khởi tạo dữ liệu',
+};
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -31,7 +44,8 @@ const ACTION_LABELS: Record<string, string> = {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './admin-audit.component.html',
-  styleUrl: './admin-audit.component.scss' })
+  styleUrl: './admin-audit.component.scss',
+})
 export class AdminAuditComponent implements OnInit {
   private http = inject(HttpClient);
   private platformId = inject(PLATFORM_ID);
@@ -46,9 +60,10 @@ export class AdminAuditComponent implements OnInit {
     const cat = this.categoryFilter();
     if (q)
       logs = logs.filter(
-        (l) => l.who?.toLowerCase().includes(q) || l.action.toLowerCase().includes(q),
+        (l) =>
+          (l.who ?? '').toLowerCase().includes(q) || (l.action ?? '').toLowerCase().includes(q),
       );
-    if (cat) logs = logs.filter((l) => l.action.startsWith(cat));
+    if (cat) logs = logs.filter((l) => (l.action ?? '').toLowerCase().includes(cat));
     return logs;
   });
 
@@ -64,19 +79,24 @@ export class AdminAuditComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Try REST API first, fall back to localStorage
-    this.http.get<AuditEntry[]>(`${environment.apiBase}/auditLogs`).subscribe({
-      next: (logs) => this.allLogs.set([...logs].reverse()),
-      error: () => {
-        if (isPlatformBrowser(this.platformId)) {
-          try {
-            const local: AuditEntry[] = JSON.parse(localStorage.getItem('vvv_audit_v1') ?? '[]');
-            this.allLogs.set([...local].reverse());
-          } catch {
-            this.allLogs.set([]);
-          }
-        }
-      } });
+    this.http
+      .get<any>(`${environment.apiBase}/api/users/audit-logs`, { withCredentials: true })
+      .subscribe({
+        next: (res) => {
+          const logs = Array.isArray(res) ? res : (res?.data ?? []);
+          const mapped: AuditEntry[] = logs.map((log: any) => ({
+            id: String(log?._id ?? ''),
+            timestamp: log?.createdAt ?? new Date().toISOString(),
+            action: String(log?.action ?? ''),
+            who: log?.adminId?.name ?? log?.adminId?.email ?? 'System',
+            metadata: log?.details ?? {},
+          }));
+          this.allLogs.set(mapped);
+        },
+        error: () => {
+          this.allLogs.set([]);
+        },
+      });
   }
 
   exportCsv(): void {

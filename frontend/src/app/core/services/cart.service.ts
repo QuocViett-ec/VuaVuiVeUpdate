@@ -9,6 +9,11 @@ export class CartService {
   private platformId = inject(PLATFORM_ID);
   private _items = signal<CartItem[]>(this._load());
 
+  private resolveProductId(product: Product | (Product & { _id?: string; slug?: string })): string {
+    const raw = (product as any)?.id ?? (product as any)?._id ?? (product as any)?.slug;
+    return raw ? String(raw) : '';
+  }
+
   readonly items = this._items.asReadonly();
   readonly itemCount = computed(() => this._items().reduce((s, i) => s + i.quantity, 0));
   readonly subtotal = computed(() =>
@@ -23,9 +28,8 @@ export class CartService {
   constructor() {
     if (isPlatformBrowser(this.platformId)) {
       effect(() => {
-        const raw: Record<string, number> = {};
-        this._items().forEach((i) => (raw[i.product.id] = i.quantity));
-        localStorage.setItem(LS_CART, JSON.stringify(raw));
+        // Lưu toàn bộ CartItem[] (bao gồm product đầy đủ) vào localStorage
+        localStorage.setItem(LS_CART, JSON.stringify(this._items()));
       });
     }
   }
@@ -33,56 +37,67 @@ export class CartService {
   private _load(): CartItem[] {
     if (typeof localStorage === 'undefined') return [];
     try {
-      const raw: Record<string, number> = JSON.parse(localStorage.getItem(LS_CART) || '{}');
-      // Items loaded without product details (resolved lazily when product data is available)
-      return Object.entries(raw)
-        .filter(([, q]) => q > 0)
-        .map(([id, quantity]) => ({ product: { id } as Product, quantity }));
+      const raw = JSON.parse(localStorage.getItem(LS_CART) || 'null');
+      if (!raw) return [];
+      // Định dạng mới: mảng CartItem[]
+      if (Array.isArray(raw)) {
+        return (raw as CartItem[]).filter((i) => i?.product?.id && i.quantity > 0);
+      }
+      // Tương thích định dạng cũ: {productId: quantity}
+      if (typeof raw === 'object') {
+        return Object.entries(raw as Record<string, number>)
+          .filter(([, q]) => q > 0)
+          .map(([id, quantity]) => ({ product: { id } as Product, quantity }));
+      }
+      return [];
     } catch {
       return [];
     }
   }
 
-  // ─── Load stored IDs + merge real product data ────────────────────────────
+  // ─── Cập nhật giá/tên sản phẩm từ danh sách mới nhất ────────────────────────
   hydrateFromProducts(products: Product[]): void {
-    if (typeof localStorage === 'undefined') return;
-    const raw: Record<string, number> = {};
-    try {
-      Object.assign(raw, JSON.parse(localStorage.getItem(LS_CART) || '{}'));
-    } catch {}
-    const hydrated: CartItem[] = Object.entries(raw)
-      .filter(([, q]) => q > 0)
-      .map(([id, quantity]) => {
-        const product = products.find((p) => p.id === id) ?? ({ id } as Product);
-        return { product, quantity };
-      });
-    this._items.set(hydrated);
+    this._items.update((items) =>
+      items.map((item) => {
+        const itemId = this.resolveProductId(item.product);
+        const fresh = products.find((p) => this.resolveProductId(p) === itemId);
+        return fresh ? { ...item, product: fresh } : item;
+      }),
+    );
   }
 
   // ─── Mutations ───────────────────────────────────────────────────────────────
   addToCart(product: Product, qty = 1): void {
+    const productId = this.resolveProductId(product);
+    if (!productId || qty <= 0) return;
+
     this._items.update((items) => {
-      const idx = items.findIndex((i) => i.product.id === product.id);
+      const idx = items.findIndex((i) => this.resolveProductId(i.product) === productId);
       if (idx >= 0) {
         const copy = [...items];
         copy[idx] = { ...copy[idx], quantity: copy[idx].quantity + qty };
         return copy;
       }
-      return [...items, { product, quantity: qty }];
+      return [...items, { product: { ...product, id: productId }, quantity: qty }];
     });
   }
 
   removeFromCart(productId: string): void {
-    this._items.update((items) => items.filter((i) => i.product.id !== productId));
+    const normalizedId = String(productId || '');
+    this._items.update((items) =>
+      items.filter((i) => this.resolveProductId(i.product) !== normalizedId),
+    );
   }
 
   updateQuantity(productId: string, quantity: number): void {
+    const normalizedId = String(productId || '');
+    if (!normalizedId) return;
     if (quantity <= 0) {
-      this.removeFromCart(productId);
+      this.removeFromCart(normalizedId);
       return;
     }
     this._items.update((items) => {
-      const idx = items.findIndex((i) => i.product.id === productId);
+      const idx = items.findIndex((i) => this.resolveProductId(i.product) === normalizedId);
       if (idx < 0) return items;
       const copy = [...items];
       copy[idx] = { ...copy[idx], quantity };
@@ -95,6 +110,10 @@ export class CartService {
   }
 
   getQuantity(productId: string): number {
-    return this._items().find((i) => i.product.id === productId)?.quantity ?? 0;
+    const normalizedId = String(productId || '');
+    if (!normalizedId) return 0;
+    return (
+      this._items().find((i) => this.resolveProductId(i.product) === normalizedId)?.quantity ?? 0
+    );
   }
 }

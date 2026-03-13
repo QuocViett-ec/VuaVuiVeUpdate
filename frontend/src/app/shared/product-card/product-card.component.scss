@@ -93,6 +93,19 @@
 
 .card-actions {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.cart-badge {
+  font-size: 0.72rem;
+  color: #2e7d32;
+  font-weight: 600;
+  text-align: center;
+  background: #f1f8e9;
+  border-radius: 6px;
+  padding: 0.15rem 0.4rem;
 }
 
 .btn-add {
@@ -114,37 +127,13 @@
     background: #ccc;
     cursor: not-allowed;
   }
-}
 
-.qty-ctrl {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  justify-content: center;
-  background: #f1f8e9;
-  border-radius: 8px;
-  padding: 0.3rem 0.5rem;
-
-  span {
-    min-width: 24px;
-    text-align: center;
-    font-weight: 700;
-    font-size: 0.95rem;
+  &--incart {
+    background: #fff;
     color: #2e7d32;
-  }
-}
-
-.qty-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: none;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  cursor: pointer;
-  font-size: 1.1rem;
-  line-height: 1;
-  &:hover {
-    background: #c8e6c9;
+    border: 1.5px solid #2e7d32;
+    &:hover:not(:disabled) {
+      background: #f1f8e9;
+    }
   }
 }

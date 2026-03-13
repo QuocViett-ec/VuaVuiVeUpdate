@@ -80,5 +80,11 @@
     <div class="auth-links">
       <span>Chưa có tài khoản? <a routerLink="/auth/register">Đăng ký ngay</a></span>
     </div>
+
+    <div class="auth-divider">
+      <span>hoặc</span>
+    </div>
+
+    <app-google-login-button (success)="onGoogleSuccess($event)" />
   </div>
 </div>

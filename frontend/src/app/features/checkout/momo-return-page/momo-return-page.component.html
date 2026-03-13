@@ -1,0 +1,67 @@
+<div class="mp-card">
+  <!-- Loading -->
+  @if (loading()) {
+    <div class="mp-state">
+      <div class="mp-spinner"></div>
+      <p class="mp-label">Đang xử lý thanh toán MoMo...</p>
+    </div>
+  }
+
+  <!-- Success -->
+  @if (!loading() && success()) {
+    <div class="mp-state">
+      <svg class="mp-icon mp-icon--success" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="35" stroke="#ae2070" stroke-width="5" fill="none" />
+        <path
+          d="M23 40L34 51L57 28"
+          stroke="#ae2070"
+          stroke-width="5"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      <h2 class="mp-heading">Thanh toán MoMo thành công!</h2>
+      <p class="mp-sub">Đơn hàng của bạn đã được xác nhận.</p>
+
+      <table class="mp-table">
+        <tr>
+          <td>Mã đơn hàng</td>
+          <td>
+            <strong>{{ orderId() }}</strong>
+          </td>
+        </tr>
+        <tr>
+          <td>Số tiền</td>
+          <td>
+            <strong>{{ amount() }}</strong>
+          </td>
+        </tr>
+      </table>
+
+      <p class="mp-redirect">Tự động chuyển về trang đơn hàng sau {{ countdown() }}s...</p>
+    </div>
+  }
+
+  <!-- Error -->
+  @if (!loading() && !success()) {
+    <div class="mp-state">
+      <svg class="mp-icon mp-icon--error" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="35" stroke="#ef4444" stroke-width="5" fill="none" />
+        <path
+          d="M28 28L52 52M52 28L28 52"
+          stroke="#ef4444"
+          stroke-width="5"
+          stroke-linecap="round"
+        />
+      </svg>
+      <h2 class="mp-heading">Thanh toán không thành công</h2>
+      <p class="mp-sub">{{ message() }}</p>
+      <div class="mp-actions">
+        <a routerLink="/checkout" class="btn btn--primary">Thử lại</a>
+        <a routerLink="/orders" class="btn btn--outline">Xem đơn hàng</a>
+      </div>
+      <p class="mp-redirect">Tự động chuyển về trang đơn hàng sau {{ countdown() }}s...</p>
+    </div>
+  }
+</div>

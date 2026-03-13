@@ -1,5 +1,14 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit, OnDestroy, PLATFORM_ID } from '@angular/core';
-import { CommonModule, isPlatformBrowser } from '@angular/common';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  computed,
+  OnInit,
+  OnDestroy,
+  PLATFORM_ID,
+} from '@angular/core';
+import { DecimalPipe, isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProductService } from '../../../core/services/product.service';
@@ -24,13 +33,23 @@ const SORTS = [
   { key: 'name-asc', label: 'Tên A-Z' },
 ];
 
+/** Chuẩn hóa chuỗi tiếng Việt: bỏ dấu, lowercase, trim */
+function vn(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, (c) => (c === 'đ' ? 'd' : 'D'))
+    .toLowerCase()
+    .trim();
+}
+
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-product-list',
-  standalone: true,
-  imports: [CommonModule, FormsModule, ProductCardComponent],
+  imports: [FormsModule, ProductCardComponent, DecimalPipe],
   templateUrl: './product-list.component.html',
-  styleUrl: './product-list.component.scss' })
+  styleUrl: './product-list.component.scss',
+})
 export class ProductListComponent implements OnInit, OnDestroy {
   private productSvc = inject(ProductService);
   private cartSvc = inject(CartService);
@@ -46,20 +65,27 @@ export class ProductListComponent implements OnInit, OnDestroy {
   searchQuery = signal('');
   selectedCat = signal('all');
   sortKey = signal('default');
-  maxPrice = signal(500000);
+  maxPrice = signal(1000000);
 
   // Flash sale
   flashSlot = signal<'morning' | 'afternoon'>('morning');
   flashProducts = signal<Product[]>([]);
   countdown = signal('--:--:--');
-  private _cd: any;
+  private _cd: ReturnType<typeof setInterval> | null = null;
 
   filtered = computed(() => {
     let list = this.allProducts();
-    const q = this.searchQuery().toLowerCase();
+    const q = vn(this.searchQuery());
     const cat = this.selectedCat();
     const max = this.maxPrice();
-    if (q) list = list.filter((p) => p.name.toLowerCase().includes(q));
+    if (q) {
+      const tokens = q.split(/\s+/).filter(Boolean);
+      list = list.filter((p) => {
+        const name = vn(p.name);
+        // tất cả token đều xuất hiện trong tên (hỗ trợ tìm nhiều từ)
+        return tokens.every((t) => name.includes(t));
+      });
+    }
     if (cat && cat !== 'all') list = list.filter((p) => p.cat === cat);
     list = list.filter((p) => p.price <= max);
     switch (this.sortKey()) {
@@ -79,7 +105,8 @@ export class ProductListComponent implements OnInit, OnDestroy {
       if (p['cat']) this.selectedCat.set(p['cat']);
       if (p['q']) this.searchQuery.set(p['q']);
     });
-    this.productSvc.getProducts().subscribe((ps) => {
+    // Tải toàn bộ sản phẩm (không giới hạn)
+    this.productSvc.getAllProducts().subscribe((ps) => {
       this.allProducts.set(ps);
       this.cartSvc.hydrateFromProducts(ps);
       this.updateFlash(ps);
@@ -91,21 +118,31 @@ export class ProductListComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    clearInterval(this._cd);
+    if (this._cd) clearInterval(this._cd);
+  }
+
+  setSearch(q: string): void {
+    this.searchQuery.set(q);
+    this.router.navigate([], {
+      queryParams: { q: q.trim() || null },
+      queryParamsHandling: 'merge',
+    });
   }
 
   setCat(cat: string): void {
     this.selectedCat.set(cat);
     this.router.navigate([], {
       queryParams: { cat: cat === 'all' ? null : cat },
-      queryParamsHandling: 'merge' });
+      queryParamsHandling: 'merge',
+    });
   }
 
   resetFilters(): void {
     this.selectedCat.set('all');
     this.searchQuery.set('');
     this.sortKey.set('default');
-    this.maxPrice.set(500000);
+    this.maxPrice.set(1000000);
+    this.router.navigate([], { queryParams: {} });
   }
 
   onSlotChange(slot: 'morning' | 'afternoon'): void {
@@ -114,15 +151,10 @@ export class ProductListComponent implements OnInit, OnDestroy {
   }
 
   private updateFlash(ps: Product[]): void {
+    const withDiscount = ps.filter((p) => p.oldPrice && p.oldPrice > p.price);
+    const base = withDiscount.length >= 4 ? withDiscount : ps;
     const i = this.flashSlot() === 'morning' ? 0 : 4;
-    this.flashProducts.set(
-      ps
-        .filter((p) => p.oldPrice && p.oldPrice > p.price)
-        .slice(0, 8)
-        .slice(i, i + 4).length
-        ? ps.filter((p) => p.oldPrice && p.oldPrice > p.price).slice(i, i + 4)
-        : ps.slice(i, i + 4),
-    );
+    this.flashProducts.set(base.slice(i, i + 4));
   }
 
   private tickCd(): void {
@@ -134,7 +166,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
     const hh = String(Math.floor(diff / 3600000)).padStart(2, '0');
     const mm = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
     const ss = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
-    this.countdown.set(hh + ':' + mm + ':' + ss);
+    this.countdown.set(`${hh}:${mm}:${ss}`);
   }
 
   onImgErr(event: Event, fallback: string): void {

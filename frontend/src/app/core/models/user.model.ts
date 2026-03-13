@@ -6,6 +6,8 @@ export interface User {
   address?: string;
   role?: 'user' | 'customer' | 'admin';
   createdAt?: string;
+  avatar?: string;
+  provider?: 'local' | 'google';
 }
 
 export interface AuthSession {
@@ -15,6 +17,8 @@ export interface AuthSession {
   phone: string;
   address?: string;
   role?: string;
+  avatar?: string;
+  provider?: 'local' | 'google';
 }
 
 export interface LoginRequest {
@@ -47,6 +51,7 @@ export interface UpdateProfileRequest {
 }
 
 export interface ChangePasswordRequest {
-  oldPassword: string;
+  currentPassword: string;
+  oldPassword?: string;
   newPassword: string;
 }

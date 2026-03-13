@@ -13,13 +13,13 @@ import {
   ChangePasswordRequest,
 } from '../models/user.model';
 
-const LS_USERS = 'vvv_users_v1';
 const LS_SESSION = 'vvv_session_v1';
 const API_BASE = environment.apiBase;
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private _session = signal<AuthSession | null>(this._loadSession());
+  private _isLoggingOut = false;
   readonly currentUser = this._session.asReadonly();
   readonly isLoggedIn = computed(() => !!this._session());
   readonly isAdmin = computed(() => this._session()?.role?.toLowerCase() === 'admin');
@@ -28,8 +28,11 @@ export class AuthService {
     private http: HttpClient,
     private router: Router,
   ) {
-    this._seedAdmin();
-    // Thử restore session từ server khi app khởi động (nếu backend đang chạy)
+    // Dọn dẹp data localStorage cũ (fake users từ phiên bản trước)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('vvv_users_v1');
+    }
+    // Restore session từ server cookie khi app khởi động
     this._restoreServerSession();
   }
 
@@ -38,6 +41,7 @@ export class AuthService {
     if (typeof window === 'undefined') return;
     this.http.get<any>(`${API_BASE}/api/auth/me`, { withCredentials: true }).subscribe({
       next: (res) => {
+        if (this._isLoggingOut) return;
         if (res?.data) {
           const sess: AuthSession = {
             id: res.data._id ?? res.data.id,
@@ -46,133 +50,93 @@ export class AuthService {
             phone: res.data.phone ?? '',
             address: res.data.address ?? '',
             role: res.data.role ?? 'user',
+            avatar: res.data.avatar ?? '',
+            provider: res.data.provider ?? 'local',
           };
           this._saveSession(sess);
+        } else {
+          // Server không còn session hợp lệ → xóa cache cũ
+          this._clearSession();
         }
       },
-      error: () => {
-        /* backend chưa chạy → dùng localStorage như cũ */
+      error: (err) => {
+        if (err?.status === 401 || err?.status === 403) {
+          this._clearSession();
+          return;
+        }
+        // Backend không chạy → giữ nguyên session cache để UI hiển thị
       },
     });
-  }
-
-  // ─── Seed default admin (runs once on first load) ────────────────────────────
-  private _seedAdmin(): void {
-    if (typeof localStorage === 'undefined') return;
-    const users = this._getUsers();
-    const hasAdmin = users.some((u: any) => u.email === 'admin@vuavuive.com');
-    if (!hasAdmin) {
-      const adminUser = {
-        id: 'admin-1',
-        name: 'Admin VVV',
-        email: 'admin@vuavuive.com',
-        phone: '0900000001',
-        password: 'admin123',
-        address: '',
-        role: 'admin' as 'admin',
-        createdAt: '2025-01-01T00:00:00.000Z',
-      };
-      users.unshift(adminUser);
-      this._setUsers(users);
-    }
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
   private _loadSession(): AuthSession | null {
     try {
+      if (typeof localStorage === 'undefined') return null;
       return JSON.parse(localStorage.getItem(LS_SESSION) || 'null');
     } catch {
       return null;
     }
   }
 
-  private _getUsers(): User[] {
-    try {
-      const u = JSON.parse(localStorage.getItem(LS_USERS) || '[]');
-      return Array.isArray(u) ? u : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private _setUsers(list: User[]): void {
-    if (typeof localStorage === 'undefined') return;
-    localStorage.setItem(LS_USERS, JSON.stringify(list));
-  }
-
   private _saveSession(sess: AuthSession): void {
-    localStorage.setItem(LS_SESSION, JSON.stringify(sess));
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(LS_SESSION, JSON.stringify(sess));
+    }
     this._session.set(sess);
+  }
+
+  private _clearSession(): void {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(LS_SESSION);
+    }
+    this._session.set(null);
   }
 
   // ─── Register ───────────────────────────────────────────────────────────────
   async register(req: RegisterRequest): Promise<AuthResponse> {
-    // Thử gọi backend trước
     try {
       const res = await firstValueFrom(
         this.http.post<any>(`${API_BASE}/api/auth/register`, req, { withCredentials: true }),
       );
       if (res?.data) {
-        const sess: AuthSession = {
-          id: res.data._id ?? res.data.id,
-          name: res.data.name,
-          email: res.data.email ?? '',
-          phone: res.data.phone ?? '',
-          address: res.data.address ?? '',
-          role: res.data.role ?? 'user',
-        };
-        this._saveSession(sess);
-        return { ok: true, user: sess as unknown as User };
+        // Không tự đăng nhập sau đăng ký — chuyển về trang login
+        return { ok: true, user: res.data as User };
       }
+      return { ok: false, message: 'Đăng ký thất bại. Vui lòng thử lại.' };
     } catch (err: any) {
-      // Nếu backend trả lỗi rõ ràng (4xx) thì dừng lại
-      if (err?.status && err.status !== 0) {
-        return { ok: false, message: err.error?.message ?? 'Đăng ký thất bại.' };
+      if (err?.status === 0) {
+        return {
+          ok: false,
+          message: 'Không thể kết nối đến server. Vui lòng kiểm tra backend đang chạy.',
+        };
       }
-      // Nếu backend không chạy (status 0 / network error) → fallback localStorage
+      return { ok: false, message: err.error?.message ?? 'Đăng ký thất bại.' };
     }
+  }
 
-    // ─── Fallback: localStorage (khi backend chưa chạy) ─────────────────────
-    const users = this._getUsers();
-    const phone = req.phone.replace(/\D/g, '');
-    const email = (req.email || '').trim().toLowerCase();
-
-    if (!req.name || !phone || !req.password)
-      return { ok: false, message: 'Vui lòng nhập đủ họ tên, SĐT và mật khẩu.' };
-    if (email && users.some((u) => (u.email || '').toLowerCase() === email))
-      return { ok: false, message: 'Email đã tồn tại.' };
-    if (users.some((u) => (u.phone || '') === phone))
-      return { ok: false, message: 'Số điện thoại đã tồn tại.' };
-    if (req.password.length < 6) return { ok: false, message: 'Mật khẩu phải ít nhất 6 ký tự.' };
-
-    const user: User & { password?: string } = {
-      id: Date.now().toString(),
-      name: req.name.trim(),
-      email,
-      phone,
-      password: req.password,
-      address: (req.address || '').trim(),
-      role: 'user',
-      createdAt: new Date().toISOString(),
-    };
-    users.push(user);
-    this._setUsers(users);
-    this._log('user.register', email || phone, { userId: user.id });
-    return {
-      ok: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        address: user.address,
-      },
-    };
+  // ─── Forgot password ───────────────────────────────────────────────────────
+  async forgotPassword(payload: { phone?: string; email?: string }): Promise<AuthResponse> {
+    try {
+      const res = await firstValueFrom(
+        this.http.post<any>(`${API_BASE}/api/auth/forgot-password`, payload, {
+          withCredentials: true,
+        }),
+      );
+      if (res?.success) {
+        return { ok: true, message: res.message };
+      }
+      return { ok: false, message: res?.message ?? 'Gửi yêu cầu thất bại.' };
+    } catch (err: any) {
+      if (err?.status === 0) {
+        return { ok: false, message: 'Không thể kết nối đến server. Vui lòng thử lại.' };
+      }
+      return { ok: false, message: err.error?.message ?? 'Gửi yêu cầu thất bại.' };
+    }
   }
 
   // ─── Login ──────────────────────────────────────────────────────────────────
   async login(req: LoginRequest): Promise<AuthResponse> {
-    // Thử gọi backend trước
     try {
       const res = await firstValueFrom(
         this.http.post<any>(`${API_BASE}/api/auth/login`, req, { withCredentials: true }),
@@ -185,71 +149,46 @@ export class AuthService {
           phone: res.data.phone ?? '',
           address: res.data.address ?? '',
           role: res.data.role ?? 'user',
+          avatar: res.data.avatar ?? '',
+          provider: res.data.provider ?? 'local',
         };
         this._saveSession(sess);
-        this._log('user.login', sess.email || sess.phone, { via: 'server' });
         return { ok: true, user: sess as unknown as User };
       }
+      return { ok: false, message: 'Đăng nhập thất bại. Vui lòng thử lại.' };
     } catch (err: any) {
-      if (err?.status && err.status !== 0) {
-        return { ok: false, message: err.error?.message ?? 'Đăng nhập thất bại.' };
+      if (err?.status === 0) {
+        return {
+          ok: false,
+          message: 'Không thể kết nối đến server. Vui lòng kiểm tra backend đang chạy.',
+        };
       }
-      // Network error → fallback localStorage
+      return { ok: false, message: err.error?.message ?? 'Đăng nhập thất bại.' };
     }
-
-    // ─── Fallback: localStorage ──────────────────────────────────────────────
-    const users = this._getUsers();
-    const email = (req.email || '').trim().toLowerCase();
-    const phone = (req.phone || '').replace(/\D/g, '');
-    const candidate = users.find(
-      (x: any) =>
-        (email && (x.email || '').toLowerCase() === email) || (phone && (x.phone || '') === phone),
-    ) as any;
-
-    if (!candidate)
-      return { ok: false, reason: 'user_not_found', message: 'Không tìm thấy tài khoản.' };
-    if (candidate.password !== req.password)
-      return { ok: false, reason: 'wrong_password', message: 'Mật khẩu không đúng.' };
-
-    const sess: AuthSession = {
-      id: candidate.id,
-      name: candidate.name,
-      email: candidate.email,
-      phone: candidate.phone,
-      address: candidate.address,
-      role: candidate.role || 'customer',
-    };
-    this._saveSession(sess);
-    this._log('user.login', sess.email || sess.phone, { userId: sess.id });
-    return {
-      ok: true,
-      user: {
-        id: candidate.id,
-        name: candidate.name,
-        email: candidate.email,
-        phone: candidate.phone,
-        address: candidate.address,
-      },
-    };
   }
 
   // ─── Logout ─────────────────────────────────────────────────────────────────
   logout(): void {
-    // Hủy server session
-    this.http
-      .post(`${API_BASE}/api/auth/logout`, {}, { withCredentials: true })
-      .subscribe({ error: () => {} });
-    localStorage.removeItem(LS_SESSION);
-    this._session.set(null);
-    this.router.navigate(['/auth/login']);
+    this._isLoggingOut = true;
+    this.http.post(`${API_BASE}/api/auth/logout`, {}, { withCredentials: true }).subscribe({
+      next: () => {
+        this._clearSession();
+        this.router.navigate(['/auth/login'], { replaceUrl: true });
+        this._isLoggingOut = false;
+      },
+      error: () => {
+        // Dù backend lỗi, vẫn clear local session để người dùng thoát khỏi UI hiện tại.
+        this._clearSession();
+        this.router.navigate(['/auth/login'], { replaceUrl: true });
+        this._isLoggingOut = false;
+      },
+    });
   }
 
   // ─── Update profile ──────────────────────────────────────────────────────────
   async updateProfile(req: UpdateProfileRequest): Promise<AuthResponse> {
     const sess = this._session();
     if (!sess) return { ok: false, message: 'Chưa đăng nhập.' };
-
-    // Thử gọi backend trước
     try {
       const res = await firstValueFrom(
         this.http.put<any>(`${API_BASE}/api/auth/profile`, req, { withCredentials: true }),
@@ -262,73 +201,57 @@ export class AuthService {
         });
         return { ok: true, user: res.data ?? sess };
       }
+      return { ok: false, message: 'Cập nhật thất bại.' };
     } catch (err: any) {
-      if (err?.status && err.status !== 0) {
-        return { ok: false, message: err.error?.message ?? 'Cập nhật thất bại.' };
+      if (err?.status === 0) {
+        return { ok: false, message: 'Không thể kết nối đến server.' };
       }
-      // Network error → fallback localStorage
+      return { ok: false, message: err.error?.message ?? 'Cập nhật thất bại.' };
     }
-
-    // Fallback: localStorage
-    const users = this._getUsers() as any[];
-    let idx = users.findIndex((x: any) => x.id === sess.id);
-    if (idx === -1) return { ok: false, message: 'Không tìm thấy người dùng.' };
-    users[idx] = { ...users[idx], ...req };
-    this._setUsers(users);
-    this._saveSession({
-      ...sess,
-      name: req.name || sess.name,
-      address: req.address || sess.address,
-    });
-    return { ok: true, user: users[idx] };
   }
 
   // ─── Change password ─────────────────────────────────────────────────────────
   async changePassword(req: ChangePasswordRequest): Promise<AuthResponse> {
     const sess = this._session();
     if (!sess) return { ok: false, message: 'Chưa đăng nhập.' };
-
-    // Thử gọi backend trước
     try {
       const res = await firstValueFrom(
         this.http.put<any>(`${API_BASE}/api/auth/password`, req, { withCredentials: true }),
       );
       if (res?.success || res?.data) return { ok: true };
+      return { ok: false, message: 'Đổi mật khẩu thất bại.' };
     } catch (err: any) {
-      if (err?.status && err.status !== 0) {
-        return { ok: false, message: err.error?.message ?? 'Đổi mật khẩu thất bại.' };
+      if (err?.status === 0) {
+        return { ok: false, message: 'Không thể kết nối đến server.' };
       }
-      // Network error → fallback localStorage
+      return { ok: false, message: err.error?.message ?? 'Đổi mật khẩu thất bại.' };
     }
-
-    // Fallback: localStorage
-    const users = this._getUsers() as any[];
-    const idx = users.findIndex((x: any) => x.id === sess.id);
-    if (idx === -1) return { ok: false, message: 'Không tìm thấy người dùng.' };
-    if (users[idx].password !== req.oldPassword)
-      return { ok: false, reason: 'wrong_old_password', message: 'Mật khẩu hiện tại không đúng.' };
-    if (req.newPassword.length < 6)
-      return { ok: false, reason: 'weak_password', message: 'Mật khẩu mới phải ≥ 6 ký tự.' };
-    if (req.newPassword === req.oldPassword)
-      return { ok: false, message: 'Mật khẩu mới không được trùng mật khẩu cũ.' };
-    users[idx] = { ...users[idx], password: req.newPassword };
-    this._setUsers(users);
-    return { ok: true };
   }
 
-  // ─── Audit log ───────────────────────────────────────────────────────────────
-  private _log(action: string, who: string, meta: Record<string, unknown> = {}): void {
-    const entry = {
-      id: Date.now().toString(),
-      action,
-      who,
-      metadata: meta,
-      timestamp: new Date().toISOString(),
-    };
+  // ─── Google Login ────────────────────────────────────────────────────────────
+  async googleLogin(idToken: string): Promise<AuthResponse> {
     try {
-      this.http
-        .post(`${API_BASE}/api/users/audit-logs`, entry, { withCredentials: true })
-        .subscribe({ error: () => {} });
-    } catch {}
+      const res = await firstValueFrom(
+        this.http.post<any>(`${API_BASE}/api/auth/google`, { idToken }, { withCredentials: true }),
+      );
+      if (res?.data) {
+        const sess: AuthSession = {
+          id: res.data._id ?? res.data.id,
+          name: res.data.name,
+          email: res.data.email ?? '',
+          phone: res.data.phone ?? '',
+          address: res.data.address ?? '',
+          role: res.data.role ?? 'user',
+          avatar: res.data.avatar ?? '',
+          provider: res.data.provider ?? 'google',
+        };
+        this._saveSession(sess);
+
+        return { ok: true, user: sess as unknown as User };
+      }
+      return { ok: false, message: 'Đăng nhập Google thất bại.' };
+    } catch (err: any) {
+      return { ok: false, message: err.error?.message ?? 'Đăng nhập Google thất bại.' };
+    }
   }
 }

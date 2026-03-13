@@ -1,6 +1,7 @@
 "use strict";
 
 const crypto = require("crypto");
+const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User.model");
 const { createAuditLog } = require("./user.controller");
 
@@ -9,7 +10,12 @@ const { createAuditLog } = require("./user.controller");
  */
 exports.register = async (req, res, next) => {
   try {
-    const { name, phone, email, password, address } = req.body;
+    const name = (req.body?.name || "").toString().trim();
+    const phone = (req.body?.phone || "").toString().trim();
+    const rawEmail = (req.body?.email || "").toString().trim();
+    const email = rawEmail ? rawEmail.toLowerCase() : undefined;
+    const password = req.body?.password;
+    const address = (req.body?.address || "").toString().trim();
 
     if (!name || !password) {
       return res
@@ -35,10 +41,6 @@ exports.register = async (req, res, next) => {
 
     const user = await User.create({ name, phone, email, password, address });
 
-    req.session.userId = user._id.toString();
-    req.session.role = user.role;
-    req.session.name = user.name;
-
     return res.status(201).json({
       success: true,
       message: "Đăng ký thành công",
@@ -51,6 +53,12 @@ exports.register = async (req, res, next) => {
       },
     });
   } catch (err) {
+    if (err?.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Số điện thoại hoặc email đã tồn tại",
+      });
+    }
     next(err);
   }
 };
@@ -60,7 +68,10 @@ exports.register = async (req, res, next) => {
  */
 exports.login = async (req, res, next) => {
   try {
-    const { phone, email, password } = req.body;
+    const phone = (req.body?.phone || "").toString().trim();
+    const rawEmail = (req.body?.email || "").toString().trim();
+    const email = rawEmail ? rawEmail.toLowerCase() : "";
+    const password = req.body?.password;
 
     if (!password || (!phone && !email)) {
       return res.status(400).json({
@@ -75,6 +86,12 @@ exports.login = async (req, res, next) => {
       return res
         .status(401)
         .json({ success: false, message: "Thông tin đăng nhập không đúng" });
+    }
+
+    if (!user.isActive) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Tài khoản đã bị vô hiệu hóa" });
     }
 
     const isMatch = await user.comparePassword(password);
@@ -130,7 +147,12 @@ exports.logout = (req, res, next) => {
   }
   req.session.destroy((err) => {
     if (err) return next(err);
-    res.clearCookie("vvv.sid");
+    res.clearCookie("vvv.sid", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
+    });
     return res.json({ success: true, message: "Đăng xuất thành công" });
   });
 };
@@ -203,7 +225,8 @@ exports.updateProfile = async (req, res, next) => {
  */
 exports.changePassword = async (req, res, next) => {
   try {
-    const { currentPassword, newPassword } = req.body;
+    const currentPassword = req.body?.currentPassword || req.body?.oldPassword;
+    const newPassword = req.body?.newPassword;
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         success: false,
@@ -245,7 +268,9 @@ exports.changePassword = async (req, res, next) => {
  */
 exports.forgotPassword = async (req, res, next) => {
   try {
-    const { phone, email } = req.body;
+    const phone = (req.body?.phone || "").toString().trim();
+    const rawEmail = (req.body?.email || "").toString().trim();
+    const email = rawEmail ? rawEmail.toLowerCase() : "";
     if (!phone && !email) {
       return res.status(400).json({
         success: false,
@@ -273,6 +298,96 @@ exports.forgotPassword = async (req, res, next) => {
       success: true,
       message:
         "Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu sẽ được gửi tới bạn",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/auth/google
+ * Đăng nhập / đăng ký bằng Google ID Token
+ */
+exports.googleLogin = async (req, res, next) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res
+        .status(400)
+        .json({ success: false, message: "idToken là bắt buộc" });
+    }
+
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Google OAuth chưa được cấu hình" });
+    }
+
+    const client = new OAuth2Client(clientId);
+    let payload;
+    try {
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      return res.status(401).json({
+        success: false,
+        message: "Google token không hợp lệ hoặc đã hết hạn",
+      });
+    }
+
+    const { sub: googleId, name, email, picture } = payload;
+    if (!email) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Tài khoản Google không có email" });
+    }
+
+    // Tìm user theo googleId trước, rồi email
+    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+
+    if (!user) {
+      // Tạo user mới từ Google
+      user = await User.create({
+        name: name || email.split("@")[0],
+        email,
+        googleId,
+        avatar: picture || "",
+        provider: "google",
+      });
+    } else if (!user.googleId) {
+      // Tài khoản local đã tồn tại → liên kết với Google
+      user.googleId = googleId;
+      user.avatar = picture || user.avatar;
+      await user.save({ validateBeforeSave: false });
+    }
+
+    if (!user.isActive) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Tài khoản đã bị vô hiệu hóa" });
+    }
+
+    req.session.userId = user._id.toString();
+    req.session.role = user.role;
+    req.session.name = user.name;
+
+    return res.json({
+      success: true,
+      message: "Đăng nhập Google thành công",
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        address: user.address,
+        avatar: user.avatar,
+        role: user.role,
+        provider: user.provider,
+      },
     });
   } catch (err) {
     next(err);

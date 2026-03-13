@@ -29,12 +29,10 @@ exports.createOrder = async (req, res, next) => {
     } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Đơn hàng phải có ít nhất một sản phẩm",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Đơn hàng phải có ít nhất một sản phẩm",
+      });
     }
 
     if (!delivery || !delivery.name || !delivery.phone || !delivery.address) {
@@ -74,7 +72,12 @@ exports.createOrder = async (req, res, next) => {
     return res.status(201).json({
       success: true,
       message: "Đặt hàng thành công",
-      data: { orderId: order.orderId, _id: order._id },
+      data: {
+        orderId: order.orderId,
+        _id: order._id,
+        totalAmount: order.totalAmount,
+        subtotal: order.subtotal,
+      },
     });
   } catch (err) {
     next(err);
@@ -116,12 +119,10 @@ exports.getOrderById = async (req, res, next) => {
     const isOwner = order.userId.toString() === req.session.userId;
     const isAdmin = req.session.role === "admin";
     if (!isOwner && !isAdmin) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Bạn không có quyền xem đơn hàng này",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền xem đơn hàng này",
+      });
     }
 
     return res.json({ success: true, data: order });
@@ -136,6 +137,7 @@ exports.getOrderById = async (req, res, next) => {
 exports.updateStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
+    const id = req.params.id;
 
     if (!status || !VALID_STATUSES.includes(status)) {
       return res.status(400).json({
@@ -144,8 +146,13 @@ exports.updateStatus = async (req, res, next) => {
       });
     }
 
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
+    const isObjectId = /^[a-f\d]{24}$/i.test(id);
+    const query = isObjectId
+      ? { $or: [{ _id: id }, { orderId: id }] }
+      : { orderId: id };
+
+    const order = await Order.findOneAndUpdate(
+      query,
       { status },
       { new: true },
     );
@@ -159,6 +166,46 @@ exports.updateStatus = async (req, res, next) => {
     return res.json({
       success: true,
       message: "Cập nhật trạng thái thành công",
+      data: order,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * PATCH /api/orders/:id/paid  (auth: owner or admin)
+ * Đánh dấu đơn hàng đã thanh toán — được gọi sau khi VNPay/MoMo redirect về frontend
+ */
+exports.markOrderPaid = async (req, res, next) => {
+  try {
+    const isObjectId = /^[a-f\d]{24}$/i.test(req.params.id);
+    const query = isObjectId
+      ? { $or: [{ _id: req.params.id }, { orderId: req.params.id }] }
+      : { orderId: req.params.id };
+
+    const order = await Order.findOne(query);
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy đơn hàng" });
+    }
+
+    const isOwner = order.userId.toString() === req.session.userId;
+    const isAdmin = req.session.role === "admin";
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Không có quyền thực hiện hành động này",
+      });
+    }
+
+    order.payment.status = "paid";
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: "Cập nhật trạng thái thanh toán thành công",
       data: order,
     });
   } catch (err) {

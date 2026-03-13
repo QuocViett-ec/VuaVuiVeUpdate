@@ -6,4 +6,11 @@ import { VnpayReturnPageComponent } from './vnpay-return-page/vnpay-return-page.
 export const checkoutRoutes: Routes = [
   { path: '', component: CheckoutPageComponent, canActivate: [authGuard] },
   { path: 'return', component: VnpayReturnPageComponent },
+  {
+    path: 'momo-return',
+    loadComponent: () =>
+      import('./momo-return-page/momo-return-page.component').then(
+        (m) => m.MomoReturnPageComponent,
+      ),
+  },
 ];

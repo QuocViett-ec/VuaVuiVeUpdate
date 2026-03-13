@@ -16,7 +16,6 @@
 
     <!-- Main nav -->
     <nav class="nav" aria-label="Điều hướng chính">
-
       <a routerLink="/products" class="nav-link" routerLinkActive="nav-link--active">Sản Phẩm</a>
 
       <a routerLink="/recipes" class="nav-link" routerLinkActive="nav-link--active">Công Thức</a>
@@ -54,7 +53,9 @@
     <div class="header__right">
       @if (isLoggedIn()) {
         <div class="account-menu">
-          <button class="btn--account" (click)="toggleAccountDropdown()">👤 Tài Khoản</button>
+          <button type="button" class="btn--account" (click)="toggleAccountDropdown()">
+            👤 Tài Khoản
+          </button>
           @if (showAccountDropdown()) {
             <div class="dropdown">
               <a
@@ -75,18 +76,20 @@
                 >
               }
               <hr class="dropdown-divider" />
-              <button class="dropdown-item text-danger" (click)="logout()">Đăng xuất</button>
+              <button type="button" class="dropdown-item text-danger" (click)="logout()">
+                Đăng xuất
+              </button>
             </div>
           }
         </div>
       } @else {
-        <button class="btn--account" (click)="router.navigate(['/auth/login'])">
+        <button type="button" class="btn--account" (click)="router.navigate(['/auth/login'])">
           👤 Đăng Nhập
         </button>
       }
 
       <!-- Cart -->
-      <button class="btn--cart" (click)="openCart()" aria-label="Giỏ hàng">
+      <button type="button" class="btn--cart" (click)="openCart()" aria-label="Giỏ hàng">
         🛒 Giỏ Hàng
         @if (cartCount() > 0) {
           <span class="cart-badge">{{ cartCount() }}</span>

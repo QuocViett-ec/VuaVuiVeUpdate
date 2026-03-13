@@ -28,10 +28,12 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Mật khẩu không được để trống"],
       minlength: 6,
       select: false,
     },
+    googleId: { type: String, unique: true, sparse: true },
+    avatar:   { type: String, default: "" },
+    provider: { type: String, enum: ["local", "google"], default: "local" },
     address: { type: String, trim: true, default: "" },
     role: {
       type: String,
@@ -45,9 +47,9 @@ const userSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// Hash password before save
+// Hash password before save (only for local provider)
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  if (!this.isModified("password") || !this.password) return next();
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();

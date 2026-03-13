@@ -1,5 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnDestroy, input } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { Component, ChangeDetectionStrategy, inject, signal, OnDestroy } from '@angular/core';
 import { RouterLink, Router } from '@angular/router';
 import {
   ReactiveFormsModule,
@@ -31,8 +30,7 @@ function passwordMatchValidator(group: AbstractControl): ValidationErrors | null
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-register-page',
-  standalone: true,
-  imports: [CommonModule, RouterLink, ReactiveFormsModule],
+  imports: [RouterLink, ReactiveFormsModule],
   templateUrl: './register-page.component.html',
   styleUrl: './register-page.component.scss',
 })
@@ -79,14 +77,21 @@ export class RegisterPageComponent implements OnDestroy {
 
     this.loading.set(true);
     this.serverError.set('');
-    const { name, phone, dob, email, password, address } = this.registerForm.value;
+
+    const name = (this.registerForm.value.name || '').toString().trim();
+    const phone = (this.registerForm.value.phone || '').toString().trim();
+    const dob = this.registerForm.value.dob;
+    const emailRaw = (this.registerForm.value.email || '').toString().trim();
+    const password = this.registerForm.value.password;
+    const addressRaw = (this.registerForm.value.address || '').toString().trim();
+
     const result = await this.auth.register({
       name,
       phone,
       dob: dob || undefined,
-      email,
+      email: emailRaw || undefined,
       password,
-      address,
+      address: addressRaw || undefined,
     });
     this.loading.set(false);
     if (result.ok) {

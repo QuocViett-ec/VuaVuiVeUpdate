@@ -1,7 +1,7 @@
 <div class="co-page container">
   <h1 class="page-title">🛒 Thanh toán</h1>
 
-  @if (cart.itemCount() === 0) {
+  @if (itemCount() === 0) {
     <div class="empty">
       <p>Giỏ hàng trống.</p>
       <a routerLink="/products" class="btn btn--primary">Mua sắm ngay</a>
@@ -33,6 +33,27 @@
             placeholder="Số nhà, đường, phường, quận, tỉnh"
             class="input"
           ></textarea>
+          <div
+            class="geo-actions"
+            style="margin-top: 6px; display: flex; align-items: center; gap: 8px"
+          >
+            <button
+              type="button"
+              class="btn btn--outline btn--sm"
+              [disabled]="isLocating()"
+              (click)="getLocation()"
+              aria-label="Lấy vị trí hiện tại"
+            >
+              @if (isLocating()) {
+                ⏳ Đang xác định...
+              } @else {
+                📍 Lấy vị trí hiện tại
+              }
+            </button>
+            @if (locationError()) {
+              <span class="field-error" role="alert">⚠ {{ locationError() }}</span>
+            }
+          </div>
         </div>
         <div class="field">
           <label>Khung giờ giao hàng</label>
@@ -62,12 +83,15 @@
           <label class="pay-option" [class.selected]="paymentMethod === 'vnpay'">
             <input type="radio" [(ngModel)]="paymentMethod" value="vnpay" /> 🏦 VNPay (thẻ ATM/QR)
           </label>
+          <label class="pay-option" [class.selected]="paymentMethod === 'momo'">
+            <input type="radio" [(ngModel)]="paymentMethod" value="momo" /> 📱 MoMo
+          </label>
         </div>
       </section>
 
       <!-- Order summary -->
       <aside class="co-summary card">
-        <h2>Đơn hàng ({{ cart.itemCount() }} món)</h2>
+        <h2>Đơn hàng ({{ itemCount() }} món)</h2>
 
         <div class="order-items">
           @for (item of cartItems(); track item.product.id) {
@@ -124,7 +148,9 @@
               ? 'Đang xử lý...'
               : paymentMethod === 'vnpay'
                 ? '🏦 Thanh toán VNPay'
-                : '✅ Đặt hàng'
+                : paymentMethod === 'momo'
+                  ? '📱 Thanh toán MoMo'
+                  : '✅ Đặt hàng'
           }}
         </button>
       </aside>

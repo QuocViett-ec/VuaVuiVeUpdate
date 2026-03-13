@@ -15,6 +15,48 @@ export class OrderService {
 
   constructor(private http: HttpClient) {}
 
+  private normalizeOrder(raw: any): Order {
+    const delivery = raw?.delivery ?? {};
+    const payment = raw?.payment ?? {};
+    const dbId = String(raw?._id ?? raw?.id ?? '');
+    const orderId = String(raw?.orderId ?? dbId);
+    const normalizedItems = Array.isArray(raw?.items)
+      ? raw.items.map((item: any) => ({
+          productId: String(item?.productId ?? ''),
+          productName: item?.productName ?? '',
+          quantity: Number(item?.quantity ?? 0),
+          price: Number(item?.price ?? 0),
+          subtotal: Number(item?.subtotal ?? 0),
+        }))
+      : [];
+
+    return {
+      ...raw,
+      id: orderId,
+      orderId,
+      dbId,
+      userId: raw?.userId?._id ? String(raw.userId._id) : String(raw?.userId ?? ''),
+      customerName: delivery?.name ?? raw?.customerName ?? '',
+      email: raw?.email ?? delivery?.email ?? '',
+      phone: delivery?.phone ?? raw?.phone ?? '',
+      address: delivery?.address ?? raw?.address ?? '',
+      deliverySlot: delivery?.slot ?? raw?.deliverySlot ?? '',
+      items: normalizedItems,
+      subtotal: Number(raw?.subtotal ?? 0),
+      shippingFee: Number(raw?.shippingFee ?? 0),
+      discount: Number(raw?.discount ?? 0),
+      totalAmount: Number(raw?.totalAmount ?? 0),
+      voucherCode: raw?.voucherCode ?? '',
+      note: raw?.note ?? '',
+      paymentMethod: payment?.method ?? raw?.paymentMethod ?? 'cod',
+      paymentStatus: payment?.status ?? raw?.paymentStatus ?? 'pending',
+      status: raw?.status ?? 'pending',
+      createdAt: raw?.createdAt ?? new Date().toISOString(),
+      updatedAt: raw?.updatedAt,
+      paidAt: raw?.paidAt,
+    } as Order;
+  }
+
   // ─── Delivery slots ───────────────────────────────────────────────────────────
   getDeliverySlots(): DeliverySlot[] {
     const slots: DeliverySlot[] = [];
@@ -59,7 +101,9 @@ export class OrderService {
   }
 
   markOrderPaid(orderId: string): Observable<Order> {
-    return this.http.patch<Order>(`${this.api}/api/orders/${orderId}/paid`, {});
+    return this.http
+      .patch<any>(`${this.api}/api/orders/${orderId}/paid`, {})
+      .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
   }
 
   // ─── List / get ───────────────────────────────────────────────────────────────
@@ -67,27 +111,58 @@ export class OrderService {
     // Thử /api/orders/me trước (backend mới với session)
     const meUrl = `${this.api}/api/orders/me`;
     return this.http.get<any>(meUrl, { withCredentials: true }).pipe(
-      map((res: any) => (Array.isArray(res) ? res : (res?.data ?? []))),
+      map((res: any) => {
+        const list = Array.isArray(res) ? res : (res?.data ?? []);
+        const normalized = list.map((o: any) => this.normalizeOrder(o));
+        if (params?.status && params.status !== 'all') {
+          return normalized.filter((o: Order) => o.status === params.status);
+        }
+        return normalized;
+      }),
       catchError(() => of([])),
     );
   }
 
   getMyOrders(): Observable<Order[]> {
     return this.http.get<any>(`${this.api}/api/orders/me`, { withCredentials: true }).pipe(
-      map((res: any) => (Array.isArray(res) ? res : (res?.data ?? []))),
+      map((res: any) => {
+        const list = Array.isArray(res) ? res : (res?.data ?? []);
+        return list.map((o: any) => this.normalizeOrder(o));
+      }),
+      catchError(() => of([])),
+    );
+  }
+
+  getAdminOrders(params?: { status?: string; page?: number; limit?: number }): Observable<Order[]> {
+    const qs = new URLSearchParams();
+    if (params?.status && params.status !== 'all') qs.set('status', params.status);
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.limit) qs.set('limit', String(params.limit));
+
+    const url = `${this.api}/api/admin/orders${qs.toString() ? `?${qs.toString()}` : ''}`;
+    return this.http.get<any>(url, { withCredentials: true }).pipe(
+      map((res: any) => {
+        const list = Array.isArray(res) ? res : (res?.data ?? []);
+        return list.map((o: any) => this.normalizeOrder(o));
+      }),
       catchError(() => of([])),
     );
   }
 
   getOrderById(id: string): Observable<Order | null> {
     return this.http.get<any>(`${this.api}/api/orders/${id}`).pipe(
-      map((res: any) => res?.data ?? res),
+      map((res: any) => {
+        const order = res?.data ?? res;
+        return order ? this.normalizeOrder(order) : null;
+      }),
       catchError(() => of(null)),
     );
   }
 
   updateOrderStatus(id: string, status: string): Observable<Order> {
-    return this.http.put<Order>(`${this.api}/api/orders/${id}/status`, { status });
+    return this.http
+      .put<any>(`${this.api}/api/orders/${id}/status`, { status })
+      .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
   }
 
   // ─── Order ID generator ───────────────────────────────────────────────────────
