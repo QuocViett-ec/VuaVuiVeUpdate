@@ -14,7 +14,7 @@ const Product = require("../models/Product.model");
 router.post("/", async (req, res, next) => {
   try {
     const recommenderApi =
-      process.env.RECOMMENDER_API || "http://localhost:5000";
+      process.env.RECOMMENDER_API || "http://localhost:5001";
 
     const response = await fetch(`${recommenderApi}/api/recommend`, {
       method: "POST",

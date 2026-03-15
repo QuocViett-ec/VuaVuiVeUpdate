@@ -1,0 +1,93 @@
+<div class="dashboard-shell">
+  <section class="hero-card">
+    <div>
+      <p class="eyebrow">Admin Dashboard</p>
+      <h1>Toan canh van hanh</h1>
+      <p class="headline">{{ headline() }}</p>
+    </div>
+    <div class="hero-badge" *ngIf="!loading() && !error()">
+      <span>Trang thai</span>
+      <strong>Data song</strong>
+    </div>
+  </section>
+
+  <p class="state state--error" *ngIf="error()">{{ error() }}</p>
+  <p class="state" *ngIf="loading()">Dang tai thong ke...</p>
+
+  <section class="stats-grid" *ngIf="!loading() && !error()">
+    <article class="stat-card" *ngFor="let stat of stats()" [attr.data-tone]="stat.tone">
+      <div class="stat-kicker">{{ stat.icon }}</div>
+      <p class="stat-label">{{ stat.label }}</p>
+      <strong class="stat-value">{{ stat.value }}</strong>
+      <p class="stat-hint">{{ stat.hint }}</p>
+    </article>
+  </section>
+
+  <section class="charts-grid" *ngIf="!loading() && !error()">
+    <article class="panel panel--wide">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">7 ngay gan day</p>
+          <h3>Doanh thu theo ngay</h3>
+        </div>
+      </div>
+      <canvas id="revenueChart" #revenueChart></canvas>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">Trang thai</p>
+          <h3>Phan bo don hang</h3>
+        </div>
+      </div>
+      <canvas id="statusChart" #statusChart></canvas>
+    </article>
+
+    <article class="panel panel--wide">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">6 thang gan day</p>
+          <h3>Nhip doanh thu theo thang</h3>
+        </div>
+      </div>
+      <canvas id="monthChart" #monthChart></canvas>
+    </article>
+  </section>
+
+  <section class="panel" *ngIf="!loading() && !error()">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Feed moi nhat</p>
+        <h3>Don hang gan day</h3>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Ma don</th>
+            <th>Khach hang</th>
+            <th>Tong tien</th>
+            <th>Trang thai</th>
+            <th>Thoi gian</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let order of recentOrders()">
+            <td class="mono">{{ order.orderId || 'N/A' }}</td>
+            <td>{{ customerName(order) }}</td>
+            <td class="money">{{ order.totalAmount | number }}d</td>
+            <td>
+              <span class="badge" [attr.data-status]="order.status">
+                {{ statusLabel(order.status) }}
+              </span>
+            </td>
+            <td class="muted">{{ order.createdAt | date: 'dd/MM/yyyy HH:mm' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

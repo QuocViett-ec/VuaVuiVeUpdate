@@ -14,6 +14,16 @@ exports.csrfProtection = (req, res, next) => {
   const safeMethods = ["GET", "HEAD", "OPTIONS"];
   if (safeMethods.includes(req.method)) return next();
 
+  // Public auth endpoints are already protected by CORS and do not require
+  // an existing authenticated session, so skip the custom header check here.
+  const publicAuthPaths = new Set([
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/google",
+    "/api/auth/forgot-password",
+  ]);
+  if (publicAuthPaths.has(req.path)) return next();
+
   const header = req.headers["x-requested-with"];
   if (header !== "XMLHttpRequest") {
     return res.status(403).json({

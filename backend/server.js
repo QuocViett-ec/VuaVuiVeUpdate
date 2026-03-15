@@ -1,5 +1,5 @@
 /**
- * server.js — Entry point cho Vựa Vui Vẻ Backend API
+ * server.js - Entry point cho Vua Vui Ve Backend API
  * Stack: Node.js + Express + MongoDB (Mongoose) + express-session
  */
 "use strict";
@@ -26,32 +26,54 @@ const recipesRoutes = require("./routes/recipes.routes");
 const errorHandler = require("./middleware/error.middleware");
 const { csrfProtection } = require("./middleware/csrf.middleware");
 
-// ─── App Init ────────────────────────────────────────────────────────────────
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ─── Connect MongoDB ─────────────────────────────────────────────────────────
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+
+  const configuredOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:4200")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (configuredOrigins.includes(origin)) return true;
+
+  try {
+    const { hostname, protocol } = new URL(origin);
+    const isHttp = protocol === "http:" || protocol === "https:";
+    const isLoopback = hostname === "localhost" || hostname === "127.0.0.1";
+    const isPrivateLan =
+      /^10\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
+
+    return isHttp && (isLoopback || isPrivateLan);
+  } catch {
+    return false;
+  }
+}
+
 connectDB();
 
-// ─── Security & Logging ──────────────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
-// ─── CORS ────────────────────────────────────────────────────────────────────
 app.use(
   cors({
-    origin: process.env.CLIENT_ORIGIN || "http://localhost:4200",
-    credentials: true, // cho phép gửi cookie
+    origin(origin, callback) {
+      if (isAllowedOrigin(origin)) return callback(null, true);
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   }),
 );
 
-// ─── Body Parser ─────────────────────────────────────────────────────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ─── Session (lưu trong MongoDB) ─────────────────────────────────────────────
 app.use(
   session({
     secret: process.env.SESSION_SECRET || "vvv_secret",
@@ -72,17 +94,11 @@ app.use(
   }),
 );
 
-// ─── Static Files (uploaded images) ──────────────────────────────────────────
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// ─── Static: phục vụ ảnh sản phẩm từ frontend/public (không cần copy file) ────────
-// => GET /images/VEG/leaf/raumuong.jpg ⇒ frontend/public/images/VEG/leaf/raumuong.jpg
 app.use("/", express.static(path.join(__dirname, "../frontend/public")));
 
-// ─── CSRF Protection ──────────────────────────────────────────────────────────
 app.use(csrfProtection);
 
-// ─── API Routes ───────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
@@ -92,7 +108,6 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/recommend", recommendRoutes);
 app.use("/api/recipes", recipesRoutes);
 
-// Health check
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -102,14 +117,12 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// ─── Error Handler ────────────────────────────────────────────────────────────
 app.use(errorHandler);
 
-// ─── Start Server ─────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`\n🚀 VuaVuiVe Backend chạy tại http://localhost:${PORT}`);
-  console.log(`📦 Environment: ${process.env.NODE_ENV}`);
-  console.log(`🌐 CORS cho phép: ${process.env.CLIENT_ORIGIN}`);
+  console.log(`\nVuaVuiVe Backend chay tai http://localhost:${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV}`);
+  console.log(`CORS config: ${process.env.CLIENT_ORIGIN || "auto local dev"}`);
 });
 
 module.exports = app;

@@ -1,0 +1,82 @@
+<div class="reports-shell">
+  <section class="hero-card">
+    <div>
+      <p class="eyebrow">Reports</p>
+      <h1>Doanh thu theo ngay va theo thang</h1>
+      <p class="headline">
+        Theo doi nhiet do kinh doanh trong 30 ngay gan day va nhip doanh thu qua tung thang.
+      </p>
+    </div>
+    <button class="export-btn" (click)="exportCsv()">Export CSV</button>
+  </section>
+
+  <p class="state state--error" *ngIf="error()">{{ error() }}</p>
+  <p class="state" *ngIf="loading()">Dang tai bao cao...</p>
+
+  <section class="summary-grid" *ngIf="!loading() && !error()">
+    <article class="summary-card">
+      <p class="summary-label">Tong doanh thu</p>
+      <strong>{{ totalRevenue() | number }}d</strong>
+    </article>
+    <article class="summary-card">
+      <p class="summary-label">Tong don hang</p>
+      <strong>{{ totalOrders() | number }}</strong>
+    </article>
+    <article class="summary-card">
+      <p class="summary-label">Gia tri trung binh</p>
+      <strong>{{ averageOrderValue() | number }}d</strong>
+    </article>
+  </section>
+
+  <section class="charts-grid" *ngIf="!loading() && !error()">
+    <article class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">30 ngay</p>
+          <h3>Xu huong doanh thu theo ngay</h3>
+        </div>
+      </div>
+      <canvas id="dayRevChart"></canvas>
+    </article>
+
+    <article class="panel">
+      <div class="panel-head">
+        <div>
+          <p class="panel-kicker">12 thang</p>
+          <h3>Doanh thu theo thang</h3>
+        </div>
+      </div>
+      <canvas id="monthRevChart"></canvas>
+    </article>
+  </section>
+
+  <section class="panel" *ngIf="!loading() && !error()">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Bang du lieu</p>
+        <h3>Chi tiet theo thang</h3>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Thang</th>
+            <th>So don</th>
+            <th>Doanh thu</th>
+            <th>Trung binh / don</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of byMonth()">
+            <td class="mono">{{ row.month }}</td>
+            <td>{{ row.orders | number }}</td>
+            <td class="money">{{ row.revenue | number }}d</td>
+            <td class="muted">{{ (row.orders ? row.revenue / row.orders : 0) | number: '1.0-0' }}d</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

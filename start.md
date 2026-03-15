@@ -1,72 +1,94 @@
-## HƯỚNG DẪN KHỞI ĐỘNG DỰ ÁN VuaVuiVe
+## HUONG DAN KHOI DONG DU AN VuaVuiVe
 
-=========================================================
-CÁC SERVICE VÀ PORT
-=========================================================
-Backend API → http://localhost:3000
-Frontend Angular→ http://localhost:4200
-VNPay Server → http://localhost:8888
-ML Recommender → http://localhost:5001
-MongoDB → localhost:27017
-=========================================================
+### Cac service va port
 
-=========================================================
-BƯỚC 0: CÀI ĐẶT (CHỈ LÀM LẦN ĐẦU)
-=========================================================
+- Backend API: `http://localhost:3000`
+- Frontend Angular: `http://localhost:4200`
+- VNPay demo: `http://localhost:8888`
+- ML Recommender: `http://localhost:5001`
+- MongoDB: `localhost:27017`
 
-# Backend
+### Buoc 0: Cai dat
 
-cd e:\Nam3\TailLieuHocKi7\WEB2\VuaVuiVeNC\VuaVuiVeUpdate\backend
+Backend:
+
+```powershell
+cd d:\VUAVUIVE\VuaVuiVeUpdate\backend
 npm install
+```
 
-# Frontend
+Frontend:
 
-cd e:\Nam3\TailLieuHocKi7\WEB2\VuaVuiVeNC\VuaVuiVeUpdate\frontend
+```powershell
+cd d:\VUAVUIVE\VuaVuiVeUpdate\frontend
 npm install
+```
 
-# VNPay
+VNPay:
 
-cd e:\Nam3\TailLieuHocKi7\WEB2\VuaVuiVeNC\VuaVuiVeUpdate\payment\vnpay_nodejs
+```powershell
+cd d:\VUAVUIVE\VuaVuiVeUpdate\payment\vnpay_nodejs
 npm install
+```
 
-# ML (Python)
+ML:
 
-cd e:\Nam3\TailLieuHocKi7\WEB2\VuaVuiVeNC\VuaVuiVeUpdate\ml\VuaVuiVe_Recommender\src
+```powershell
+cd d:\VUAVUIVE\VuaVuiVeUpdate\ml\VuaVuiVe_Recommender\src
 pip install -r ..\requirements.txt
+```
 
-=========================================================
-BƯỚC 1: SEED DỮ LIỆU MẪU VÀO MONGODB (LẦN ĐẦU)
-=========================================================
+### Buoc 1: Dam bao MongoDB dang chay
 
-cd e:\Nam3\TailLieuHocKi7\WEB2\VuaVuiVeNC\VuaVuiVeUpdate\backend
+Backend se loi ngay neu MongoDB chua mo. Can co service MongoDB o `localhost:27017` truoc khi chay backend.
+
+### Buoc 2: Seed du lieu mau
+
+```powershell
+cd d:\VUAVUIVE\VuaVuiVeUpdate\backend
 npm run seed
+```
 
-=========================================================
-BƯỚC 2: KHỞI ĐỘNG (MỞ 4 TERMINAL RIÊNG)
-=========================================================
+### Buoc 3: Khoi dong 4 terminal rieng
 
---- Terminal 1: Backend API (port 3000) ---
-cd e:\Nam3\TailLieuHocKi7\WEB2\VuaVuiVeNC\VuaVuiVeUpdate\backend
+Terminal 1 - Backend:
+
+```powershell
+cd d:\VUAVUIVE\VuaVuiVeUpdate\backend
 npm run dev
+```
 
---- Terminal 2: Frontend Angular (port 4200) ---
-cd e:\Nam3\TailLieuHocKi7\WEB2\VuaVuiVeNC\VuaVuiVeUpdate\frontend
+Neu `nodemon` bi loi moi truong, dung ban fallback:
+
+```powershell
+cd d:\VUAVUIVE\VuaVuiVeUpdate\backend
+npm run dev:plain
+```
+
+Terminal 2 - Frontend:
+
+```powershell
+cd d:\VUAVUIVE\VuaVuiVeUpdate\frontend
 npm start
+```
 
---- Terminal 3: VNPay Server (port 8888) ---
-cd e:\Nam3\TailLieuHocKi7\WEB2\VuaVuiVeNC\VuaVuiVeUpdate\payment\vnpay_nodejs
+Terminal 3 - VNPay:
+
+```powershell
+cd d:\VUAVUIVE\VuaVuiVeUpdate\payment\vnpay_nodejs
 npm start
+```
 
---- Terminal 4: ML Recommender (port 5001) ---
-cd e:\Nam3\TailLieuHocKi7\WEB2\VuaVuiVeNC\VuaVuiVeUpdate\ml\VuaVuiVe_Recommender\src
+Terminal 4 - ML:
+
+```powershell
+cd d:\VUAVUIVE\VuaVuiVeUpdate\ml\VuaVuiVe_Recommender\src
 python api.py
+```
 
-=========================================================
-LƯU Ý
-=========================================================
+### Ghi chu
 
-- Phải đảm bảo MongoDB đang chạy trước khi start backend
-- Khởi động backend TRƯỚC frontend
-- VNPay và ML có thể khởi động song song với frontend
-- Đảm bảo backend/.env dùng RECOMMENDER_API=http://localhost:5001 để proxy ML đúng cổng
-- Truy cập giao diện tại: http://localhost:4200
+- Khoi dong backend truoc frontend.
+- `backend/.env` can co `RECOMMENDER_API=http://localhost:5001` (ML api.py chay port 5001, KHONG phai 5000).
+- Giao dien chinh mo tai `http://localhost:4200`.
+- Phan goi y san pham tren home/recommended page da duoc sua de goi dung endpoint `/api/recommend`.

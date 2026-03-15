@@ -1,8 +1,11 @@
+const browserHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+const httpBase = `http://${browserHost}`;
+
 export const environment = {
   production: false,
-  apiBase: 'http://localhost:3000',
-  mlApi: 'http://localhost:5001',
-  paymentApi: 'http://localhost:3000/api/payment',
-  vnpayApi: 'http://localhost:8888', // legacy — kept for backward compat
+  apiBase: `${httpBase}:3000`,
+  mlApi: `${httpBase}:5001`,
+  paymentApi: `${httpBase}:3000/api/payment`,
+  vnpayApi: `${httpBase}:8888`,
   googleClientId: '977189466141-dui9vfeok79v78r9k5jtks0anhoq50qm.apps.googleusercontent.com',
 };
