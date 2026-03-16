@@ -39,6 +39,7 @@ router.get("/:id", requireAuth, readLimiter, orderCtrl.getOrderById);
 
 // Cập nhật trạng thái thanh toán (owner hoặc admin) — gọi sau VNPay/MoMo callback
 router.patch("/:id/paid", requireAuth, writeLimiter, orderCtrl.markOrderPaid);
+router.patch("/:id/cancel", requireAuth, writeLimiter, orderCtrl.cancelOrder);
 
 // Admin routes
 router.put(

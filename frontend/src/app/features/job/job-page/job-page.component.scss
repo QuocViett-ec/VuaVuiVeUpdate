@@ -32,8 +32,8 @@
   }
 
   .flip-card {
-    width: 200px;
-    height: 240px;
+    width: 240px;
+    height: 320px;
     perspective: 1000px;
     cursor: pointer;
 
@@ -67,8 +67,8 @@
       background: #fff;
       border: 1px solid #c8e6c9;
       img {
-        width: 64px;
-        height: 64px;
+        width: 220px;
+        height: 220px;
         object-fit: contain;
         margin-bottom: 12px;
       }

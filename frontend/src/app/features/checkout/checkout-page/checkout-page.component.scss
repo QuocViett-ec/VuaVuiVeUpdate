@@ -52,6 +52,17 @@
   }
 }
 
+.co-form-section .field:has(select) label::after {
+  content: ' *';
+  color: #c62828;
+}
+
+.field-error {
+  color: #c62828;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .input {
   padding: 0.6rem 0.85rem;
   border: 1.5px solid #ddd;

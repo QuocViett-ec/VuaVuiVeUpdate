@@ -1,64 +1,31 @@
 import { Component, ChangeDetectionStrategy, inject, signal, OnInit, PLATFORM_ID } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
-import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
-
-interface Article {
-  title: string;
-  link: string;
-  desc: string;
-  image: string;
-  pub: string;
-}
+import { isPlatformBrowser, CommonModule, DatePipe } from '@angular/common';
+import { RssService, RssItem } from '../../../core/services/rss.service';
 
 const SECTIONS = [
-  {
-    key: 'depda',
-    label: 'Sức khỏe',
-    rss: 'https://dantri.com.vn/rss/suc-khoe.rss',
-    more: 'https://dantri.com.vn/suc-khoe.htm',
-    lead: true },
-  {
-    key: 'dinhduong',
-    label: 'Công nghệ',
-    rss: 'https://dantri.com.vn/rss/cong-nghe.rss',
-    more: 'https://dantri.com.vn/cong-nghe.htm',
-    lead: false },
-  {
-    key: 'chuyengia',
-    label: 'Giáo dục',
-    rss: 'https://dantri.com.vn/rss/giao-duc.rss',
-    more: 'https://dantri.com.vn/giao-duc.htm',
-    lead: false },
-  {
-    key: 'congnghe',
-    label: 'Du lịch',
-    rss: 'https://dantri.com.vn/rss/du-lich.rss',
-    more: 'https://dantri.com.vn/du-lich.htm',
-    lead: false },
-  {
-    key: 'monngon',
-    label: 'Đời sống',
-    rss: 'https://dantri.com.vn/rss/doi-song.rss',
-    more: 'https://dantri.com.vn/doi-song.htm',
-    lead: false },
+  { key: 'sucKhoe', label: 'Sức khỏe', feed: 'https://vnexpress.net/rss/suc-khoe.rss', more: 'https://vnexpress.net/suc-khoe' },
+  { key: 'congNghe', label: 'Công nghệ', feed: 'https://vnexpress.net/rss/so-hoa.rss', more: 'https://vnexpress.net/so-hoa' },
+  { key: 'giaoDuc', label: 'Giáo dục', feed: 'https://vnexpress.net/rss/giao-duc.rss', more: 'https://vnexpress.net/giao-duc' },
+  { key: 'duLich', label: 'Du lịch', feed: 'https://vnexpress.net/rss/du-lich.rss', more: 'https://vnexpress.net/du-lich' },
+  { key: 'doiSong', label: 'Đời sống', feed: 'https://vnexpress.net/rss/gia-dinh.rss', more: 'https://vnexpress.net/gia-dinh' },
 ];
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-news-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, DatePipe],
   templateUrl: './news-page.component.html',
-  styleUrl: './news-page.component.scss' })
+  styleUrl: './news-page.component.scss'
+})
 export class NewsPageComponent implements OnInit {
-  private http = inject(HttpClient);
+  private rssService = inject(RssService);
   private platformId = inject(PLATFORM_ID);
   isBrowser = isPlatformBrowser(this.platformId);
 
   sections = SECTIONS;
-  activeKey = signal('depda');
-  articles = signal<Record<string, Article[]>>({});
+  activeKey = signal('sucKhoe');
+  articles = signal<Record<string, RssItem[]>>({});
   loading = signal<Record<string, boolean>>({});
 
   get activeSection() {
@@ -79,51 +46,17 @@ export class NewsPageComponent implements OnInit {
 
   private loadSection(section: (typeof SECTIONS)[0]) {
     const key = section.key;
-    const cached = sessionStorage.getItem(`rss:${key}`);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (Date.now() - parsed.ts < 600_000) {
-          this.articles.update((a) => ({ ...a, [key]: parsed.data }));
-          return;
-        }
-      } catch {}
-    }
     this.loading.update((l) => ({ ...l, [key]: true }));
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(section.rss)}`;
-    this.http.get<{ contents: string }>(proxyUrl).subscribe({
-      next: (res) => {
-        const items = this.parseRss(res.contents);
-        this.articles.update((a) => ({ ...a, [key]: items }));
+
+    this.rssService.getFeed(section.feed).subscribe({
+      next: (items) => {
+        this.articles.update((a) => ({ ...a, [key]: items.slice(0, 12) }));
         this.loading.update((l) => ({ ...l, [key]: false }));
-        try {
-          sessionStorage.setItem(`rss:${key}`, JSON.stringify({ ts: Date.now(), data: items }));
-        } catch {}
       },
       error: () => {
         this.articles.update((a) => ({ ...a, [key]: [] }));
         this.loading.update((l) => ({ ...l, [key]: false }));
-      } });
-  }
-
-  private parseRss(xml: string): Article[] {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(xml, 'text/xml');
-    const items = Array.from(doc.querySelectorAll('item')).slice(0, 10);
-    return items.map((item) => {
-      const title = item.querySelector('title')?.textContent?.trim() ?? '';
-      const link = item.querySelector('link')?.textContent?.trim() ?? '#';
-      const desc =
-        item
-          .querySelector('description')
-          ?.textContent?.replace(/<[^>]+>/g, '')
-          .trim()
-          .slice(0, 120) ?? '';
-      const encImg = item.querySelector('enclosure')?.getAttribute('url') ?? '';
-      const mediaImg = item.querySelector('thumbnail')?.getAttribute('url') ?? '';
-      const image = encImg || mediaImg || '';
-      const pub = item.querySelector('pubDate')?.textContent?.trim() ?? '';
-      return { title, link, desc, image, pub };
+      }
     });
   }
 }

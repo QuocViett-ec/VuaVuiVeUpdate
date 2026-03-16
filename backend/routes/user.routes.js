@@ -11,6 +11,7 @@ const {
   listAuditLogs,
   createAuditLogRoute,
   getDashboardStats,
+  getDashboardAnalytics,
 } = require("../controllers/user.controller");
 const { requireAdmin } = require("../middleware/auth.middleware");
 
@@ -25,6 +26,7 @@ const adminLimiter = rateLimit({
 
 // Dashboard stats
 router.get("/dashboard/stats", adminLimiter, requireAdmin, getDashboardStats);
+router.get("/dashboard/analytics", adminLimiter, requireAdmin, getDashboardAnalytics);
 
 // Audit logs
 router.get("/audit-logs", adminLimiter, requireAdmin, listAuditLogs);

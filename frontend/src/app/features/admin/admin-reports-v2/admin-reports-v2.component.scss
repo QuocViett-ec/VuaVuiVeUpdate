@@ -1,0 +1,148 @@
+.reports-shell {
+  --panel-bg: #fffcf5;
+  --panel-border: #eadfcb;
+  --text-main: #18230f;
+  --text-muted: #6f7a63;
+
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.hero-card,
+.panel,
+.summary-card {
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.92), transparent 35%),
+    linear-gradient(180deg, rgba(255, 252, 245, 0.98), rgba(250, 245, 234, 0.98));
+  border: 1px solid var(--panel-border);
+  border-radius: 24px;
+  box-shadow: 0 14px 30px rgba(90, 74, 44, 0.08);
+}
+
+.hero-card {
+  padding: 1.5rem 1.6rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: end;
+}
+
+.eyebrow,
+.panel-kicker {
+  margin: 0 0 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.hero-card h1,
+.panel h3 {
+  margin: 0;
+  color: var(--text-main);
+}
+
+.headline,
+.summary-label,
+.muted,
+.state {
+  color: var(--text-muted);
+}
+
+.headline,
+.summary-label,
+.state {
+  margin: 0;
+}
+
+.export-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 0.8rem 1.1rem;
+  background: #1d6f42;
+  color: #f5fff4;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.summary-grid,
+.charts-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.summary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.charts-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.summary-card,
+.panel {
+  padding: 1.25rem;
+}
+
+.summary-card strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1.7rem;
+  color: #12633a;
+}
+
+.panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.panel canvas {
+  max-height: 280px;
+}
+
+.state--error {
+  color: #b42318;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.8rem 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(111, 122, 99, 0.16);
+}
+
+.data-table th {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.mono {
+  font-family: Consolas, monospace;
+}
+
+.money {
+  color: #177245;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .hero-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

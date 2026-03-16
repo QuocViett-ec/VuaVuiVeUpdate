@@ -48,6 +48,7 @@ export class CheckoutPageComponent implements OnInit {
   loading = signal(false);
   isLocating = signal(false);
   locationError = signal('');
+  slotError = signal('');
   selectedIds = signal<Set<string> | null>(null);
 
   readonly cartItems = computed(() => {
@@ -133,6 +134,8 @@ export class CheckoutPageComponent implements OnInit {
   }
 
   async placeOrder(): Promise<void> {
+    this.slotError.set('');
+
     if (!this.auth.isLoggedIn()) {
       this.toast.error('Vui lòng đăng nhập để đặt hàng.');
       this.router.navigate(['/auth/login'], { queryParams: { returnUrl: '/checkout' } });
@@ -147,6 +150,16 @@ export class CheckoutPageComponent implements OnInit {
       return;
     }
     // Kiểm tra cart đã có đầy đủ thông tin sản phẩm chưa
+    if (!this.selectedSlotId) {
+      this.slotError.set('Vui lÃ²ng chá»n khung giá» giao hÃ ng.');
+      this.toast.error('Vui lÃ²ng chá»n khung giá» giao hÃ ng.');
+      return;
+    }
+    if (!this.selectedSlotId) {
+      this.slotError.set('Vui long chon khung gio giao hang.');
+      this.toast.error('Vui long chon khung gio giao hang.');
+      return;
+    }
     const hasInvalidItem = this.cartItems().some((i) => !i.product.name || !i.product.price);
     if (hasInvalidItem) {
       this.toast.error(
@@ -201,7 +214,10 @@ export class CheckoutPageComponent implements OnInit {
           try {
             const resp = await fetch(vnpayUrl, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+              },
               credentials: 'include',
               body: JSON.stringify(body),
             });
@@ -222,7 +238,10 @@ export class CheckoutPageComponent implements OnInit {
           try {
             const resp = await fetch(momoUrl, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+              },
               credentials: 'include',
               body: JSON.stringify(body),
             });

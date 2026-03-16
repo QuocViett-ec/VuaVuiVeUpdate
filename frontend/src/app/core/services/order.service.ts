@@ -165,6 +165,12 @@ export class OrderService {
       .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
   }
 
+  cancelOrder(id: string): Observable<Order> {
+    return this.http
+      .patch<any>(`${this.api}/api/orders/${id}/cancel`, {})
+      .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
+  }
+
   // ─── Order ID generator ───────────────────────────────────────────────────────
   generateOrderId(): string {
     const now = new Date();

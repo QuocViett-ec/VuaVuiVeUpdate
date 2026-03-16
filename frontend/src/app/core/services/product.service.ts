@@ -54,6 +54,21 @@ export class ProductService {
       .trim();
   }
 
+  private toApiProduct(p: Partial<Product>): Record<string, unknown> {
+    return {
+      name: p.name,
+      price: p.price,
+      originalPrice: p.oldPrice,
+      category: p.cat,
+      subCategory: p.sub,
+      imageUrl: p.img,
+      description: p.description,
+      stock: p.stock,
+      unit: p.unit,
+      isActive: p.status ? p.status === 'active' : undefined,
+    };
+  }
+
   // ─── List products ───────────────────────────────────────────────────────────
   getProducts(params?: {
     cat?: string;
@@ -98,11 +113,15 @@ export class ProductService {
   }
 
   createProduct(p: Partial<Product>): Observable<Product> {
-    return this.http.post<Product>(`${this.api}/api/products`, p);
+    return this.http
+      .post<any>(`${this.api}/api/products`, this.toApiProduct(p))
+      .pipe(map((res) => this.normalize(res?.data ?? res)));
   }
 
   updateProduct(id: string, p: Partial<Product>): Observable<Product> {
-    return this.http.put<Product>(`${this.api}/api/products/${id}`, p);
+    return this.http
+      .put<any>(`${this.api}/api/products/${id}`, this.toApiProduct(p))
+      .pipe(map((res) => this.normalize(res?.data ?? res)));
   }
 
   deleteProduct(id: string): Observable<void> {

@@ -16,6 +16,12 @@ interface MonthStat {
   orders: number;
 }
 
+interface DayStat {
+  day: string;
+  revenue: number;
+  orders: number;
+}
+
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-admin-reports',
@@ -29,24 +35,37 @@ export class AdminReportsComponent implements OnInit {
   private platformId = inject(PLATFORM_ID);
 
   byMonth = signal<MonthStat[]>([]);
+  byDay = signal<DayStat[]>([]);
   totalRevenue = signal(0);
   totalOrders = signal(0);
 
   ngOnInit(): void {
     this.orderSvc.getAdminOrders({ limit: 1000 }).subscribe((orders) => {
       const map: Record<string, MonthStat> = {};
+      const dailyMap: Record<string, DayStat> = {};
       orders.forEach((o) => {
         const m = new Date(o.createdAt).toISOString().slice(0, 7);
+        const d = new Date(o.createdAt).toISOString().slice(0, 10);
         if (!map[m]) map[m] = { month: m, revenue: 0, orders: 0 };
+        if (!dailyMap[d]) dailyMap[d] = { day: d, revenue: 0, orders: 0 };
         map[m].revenue += o.totalAmount ?? 0;
         map[m].orders++;
+        dailyMap[d].revenue += o.totalAmount ?? 0;
+        dailyMap[d].orders++;
       });
       const sorted = Object.values(map).sort((a, b) => a.month.localeCompare(b.month));
+      const last30Days = Object.values(dailyMap)
+        .sort((a, b) => a.day.localeCompare(b.day))
+        .slice(-30);
       this.byMonth.set(sorted);
+      this.byDay.set(last30Days);
       this.totalRevenue.set(orders.reduce((s, o) => s + (o.totalAmount ?? 0), 0));
       this.totalOrders.set(orders.length);
       if (isPlatformBrowser(this.platformId)) {
-        this.loadChartJs().then(() => this.drawChart(sorted));
+        this.loadChartJs().then(() => {
+          this.drawChart(sorted);
+          this.drawDayChart(last30Days);
+        });
       }
     });
   }
@@ -79,6 +98,43 @@ export class AdminReportsComponent implements OnInit {
             borderColor: '#10b981',
             borderWidth: 1,
             borderRadius: 6,
+          },
+        ],
+      },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { callback: (v: any) => v.toLocaleString('vi-VN') + 'đ' },
+          },
+        },
+      },
+    });
+  }
+
+  private drawDayChart(data: DayStat[]): void {
+    const Chart = (window as any).Chart;
+    if (!Chart) return;
+    const canvas = document.getElementById('dayRevChart') as HTMLCanvasElement;
+    if (!canvas) return;
+    if ((canvas as any).__ch) (canvas as any).__ch.destroy();
+    (canvas as any).__ch = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels: data.map((d) =>
+          new Date(d.day).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+        ),
+        datasets: [
+          {
+            label: 'Doanh thu 30 ngày',
+            data: data.map((d) => d.revenue),
+            borderColor: '#1d4ed8',
+            backgroundColor: 'rgba(59,130,246,.12)',
+            fill: true,
+            tension: 0.35,
+            pointRadius: 3,
+            pointBackgroundColor: '#1d4ed8',
           },
         ],
       },

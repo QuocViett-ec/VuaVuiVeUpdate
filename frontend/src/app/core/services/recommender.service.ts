@@ -35,10 +35,15 @@ export class RecommenderService {
 
   getTimeAwareRecommendations(userId: string, n = 8): Observable<Recommendation[]> {
     return this.http
-      .get<
-        Recommendation[]
-      >(`${environment.apiBase}/api/recommendations?userId=${userId}&n=${n}`, { withCredentials: true })
-      .pipe(catchError(() => of([])));
+      .post<{ success: boolean; data: RecommendResponse }>(
+        this.api,
+        { user_id: userId, n, filter_purchased: true },
+        { withCredentials: true },
+      )
+      .pipe(
+        map((res) => res?.data?.recommendations ?? []),
+        catchError(() => of([])),
+      );
   }
 
   /** Direct call to ML API — get products similar to a given product id */

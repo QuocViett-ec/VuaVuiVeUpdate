@@ -3,6 +3,213 @@
 const User = require("../models/User.model");
 const Order = require("../models/Order.model");
 const AuditLog = require("../models/AuditLog.model");
+const Product = require("../models/Product.model");
+
+function formatDayKey(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatMonthKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function startOfDay(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function fillDailySeries(rawMap, days) {
+  const today = startOfDay(new Date());
+  const data = [];
+
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    const key = formatDayKey(date);
+    const found = rawMap.get(key) || { revenue: 0, orders: 0 };
+    data.push({
+      day: key,
+      revenue: found.revenue,
+      orders: found.orders,
+    });
+  }
+
+  return data;
+}
+
+function fillMonthlySeries(rawMap, months) {
+  const now = new Date();
+  const data = [];
+
+  for (let i = months - 1; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = formatMonthKey(date);
+    const found = rawMap.get(key) || { revenue: 0, orders: 0 };
+    data.push({
+      month: key,
+      revenue: found.revenue,
+      orders: found.orders,
+    });
+  }
+
+  return data;
+}
+
+async function buildAdminAnalytics() {
+  const today = startOfDay(new Date());
+  const last30Date = new Date(today);
+  last30Date.setDate(today.getDate() - 29);
+  const last12MonthDate = new Date(today.getFullYear(), today.getMonth() - 11, 1);
+
+  const paidOrderMatch = {
+    status: { $ne: "cancelled" },
+    "payment.status": "paid",
+  };
+
+  const [
+    totalUsers,
+    totalProducts,
+    totalOrders,
+    pendingOrders,
+    paidRevenueAgg,
+    averageOrderAgg,
+    ordersByStatusAgg,
+    last30DaysAgg,
+    last12MonthsAgg,
+    recentOrders,
+  ] = await Promise.all([
+    User.countDocuments({ isActive: true }),
+    Product.countDocuments(),
+    Order.countDocuments(),
+    Order.countDocuments({ status: "pending" }),
+    Order.aggregate([
+      { $match: paidOrderMatch },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$totalAmount" },
+          paidOrders: { $sum: 1 },
+        },
+      },
+    ]),
+    Order.aggregate([
+      { $match: { status: { $ne: "cancelled" } } },
+      {
+        $group: {
+          _id: null,
+          averageOrderValue: { $avg: "$totalAmount" },
+        },
+      },
+    ]),
+    Order.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { count: -1 } },
+    ]),
+    Order.aggregate([
+      { $match: { createdAt: { $gte: last30Date } } },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+          },
+          revenue: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: ["$status", "cancelled"] },
+                    { $eq: ["$payment.status", "paid"] },
+                  ],
+                },
+                "$totalAmount",
+                0,
+              ],
+            },
+          },
+          orders: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
+    Order.aggregate([
+      { $match: { createdAt: { $gte: last12MonthDate } } },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m", date: "$createdAt" },
+          },
+          revenue: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: ["$status", "cancelled"] },
+                    { $eq: ["$payment.status", "paid"] },
+                  ],
+                },
+                "$totalAmount",
+                0,
+              ],
+            },
+          },
+          orders: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]),
+    Order.find()
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .populate("userId", "name phone email")
+      .lean(),
+  ]);
+
+  const revenueSummary = paidRevenueAgg[0] || { totalRevenue: 0, paidOrders: 0 };
+  const averageOrderValue = Math.round(averageOrderAgg[0]?.averageOrderValue || 0);
+
+  const last30Map = new Map(
+    last30DaysAgg.map((item) => [
+      item._id,
+      { revenue: item.revenue || 0, orders: item.orders || 0 },
+    ]),
+  );
+  const last12Map = new Map(
+    last12MonthsAgg.map((item) => [
+      item._id,
+      { revenue: item.revenue || 0, orders: item.orders || 0 },
+    ]),
+  );
+
+  const revenueLast30Days = fillDailySeries(last30Map, 30);
+  const revenueLast7Days = revenueLast30Days.slice(-7);
+  const revenueByMonth = fillMonthlySeries(last12Map, 12);
+
+  return {
+    overview: {
+      totalUsers,
+      totalProducts,
+      totalOrders,
+      pendingOrders,
+      totalRevenue: revenueSummary.totalRevenue || 0,
+      paidOrders: revenueSummary.paidOrders || 0,
+      averageOrderValue,
+    },
+    revenueLast7Days,
+    revenueLast30Days,
+    revenueByMonth,
+    ordersByStatus: ordersByStatusAgg.map((item) => ({
+      status: item._id || "unknown",
+      count: item.count,
+    })),
+    recentOrders,
+  };
+}
 
 /**
  * GET /api/admin/users?search=&role=&page=&limit=
@@ -203,37 +410,23 @@ exports.createAuditLogRoute = async (req, res, next) => {
  */
 exports.getDashboardStats = async (req, res, next) => {
   try {
-    const [
-      totalUsers,
-      totalOrders,
-      revenueAgg,
-      pendingOrders,
-      recentOrders,
-    ] = await Promise.all([
-      User.countDocuments({ isActive: true }),
-      Order.countDocuments(),
-      Order.aggregate([
-        { $match: { status: { $in: ["delivered"] } } },
-        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
-      ]),
-      Order.countDocuments({ status: "pending" }),
-      Order.find()
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .populate("userId", "name phone"),
-    ]);
-
-    const totalRevenue = revenueAgg.length > 0 ? revenueAgg[0].total : 0;
+    const analytics = await buildAdminAnalytics();
 
     return res.json({
       success: true,
-      data: {
-        totalUsers,
-        totalOrders,
-        totalRevenue,
-        pendingOrders,
-        recentOrders,
-      },
+      data: analytics.overview,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getDashboardAnalytics = async (req, res, next) => {
+  try {
+    const analytics = await buildAdminAnalytics();
+    return res.json({
+      success: true,
+      data: analytics,
     });
   } catch (err) {
     next(err);

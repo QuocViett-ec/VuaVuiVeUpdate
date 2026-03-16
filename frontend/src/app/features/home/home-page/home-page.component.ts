@@ -93,7 +93,6 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!isPlatformBrowser(this.platformId)) return;
     this.initShopScroller();
     this.initHoverPill();
-    this.initRssTabs();
   }
 
   // ── Shop scroller auto-scroll (RAF, y hệt script.js gốc) ─────────────
@@ -127,10 +126,14 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
             this.shopDir = 1;
           }
         }
-        setBar();
       } else {
         this.shopLastTs = ts;
       }
+      
+      // ALWAYS sync the progress bar based on the true scroll position, 
+      // even when auto-scrolling is paused or when smoothly scrolling via nav buttons.
+      setBar();
+      
       this.shopRafId = requestAnimationFrame(tick);
     };
     this.shopRafId = requestAnimationFrame(tick);
@@ -205,7 +208,15 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   shopScroll(px: number): void {
     const el = document.getElementById('scroll');
     if (!el) return;
+    
+    // Temporarily pause auto-scrolling so it doesn't interrupt the smooth scroll animation
+    this.shopPaused = true;
     el.scrollBy({ left: px, behavior: 'smooth' });
+    
+    // Resume auto-scrolling after smooth scroll completes (approx ~800ms)
+    setTimeout(() => {
+      this.shopPaused = false;
+    }, 800);
   }
 
   // Slider
