@@ -2,46 +2,106 @@
   background: #1b2a1e;
   color: #ccc;
   margin-top: auto;
-  padding-top: 3rem;
 
-  &__grid {
+  // ── USP Strip ─────────────────────────────────────────────
+  &__usp {
+    background: #142017;
+    border-bottom: 1px solid #2e3d2e;
+    padding: 3.5rem 0;
+    margin-bottom: 4rem;
+  }
+
+  &__usp-grid {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1.5fr;
+    grid-template-columns: repeat(4, 1fr);
     gap: 2rem;
-    padding-bottom: 2rem;
 
-    @media (max-width: 768px) {
-      grid-template-columns: 1fr 1fr;
+    @media (max-width: 900px) {
+      grid-template-columns: repeat(2, 1fr);
     }
     @media (max-width: 480px) {
       grid-template-columns: 1fr;
     }
   }
 
+  &__usp-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+
+    .icon {
+      width: 32px;
+      height: 32px;
+      color: #81c784;
+      flex-shrink: 0;
+    }
+
+    .text {
+      display: flex;
+      flex-direction: column;
+      
+      strong {
+        color: #fff;
+        font-size: 1rem;
+        margin-bottom: 2px;
+      }
+      small {
+        color: #888;
+        font-size: 0.8rem;
+      }
+    }
+  }
+
+  // ── Main Grid ──────────────────────────────────────────────
+  &__grid {
+    display: grid;
+    grid-template-columns: 2.2fr 1.5fr 1fr 1fr 1.8fr;
+    gap: 4rem;
+    padding-bottom: 4rem;
+
+    @media (max-width: 1100px) {
+      grid-template-columns: 1.5fr 1fr 1fr 1fr;
+      .footer__brand { grid-column: span 4; margin-bottom: 1rem; }
+    }
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr 1fr;
+      .footer__brand { grid-column: span 2; }
+    }
+    @media (max-width: 480px) {
+      grid-template-columns: 1fr;
+      .footer__brand { grid-column: span 1; }
+    }
+  }
+
   &__brand {
     h3 {
       color: #a5d6a7;
-      font-size: 1.2rem;
-      margin-bottom: 0.5rem;
+      font-size: 1.4rem;
+      margin-bottom: 1rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
     }
     p {
-      font-size: 0.875rem;
+      font-size: 0.95rem;
       line-height: 1.6;
+      max-width: 280px;
     }
   }
 
   &__links {
     h4 {
       color: #fff;
-      font-size: 0.95rem;
-      margin-bottom: 0.75rem;
+      font-size: 1rem;
+      margin-bottom: 1.25rem;
+      font-weight: 600;
     }
     a {
       display: block;
-      color: #aaa;
+      color: #999;
       text-decoration: none;
-      font-size: 0.875rem;
-      margin-bottom: 0.4rem;
+      font-size: 0.9rem;
+      margin-bottom: 0.6rem;
+      transition: color 0.2s;
       &:hover {
         color: #a5d6a7;
       }
@@ -51,20 +111,22 @@
   &__contact {
     h4 {
       color: #fff;
-      font-size: 0.95rem;
-      margin-bottom: 0.75rem;
+      font-size: 1rem;
+      margin-bottom: 1.25rem;
+      font-weight: 600;
     }
     p {
-      font-size: 0.875rem;
-      margin-bottom: 0.35rem;
+      font-size: 0.9rem;
+      margin-bottom: 0.75rem;
+      color: #999;
     }
   }
 
   &__bottom {
     border-top: 1px solid #2e3d2e;
-    padding: 1rem 0;
+    padding: 1.5rem 0;
     text-align: center;
-    font-size: 0.8rem;
-    color: #777;
+    font-size: 0.85rem;
+    color: #666;
   }
 }

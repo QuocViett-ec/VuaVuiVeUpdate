@@ -57,12 +57,15 @@
         </div>
         <div class="field">
           <label>Khung giờ giao hàng</label>
-          <select [(ngModel)]="selectedSlotId" class="input">
+          <select [(ngModel)]="selectedSlotId" (ngModelChange)="slotError.set('')" class="input">
             <option value="">-- Chọn khung giờ --</option>
             @for (slot of slots(); track slot.id) {
               <option [value]="slot.id">{{ slot.date }} | {{ slot.window }}</option>
             }
           </select>
+          @if (slotError()) {
+            <span class="field-error" role="alert">{{ slotError() }}</span>
+          }
         </div>
         <div class="field">
           <label>Ghi chú</label>
@@ -142,7 +145,7 @@
           </div>
         </div>
 
-        <button class="btn btn--primary btn--full" (click)="placeOrder()" [disabled]="loading()">
+        <button class="btn btn--primary btn--full" (click)="placeOrder()" [disabled]="loading() || !selectedSlotId">
           {{
             loading()
               ? 'Đang xử lý...'

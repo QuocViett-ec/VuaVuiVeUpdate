@@ -1,8 +1,16 @@
-﻿<app-loading-bar />
-<app-header />
+<app-loading-bar />
+
+@if (!isAdminRoute()) {
+  <app-header />
+}
+
 <main class="main-content">
   <router-outlet />
 </main>
-<app-footer />
-<app-cart-sidebar />
+
+@if (!isAdminRoute()) {
+  <app-footer />
+  <app-cart-sidebar />
+}
+
 <app-toast-container />

@@ -171,7 +171,7 @@ export class OrderDetailPageComponent implements OnInit {
     if (!o) return;
     if (!confirm('Bạn có chắc muốn hủy đơn hàng này?')) return;
     this.cancelling.set(true);
-    this.orderSvc.updateOrderStatus(o.id, 'cancelled').subscribe({
+    this.orderSvc.cancelOrder(o.id).subscribe({
       next: (updated) => {
         this.order.set(updated);
         this.cancelling.set(false);

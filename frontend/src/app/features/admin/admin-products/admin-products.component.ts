@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ProductService } from '../../../core/services/product.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Product } from '../../../core/models/product.model';
@@ -84,11 +85,25 @@ import { Product } from '../../../core/models/product.model';
               <div class="form-row">
                 <div class="field">
                   <label>Giá (đ)</label
-                  ><input [(ngModel)]="form.price" name="price" type="number" class="input" />
+                  ><input
+                    [(ngModel)]="form.price"
+                    (ngModelChange)="onNonNegativeChange('price', $event)"
+                    name="price"
+                    type="number"
+                    min="0"
+                    class="input"
+                  />
                 </div>
                 <div class="field">
                   <label>Tồn kho</label
-                  ><input [(ngModel)]="form.stock" name="stock" type="number" class="input" />
+                  ><input
+                    [(ngModel)]="form.stock"
+                    (ngModelChange)="onNonNegativeChange('stock', $event)"
+                    name="stock"
+                    type="number"
+                    min="0"
+                    class="input"
+                  />
                 </div>
               </div>
               <div class="field">
@@ -119,6 +134,7 @@ import { Product } from '../../../core/models/product.model';
 export class AdminProductsComponent implements OnInit {
   private prodSvc = inject(ProductService);
   private toast = inject(ToastService);
+  private router = inject(Router);
 
   products = signal<Product[]>([]);
   search = signal('');
@@ -153,16 +169,29 @@ export class AdminProductsComponent implements OnInit {
     this.showModal.set(false);
   }
 
+  onNonNegativeChange(field: 'price' | 'stock', value: number | string | null): void {
+    const numericValue = Number(value);
+    this.form[field] = Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
+  }
+
   saveProduct(): void {
-    const obs = this.editingId()
-      ? this.prodSvc.updateProduct(this.editingId(), this.form)
-      : this.prodSvc.createProduct(this.form);
+    this.form.price = Math.max(0, Number(this.form.price ?? 0));
+    this.form.stock = Math.max(0, Number(this.form.stock ?? 0));
+
+    const isNew = !this.editingId();
+    const obs = isNew
+      ? this.prodSvc.createProduct(this.form)
+      : this.prodSvc.updateProduct(this.editingId(), this.form);
 
     obs.subscribe({
-      next: () => {
+      next: (res) => {
         this.toast.success('Đã lưu!');
         this.closeModal();
-        this.load();
+        if (isNew && res.id) {
+          this.router.navigate(['/products', res.id]);
+        } else {
+          this.load();
+        }
       },
       error: () => this.toast.error('Lỗi khi lưu.'),
     });

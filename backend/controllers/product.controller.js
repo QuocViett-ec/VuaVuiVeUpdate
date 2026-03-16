@@ -97,9 +97,11 @@ exports.create = async (req, res, next) => {
       category,
       subCategory,
       description,
+      imageUrl: imageUrlFromBody,
       stock,
       unit,
       tags,
+      isActive,
     } = req.body;
 
     if (!name || !price || !category) {
@@ -111,7 +113,7 @@ exports.create = async (req, res, next) => {
 
     const imageUrl = req.file
       ? `/uploads/products/${req.file.filename}`
-      : "";
+      : (imageUrlFromBody || "");
 
     const tagsArray =
       typeof tags === "string"
@@ -134,6 +136,7 @@ exports.create = async (req, res, next) => {
       stock: stock !== undefined ? Number(stock) : 0,
       unit,
       tags: tagsArray,
+      isActive: isActive !== undefined ? isActive === true || isActive === "true" : true,
     });
 
     return res
@@ -156,6 +159,7 @@ exports.update = async (req, res, next) => {
       category,
       subCategory,
       description,
+      imageUrl: imageUrlFromBody,
       stock,
       unit,
       tags,
@@ -173,6 +177,7 @@ exports.update = async (req, res, next) => {
     if (stock !== undefined) updates.stock = Number(stock);
     if (unit !== undefined) updates.unit = unit;
     if (isActive !== undefined) updates.isActive = isActive === true || isActive === "true";
+    if (imageUrlFromBody !== undefined) updates.imageUrl = imageUrlFromBody;
 
     if (tags !== undefined) {
       updates.tags =

@@ -1,7 +1,7 @@
 <div class="news-page">
   <div class="page-title-wrap">
     <h1 class="page-title">Vựa Tin Tức</h1>
-    <p class="page-sub">Cập nhật nhanh tin tức từ Dân Trí</p>
+    <p class="page-sub">Cập nhật nhanh tin tức từ VNExpress</p>
   </div>
 
   <!-- TABS -->
@@ -30,48 +30,30 @@
         <a [href]="sec.more" target="_blank" rel="noopener">Xem trực tiếp →</a>
       </p>
     } @else {
-      <!-- Lead card (first item) -->
-      @if (sec.lead && arts[0]) {
-        <a class="lead-card" [href]="arts[0].link" target="_blank" rel="noopener">
-          @if (arts[0].image) {
-            <img
-              class="lead-card__img"
-              [src]="arts[0].image"
-              [alt]="arts[0].title"
-              loading="lazy"
-              onerror="this.style.display = 'none'"
-            />
-          }
-          <div class="lead-card__body">
-            <h2 class="lead-card__title">{{ arts[0].title }}</h2>
-            <p class="lead-card__desc">{{ arts[0].desc }}</p>
-            <span class="lead-card__pub">{{ arts[0].pub }}</span>
-          </div>
-        </a>
-      }
-      <!-- Grid of remaining items -->
+      <!-- Grid of items -->
       <div class="mini-grid">
-        @for (art of sec.lead ? arts.slice(1) : arts; track $index) {
-          <a class="mini-card" [href]="art.link" target="_blank" rel="noopener">
-            @if (art.image) {
+        @for (item of arts; track item.guid) {
+          <a class="rss-card" [href]="item.link" target="_blank" rel="noopener">
+            @if (item.thumbnail) {
               <img
-                class="mini-card__img"
-                [src]="art.image"
-                [alt]="art.title"
+                class="rss-thumb"
+                [src]="item.thumbnail"
+                [alt]="item.title"
                 loading="lazy"
-                onerror="this.style.display = 'none'"
+                referrerpolicy="no-referrer"
+                onerror="this.src='images/brand/LogoVVV.png'"
               />
             }
-            <div class="mini-card__body">
-              <h3 class="mini-card__title">{{ art.title }}</h3>
-              <span class="mini-card__pub">{{ art.pub }}</span>
+            <div class="rss-content">
+              <h3 class="rss-title" [innerHTML]="item.title"></h3>
+              <p class="rss-date">{{ item.pubDate | date:'dd/MM/yyyy HH:mm' }}</p>
             </div>
           </a>
         }
       </div>
       <div class="more-link-wrap">
         <a class="more-link" [href]="sec.more" target="_blank" rel="noopener"
-          >Xem thêm trên Dân Trí →</a
+          >Xem thêm trên VNExpress →</a
         >
       </div>
     }

@@ -10,6 +10,7 @@ const VALID_STATUSES = [
   "delivered",
   "cancelled",
 ];
+const CANCELLABLE_STATUSES = ["pending", "confirmed"];
 
 /**
  * POST /api/orders  (auth required)
@@ -166,6 +167,69 @@ exports.updateStatus = async (req, res, next) => {
     return res.json({
       success: true,
       message: "Cập nhật trạng thái thành công",
+      data: order,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * PATCH /api/orders/:id/cancel  (auth: owner or admin)
+ */
+exports.cancelOrder = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const isObjectId = /^[a-f\d]{24}$/i.test(id);
+    const query = isObjectId
+      ? { $or: [{ _id: id }, { orderId: id }] }
+      : { orderId: id };
+
+    const order = await Order.findOne(query);
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng" });
+    }
+
+    const isOwner = order.userId.toString() === req.session.userId;
+    const isAdmin = req.session.role === "admin";
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "KhÃ´ng cÃ³ quyá»n thá»±c hiá»‡n hÃ nh Ä‘á»™ng nÃ y",
+      });
+    }
+
+    if (order.status === "cancelled") {
+      return res.json({
+        success: true,
+        message: "ÄÆ¡n hÃ ng Ä‘Ã£ á»Ÿ tráº¡ng thÃ¡i há»§y",
+        data: order,
+      });
+    }
+
+    if (!CANCELLABLE_STATUSES.includes(order.status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Chá»‰ cÃ³ thá»ƒ há»§y Ä‘Æ¡n khi Ä‘ang chá» xÃ¡c nháº­n hoáº·c Ä‘Ã£ xÃ¡c nháº­n",
+      });
+    }
+
+    order.status = "cancelled";
+    await order.save();
+
+    await Promise.all(
+      order.items.map((item) =>
+        Product.findByIdAndUpdate(item.productId, {
+          $inc: { stock: Math.max(0, item.quantity) },
+        }),
+      ),
+    );
+
+    return res.json({
+      success: true,
+      message: "Há»§y Ä‘Æ¡n hÃ ng thÃ nh cÃ´ng",
       data: order,
     });
   } catch (err) {
