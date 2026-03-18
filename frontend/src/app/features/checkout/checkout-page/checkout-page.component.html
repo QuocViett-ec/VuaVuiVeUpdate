@@ -1,5 +1,8 @@
 <div class="co-page container">
-  <h1 class="page-title">🛒 Thanh toán</h1>
+  <h1 class="page-title">
+    <span class="material-symbols-outlined g-icon">shopping_cart_checkout</span>
+    Thanh toán
+  </h1>
 
   @if (itemCount() === 0) {
     <div class="empty">
@@ -45,13 +48,18 @@
               aria-label="Lấy vị trí hiện tại"
             >
               @if (isLocating()) {
-                ⏳ Đang xác định...
+                <span class="material-symbols-outlined g-icon">hourglass_top</span>
+                Đang xác định...
               } @else {
-                📍 Lấy vị trí hiện tại
+                <span class="material-symbols-outlined g-icon">my_location</span>
+                Lấy vị trí hiện tại
               }
             </button>
             @if (locationError()) {
-              <span class="field-error" role="alert">⚠ {{ locationError() }}</span>
+              <span class="field-error" role="alert"
+                ><span class="material-symbols-outlined g-icon">warning</span>
+                {{ locationError() }}</span
+              >
             }
           </div>
         </div>
@@ -80,14 +88,19 @@
         <h2 style="margin-top: 1.5rem">Phương thức thanh toán</h2>
         <div class="pay-methods">
           <label class="pay-option" [class.selected]="paymentMethod === 'cod'">
-            <input type="radio" [(ngModel)]="paymentMethod" value="cod" /> 💵 Thanh toán khi nhận
-            hàng
+            <input type="radio" [(ngModel)]="paymentMethod" value="cod" />
+            <span class="material-symbols-outlined g-icon">payments</span>
+            Thanh toán khi nhận hàng
           </label>
           <label class="pay-option" [class.selected]="paymentMethod === 'vnpay'">
-            <input type="radio" [(ngModel)]="paymentMethod" value="vnpay" /> 🏦 VNPay (thẻ ATM/QR)
+            <input type="radio" [(ngModel)]="paymentMethod" value="vnpay" />
+            <span class="material-symbols-outlined g-icon">account_balance</span>
+            VNPay (thẻ ATM/QR)
           </label>
           <label class="pay-option" [class.selected]="paymentMethod === 'momo'">
-            <input type="radio" [(ngModel)]="paymentMethod" value="momo" /> 📱 MoMo
+            <input type="radio" [(ngModel)]="paymentMethod" value="momo" />
+            <span class="material-symbols-outlined g-icon">smartphone</span>
+            MoMo
           </label>
         </div>
       </section>
@@ -145,16 +158,23 @@
           </div>
         </div>
 
-        <button class="btn btn--primary btn--full" (click)="placeOrder()" [disabled]="loading() || !selectedSlotId">
-          {{
-            loading()
-              ? 'Đang xử lý...'
-              : paymentMethod === 'vnpay'
-                ? '🏦 Thanh toán VNPay'
-                : paymentMethod === 'momo'
-                  ? '📱 Thanh toán MoMo'
-                  : '✅ Đặt hàng'
-          }}
+        <button
+          class="btn btn--primary btn--full"
+          (click)="placeOrder()"
+          [disabled]="loading() || !selectedSlotId"
+        >
+          @if (loading()) {
+            Đang xử lý...
+          } @else if (paymentMethod === 'vnpay') {
+            <span class="material-symbols-outlined g-icon">account_balance</span>
+            Thanh toán VNPay
+          } @else if (paymentMethod === 'momo') {
+            <span class="material-symbols-outlined g-icon">smartphone</span>
+            Thanh toán MoMo
+          } @else {
+            <span class="material-symbols-outlined g-icon">check_circle</span>
+            Đặt hàng
+          }
         </button>
       </aside>
     </div>

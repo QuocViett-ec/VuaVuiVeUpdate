@@ -1,16 +1,12 @@
 <app-loading-bar />
 
-@if (!isAdminRoute()) {
-  <app-header />
-}
+<app-header />
 
 <main class="main-content">
   <router-outlet />
 </main>
 
-@if (!isAdminRoute()) {
-  <app-footer />
-  <app-cart-sidebar />
-}
+<app-footer />
+<app-cart-sidebar />
 
 <app-toast-container />

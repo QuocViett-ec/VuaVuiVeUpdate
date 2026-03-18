@@ -1445,7 +1445,8 @@ function buildDemoOrders(users, products) {
             : 0;
       const totalAmount = Math.max(0, subtotal + shippingFee - discount);
       const status = decideOrderStatus(dayOffset, orderIndex);
-      const paymentMethod = PAYMENT_METHODS[(dayOffset + orderIndex) % PAYMENT_METHODS.length];
+      const paymentMethod =
+        PAYMENT_METHODS[(dayOffset + orderIndex) % PAYMENT_METHODS.length];
       const paymentStatus =
         status === "cancelled"
           ? "pending"
@@ -1458,7 +1459,9 @@ function buildDemoOrders(users, products) {
       createdAt.setSeconds((dayOffset * 29 + orderIndex * 7) % 60);
 
       const updatedAt = new Date(createdAt);
-      updatedAt.setHours(createdAt.getHours() + (status === "delivered" ? 18 : 4));
+      updatedAt.setHours(
+        createdAt.getHours() + (status === "delivered" ? 18 : 4),
+      );
 
       orders.push({
         userId: user._id,
@@ -1467,7 +1470,9 @@ function buildDemoOrders(users, products) {
           name: user.name,
           phone: user.phone,
           address: user.address || "TP.HCM",
-          slot: DELIVERY_SLOTS[(dayOffset + orderIndex) % DELIVERY_SLOTS.length],
+          slot: DELIVERY_SLOTS[
+            (dayOffset + orderIndex) % DELIVERY_SLOTS.length
+          ],
         },
         payment: {
           method: paymentMethod,
@@ -1492,12 +1497,12 @@ function buildDemoOrders(users, products) {
 async function seed() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
-    console.log("✅ MongoDB kết nối thành công");
+    console.log(" MongoDB kết nối thành công");
 
     // Xoá sản phẩm cũ, giữ lại users
     await Order.deleteMany({});
     await Product.deleteMany({});
-    console.log("🗑️  Đã xóa sản phẩm cũ");
+    console.log("  Đã xóa sản phẩm cũ");
 
     const adminSeed = {
       name: "Admin VuaVuiVe",
@@ -1521,19 +1526,20 @@ async function seed() {
     const demoResults = await Promise.all(
       DEMO_CUSTOMERS.map((customer) => ensureLocalAccount(customer)),
     );
-    const seededUsers = [userResult.account, ...demoResults.map((item) => item.account)].filter(
-      Boolean,
-    );
+    const seededUsers = [
+      userResult.account,
+      ...demoResults.map((item) => item.account),
+    ].filter(Boolean);
 
     console.log(
       adminResult.created
-        ? "👤 Admin tạo mới: admin@vuavuive.vn / Admin@123"
-        : "👤 Admin đã được cập nhật lại thông tin đăng nhập mẫu",
+        ? " Admin tạo mới: admin@vuavuive.vn / Admin@123"
+        : " Admin đã được cập nhật lại thông tin đăng nhập mẫu",
     );
     console.log(
       userResult.created
-        ? "👤 User test tạo mới: user.test@vuavuive.vn / User@123"
-        : "👤 User test đã được cập nhật lại thông tin đăng nhập mẫu",
+        ? " User test tạo mới: user.test@vuavuive.vn / User@123"
+        : " User test đã được cập nhật lại thông tin đăng nhập mẫu",
     );
 
     // Xóa _id string trước khi insert để MongoDB tự tạo ObjectId
@@ -1545,13 +1551,13 @@ async function seed() {
         await Product.create({ ...data, externalId: _id });
         count++;
       } catch (e) {
-        console.warn(`⚠️  Bỏ qua "${p.name}": ${e.message}`);
+        console.warn(`  Bỏ qua "${p.name}": ${e.message}`);
       }
     }
-    console.log(`📦 Đã tạo ${count}/${PRODUCTS.length} sản phẩm`);
-    console.log("\n✅ Seed hoàn tất!");
+    console.log(` Đã tạo ${count}/${PRODUCTS.length} sản phẩm`);
+    console.log("\n Seed hoàn tất!");
   } catch (err) {
-    console.error("❌ Lỗi khi seed:", err.message);
+    console.error(" Lỗi khi seed:", err.message);
     process.exit(1);
   } finally {
     await mongoose.disconnect();

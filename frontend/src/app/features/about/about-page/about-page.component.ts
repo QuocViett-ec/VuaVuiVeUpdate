@@ -4,21 +4,25 @@ import { RouterLink } from '@angular/router';
 
 const VALUES = [
   {
-    icon: '🌿',
+    icon: 'eco',
     title: 'Tươi sạch tuyệt đối',
-    desc: 'Cam kết 100% sản phẩm tươi sạch, chọn lọc từ nông trại đến tay bạn.' },
+    desc: 'Cam kết 100% sản phẩm tươi sạch, chọn lọc từ nông trại đến tay bạn.',
+  },
   {
-    icon: '🚀',
+    icon: 'rocket_launch',
     title: 'Giao hàng siêu tốc',
-    desc: 'Đặt hàng trước 10:00, nhận hàng trước 12:00 – nhanh hơn bạn nghĩ.' },
+    desc: 'Đặt hàng trước 10:00, nhận hàng trước 12:00 – nhanh hơn bạn nghĩ.',
+  },
   {
-    icon: '💚',
+    icon: 'favorite',
     title: 'Thân thiện với người dùng',
-    desc: 'Giao diện đơn giản, dễ sử dụng, phù hợp mọi lứa tuổi.' },
+    desc: 'Giao diện đơn giản, dễ sử dụng, phù hợp mọi lứa tuổi.',
+  },
   {
-    icon: '🤖',
+    icon: 'smart_toy',
     title: 'Gợi ý thông minh AI',
-    desc: 'Hệ thống đề xuất cá nhân hóa dựa trên lịch sử mua hàng.' },
+    desc: 'Hệ thống đề xuất cá nhân hóa dựa trên lịch sử mua hàng.',
+  },
 ];
 
 @Component({
@@ -27,7 +31,8 @@ const VALUES = [
   standalone: true,
   imports: [CommonModule, RouterLink],
   templateUrl: './about-page.component.html',
-  styleUrl: './about-page.component.scss' })
+  styleUrl: './about-page.component.scss',
+})
 export class AboutPageComponent {
   readonly values = VALUES;
 }

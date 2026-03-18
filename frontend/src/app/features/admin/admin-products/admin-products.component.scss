@@ -136,6 +136,16 @@
   &:focus {
     border-color: #2e7d32;
   }
+
+  &::placeholder {
+    color: #9aa3a8;
+    opacity: 1;
+  }
+}
+
+select.input {
+  cursor: pointer;
+  background: #fff;
 }
 
 .btn {
@@ -179,5 +189,15 @@
   &--sm {
     padding: 0.35rem 0.65rem;
     font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-box {
+    padding: 1.25rem;
   }
 }

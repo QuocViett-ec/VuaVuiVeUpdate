@@ -23,6 +23,7 @@ const userRoutes = require("./routes/user.routes");
 const adminRoutes = require("./routes/admin.routes");
 const recommendRoutes = require("./routes/recommend.routes");
 const recipesRoutes = require("./routes/recipes.routes");
+const realtimeRoutes = require("./routes/realtime.routes");
 const errorHandler = require("./middleware/error.middleware");
 const { csrfProtection } = require("./middleware/csrf.middleware");
 
@@ -32,7 +33,10 @@ const PORT = process.env.PORT || 3000;
 function isAllowedOrigin(origin) {
   if (!origin) return true;
 
-  const configuredOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:4200")
+  const originList = process.env.CLIENT_ORIGINS || process.env.CLIENT_ORIGIN;
+  const configuredOrigins = (
+    originList || "http://localhost:4200,http://localhost:4201"
+  )
     .split(",")
     .map((value) => value.trim())
     .filter(Boolean);
@@ -107,6 +111,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/recommend", recommendRoutes);
 app.use("/api/recipes", recipesRoutes);
+app.use("/api/realtime", realtimeRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({
@@ -122,7 +127,9 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`\nVuaVuiVe Backend chay tai http://localhost:${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log(`CORS config: ${process.env.CLIENT_ORIGIN || "auto local dev"}`);
+  console.log(
+    `CORS config: ${process.env.CLIENT_ORIGINS || process.env.CLIENT_ORIGIN || "auto local dev"}`,
+  );
 });
 
 module.exports = app;

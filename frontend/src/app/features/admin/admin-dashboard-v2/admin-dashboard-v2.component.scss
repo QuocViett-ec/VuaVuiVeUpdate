@@ -140,8 +140,142 @@
   margin-bottom: 1rem;
 }
 
+.telemetry-toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.telemetry-window-buttons {
+  display: inline-flex;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.22rem;
+  border: 1px solid rgba(111, 122, 99, 0.24);
+  border-radius: 999px;
+}
+
+.window-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  padding: 0.3rem 0.62rem;
+  cursor: pointer;
+}
+
+.window-btn:hover {
+  background: rgba(31, 95, 169, 0.12);
+  color: var(--text-main);
+}
+
+.window-btn--active {
+  background: #1f5fa9;
+  color: #f6fbff;
+}
+
 .panel canvas {
   max-height: 260px;
+}
+
+.mini-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.mini-kpi-card {
+  border: 1px solid rgba(111, 122, 99, 0.2);
+  border-radius: 16px;
+  padding: 0.85rem 0.95rem;
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.mini-kpi-label {
+  margin: 0;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.mini-kpi-metrics {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+}
+
+.mini-kpi-metric-label {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.mini-kpi-metrics strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--text-main);
+}
+
+.mini-kpi-foot {
+  margin: 0.55rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.coldstart-table td {
+  font-size: 0.92rem;
+}
+
+.coldstart-chart-wrap {
+  margin-top: 1rem;
+  border: 1px solid rgba(111, 122, 99, 0.2);
+  border-radius: 16px;
+  padding: 0.95rem;
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.coldstart-chart-wrap h4 {
+  margin: 0 0 0.8rem;
+  color: var(--text-main);
+}
+
+.coldstart-chart-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.coldstart-chart-head h4 {
+  margin: 0;
+}
+
+.gap-alert {
+  margin-bottom: 0.7rem;
+  border: 1px solid rgba(180, 77, 104, 0.28);
+  background: rgba(255, 228, 235, 0.6);
+  border-radius: 12px;
+  padding: 0.6rem 0.72rem;
+}
+
+.gap-alert-title {
+  margin: 0;
+  font-weight: 700;
+  color: #8e2642;
+}
+
+.gap-alert-text {
+  margin: 0.2rem 0 0;
+  color: #7a3044;
+}
+
+.coldstart-chart-wrap canvas {
+  max-height: 280px;
 }
 
 .state {
@@ -227,6 +361,19 @@
 
 @media (max-width: 640px) {
   .hero-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .telemetry-toolbar {
+    align-items: stretch;
+  }
+
+  .telemetry-window-buttons {
+    justify-content: space-between;
+  }
+
+  .coldstart-chart-head {
     flex-direction: column;
     align-items: stretch;
   }

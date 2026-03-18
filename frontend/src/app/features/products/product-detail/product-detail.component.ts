@@ -1,15 +1,32 @@
-import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  computed,
+  OnInit,
+  OnDestroy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ProductService } from '../../../core/services/product.service';
 import { CartService } from '../../../core/services/cart.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Product } from '../../../core/models/product.model';
+import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
+import { Subscription } from 'rxjs';
 
 const CAT_LABELS: Record<string, string> = {
-  veg: '🥦 Rau củ', fruit: '🍎 Trái cây', meat: '🥩 Thịt & Cá',
-  drink: '🥤 Đồ uống', dry: '🌾 Hàng khô', sweet: '🍬 Bánh kẹo',
-  spice: '🧂 Gia vị', household: '🧴 Gia dụng', frozen: '🧊 Đông lạnh' };
+  veg: 'Rau củ',
+  fruit: 'Trái cây',
+  meat: 'Thịt & Cá',
+  drink: 'Đồ uống',
+  dry: 'Hàng khô',
+  sweet: 'Bánh kẹo',
+  spice: 'Gia vị',
+  household: 'Gia dụng',
+  frozen: 'Đông lạnh',
+};
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -17,12 +34,15 @@ const CAT_LABELS: Record<string, string> = {
   standalone: true,
   imports: [CommonModule, RouterLink],
   templateUrl: './product-detail.component.html',
-  styleUrl: './product-detail.component.scss' })
-export class ProductDetailComponent implements OnInit {
+  styleUrl: './product-detail.component.scss',
+})
+export class ProductDetailComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private prodSvc = inject(ProductService);
   private cartSvc = inject(CartService);
   private toast = inject(ToastService);
+  private realtime = inject(RealtimeSyncService);
+  private realtimeSub?: Subscription;
 
   product = signal<Product | null>(null);
   related = signal<Product[]>([]);
@@ -32,11 +52,27 @@ export class ProductDetailComponent implements OnInit {
   catLabel = computed(() => {
     const p = this.product();
     if (!p) return '';
-    return CAT_LABELS[p.cat] ?? ('🛒 ' + p.cat);
+    return CAT_LABELS[p.cat] ?? p.cat;
   });
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') || '';
+    this.loadProduct(id);
+
+    this.realtimeSub = this.realtime.ofType('product.changed').subscribe((evt: any) => {
+      const payload = evt?.payload || {};
+      const changedId = String(payload.productId || '');
+      const currentId = this.product()?.id || id;
+      if (!changedId || changedId !== currentId) return;
+      this.loadProduct(currentId);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.realtimeSub?.unsubscribe();
+  }
+
+  private loadProduct(id: string): void {
     this.prodSvc.getProductById(id).subscribe((p) => {
       this.product.set(p);
       this.loading.set(false);
@@ -46,9 +82,7 @@ export class ProductDetailComponent implements OnInit {
 
   private loadRelated(cat: string, excludeId: string): void {
     this.prodSvc.getProducts({ cat }).subscribe((all) => {
-      this.related.set(
-        all.filter((p) => p.id !== excludeId).slice(0, 6)
-      );
+      this.related.set(all.filter((p) => p.id !== excludeId).slice(0, 6));
     });
   }
 

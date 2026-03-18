@@ -2,6 +2,7 @@
 
 const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
+const { publishToUser } = require("../services/realtime-bus");
 
 const VALID_STATUSES = [
   "pending",
@@ -164,6 +165,15 @@ exports.updateStatus = async (req, res, next) => {
         .json({ success: false, message: "Không tìm thấy đơn hàng" });
     }
 
+    publishToUser(order.userId, "order.status_updated", {
+      orderId: String(order.orderId || ""),
+      dbId: String(order._id),
+      userId: String(order.userId || ""),
+      status: order.status,
+      updatedAt: order.updatedAt,
+      source: "admin",
+    });
+
     return res.json({
       success: true,
       message: "Cập nhật trạng thái thành công",
@@ -212,7 +222,8 @@ exports.cancelOrder = async (req, res, next) => {
     if (!CANCELLABLE_STATUSES.includes(order.status)) {
       return res.status(400).json({
         success: false,
-        message: "Chá»‰ cÃ³ thá»ƒ há»§y Ä‘Æ¡n khi Ä‘ang chá» xÃ¡c nháº­n hoáº·c Ä‘Ã£ xÃ¡c nháº­n",
+        message:
+          "Chá»‰ cÃ³ thá»ƒ há»§y Ä‘Æ¡n khi Ä‘ang chá» xÃ¡c nháº­n hoáº·c Ä‘Ã£ xÃ¡c nháº­n",
       });
     }
 

@@ -101,23 +101,94 @@ exports.login = async (req, res, next) => {
         .json({ success: false, message: "Thông tin đăng nhập không đúng" });
     }
 
+    if (user.role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Tài khoản quản trị vui lòng đăng nhập tại cổng admin (http://localhost:4201/auth/login)",
+      });
+    }
+
     req.session.userId = user._id.toString();
     req.session.role = user.role;
     req.session.name = user.name;
 
-    if (user.role === "admin") {
-      await createAuditLog({
-        adminId: user._id,
-        action: "ADMIN_LOGIN",
-        target: `User:${user._id}`,
-        details: { phone: user.phone, email: user.email },
-        ip: req.ip,
-      });
-    }
-
     return res.json({
       success: true,
       message: "Đăng nhập thành công",
+      data: {
+        _id: user._id,
+        name: user.name,
+        phone: user.phone,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/auth/admin/login
+ */
+exports.adminLogin = async (req, res, next) => {
+  try {
+    const phone = (req.body?.phone || "").toString().trim();
+    const rawEmail = (req.body?.email || "").toString().trim();
+    const email = rawEmail ? rawEmail.toLowerCase() : "";
+    const password = req.body?.password;
+
+    if (!password || (!phone && !email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng nhập số điện thoại/email và mật khẩu",
+      });
+    }
+
+    const query = phone ? { phone } : { email };
+    const user = await User.findOne(query).select("+password");
+    if (!user) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Thông tin đăng nhập không đúng" });
+    }
+
+    if (!user.isActive) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Tài khoản đã bị vô hiệu hóa" });
+    }
+
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Thông tin đăng nhập không đúng" });
+    }
+
+    if (user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Tài khoản này không có quyền truy cập cổng quản trị",
+      });
+    }
+
+    req.session.userId = user._id.toString();
+    req.session.role = user.role;
+    req.session.name = user.name;
+
+    await createAuditLog({
+      adminId: user._id,
+      action: "ADMIN_LOGIN",
+      target: `User:${user._id}`,
+      details: { phone: user.phone, email: user.email, portal: "admin" },
+      ip: req.ip,
+    });
+
+    return res.json({
+      success: true,
+      message: "Đăng nhập quản trị thành công",
       data: {
         _id: user._id,
         name: user.name,
@@ -369,6 +440,14 @@ exports.googleLogin = async (req, res, next) => {
       return res
         .status(403)
         .json({ success: false, message: "Tài khoản đã bị vô hiệu hóa" });
+    }
+
+    if (user.role === "admin") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Tài khoản quản trị vui lòng đăng nhập tại cổng admin (http://localhost:4201/auth/login)",
+      });
     }
 
     req.session.userId = user._id.toString();

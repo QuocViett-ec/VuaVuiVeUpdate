@@ -1,0 +1,213 @@
+<div class="ml-shell">
+  <section class="hero-card">
+    <div>
+      <p class="eyebrow">Machine Learning</p>
+      <h1>Hieu qua goi y san pham</h1>
+      <p class="headline">
+        Theo doi CTR, Add-to-cart va do chenh cold-start giua tai khoan moi va tai khoan co lich su.
+      </p>
+    </div>
+  </section>
+
+  <p class="state state--error" *ngIf="error()">{{ error() }}</p>
+  <p class="state" *ngIf="loading()">Dang tai thong ke machine learning...</p>
+
+  <section class="panel" *ngIf="!loading() && !error()">
+    <div class="panel-head">
+      <div>
+        <p class="panel-kicker">Recommender KPI</p>
+        <h3>CTR va Add-to-cart theo section</h3>
+      </div>
+      <div class="telemetry-toolbar">
+        <div class="telemetry-window-buttons" role="group" aria-label="Chon khoang ngay telemetry">
+          <button
+            type="button"
+            class="window-btn"
+            [class.window-btn--active]="telemetryDays() === 7"
+            (click)="setTelemetryWindow(7)"
+          >
+            7 ngay
+          </button>
+          <button
+            type="button"
+            class="window-btn"
+            [class.window-btn--active]="telemetryDays() === 14"
+            (click)="setTelemetryWindow(14)"
+          >
+            14 ngay
+          </button>
+          <button
+            type="button"
+            class="window-btn"
+            [class.window-btn--active]="telemetryDays() === 30"
+            (click)="setTelemetryWindow(30)"
+          >
+            30 ngay
+          </button>
+        </div>
+        <p class="muted">{{ telemetryDays() }} ngay gan day</p>
+      </div>
+    </div>
+
+    <div class="mini-kpi-grid">
+      <article class="mini-kpi-card" *ngFor="let card of recommendationCards()">
+        <p class="mini-kpi-label">{{ card.label }}</p>
+        <span class="sample-badge" [attr.data-tone]="sampleQuality(card.impressions).tone">
+          {{ sampleQuality(card.impressions).label }}
+        </span>
+        <div class="mini-kpi-metrics">
+          <div>
+            <p class="mini-kpi-metric-label">CTR</p>
+            <strong>{{ card.ctr | number: '1.1-2' }}%</strong>
+          </div>
+          <div>
+            <p class="mini-kpi-metric-label">Add-to-cart</p>
+            <strong>{{ card.addToCartRate | number: '1.1-2' }}%</strong>
+          </div>
+        </div>
+        <div class="mini-kpi-counts">
+          <p>Click: {{ card.clicks | number }}</p>
+          <p>Add: {{ card.addToCart | number }}</p>
+        </div>
+        <p class="mini-kpi-foot">Impression: {{ card.impressions | number }}</p>
+      </article>
+    </div>
+
+    <div class="panel-subgrid">
+      <article class="sub-panel">
+        <div class="sub-panel-head">
+          <p class="panel-kicker">Funnel</p>
+          <h4>Impression -> Click -> Add-to-cart theo section</h4>
+        </div>
+        <canvas id="funnelSectionChart"></canvas>
+      </article>
+
+      <article class="sub-panel">
+        <div class="sub-panel-head">
+          <p class="panel-kicker">Delta</p>
+          <h4>Chenhlech with_history - new_account</h4>
+        </div>
+        <div class="delta-grid">
+          <div class="delta-card" *ngFor="let d of deltaCards()">
+            <p class="delta-label">{{ d.label }}</p>
+            <p class="delta-item">
+              CTR delta:
+              <strong [class.pos]="d.ctrDelta >= 0" [class.neg]="d.ctrDelta < 0"
+                >{{ d.ctrDelta | number: '1.1-2' }}%</strong
+              >
+            </p>
+            <p class="delta-item">
+              Add delta:
+              <strong [class.pos]="d.addDelta >= 0" [class.neg]="d.addDelta < 0"
+                >{{ d.addDelta | number: '1.1-2' }}%</strong
+              >
+            </p>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <article class="sub-panel">
+      <div class="sub-panel-head">
+        <p class="panel-kicker">Sparkline</p>
+        <h4>Xu huong theo ngay cho CTR va Add-to-cart ({{ telemetryDays() }} ngay)</h4>
+      </div>
+      <div class="sparkline-grid">
+        <div class="sparkline-card" *ngFor="let card of recommendationCards()">
+          <p class="sparkline-title">{{ card.label }}</p>
+          <canvas [id]="'sparkline-' + card.section"></canvas>
+        </div>
+      </div>
+    </article>
+
+    <div class="table-wrap">
+      <table class="data-table coldstart-table">
+        <thead>
+          <tr>
+            <th>Section</th>
+            <th>CTR (Tai khoan moi)</th>
+            <th>CTR (Co lich su)</th>
+            <th>Add-to-cart (Tai khoan moi)</th>
+            <th>Add-to-cart (Co lich su)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of recommendationBreakdown()">
+            <td>{{ row.label }}</td>
+            <td>{{ row.newAccountCtr | number: '1.1-2' }}%</td>
+            <td>{{ row.withHistoryCtr | number: '1.1-2' }}%</td>
+            <td>{{ row.newAccountAddToCartRate | number: '1.1-2' }}%</td>
+            <td>{{ row.withHistoryAddToCartRate | number: '1.1-2' }}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <article class="sub-panel heatmap-panel">
+      <div class="sub-panel-head">
+        <p class="panel-kicker">Heatmap</p>
+        <h4>Section x Segment (CTR va Add-to-cart)</h4>
+      </div>
+      <div class="heatmap-grid">
+        <div class="heatmap-header"></div>
+        <div class="heatmap-header">Tai khoan moi</div>
+        <div class="heatmap-header">Co lich su</div>
+
+        <ng-container *ngFor="let row of recommendationBreakdown()">
+          <div class="heatmap-row-label">{{ row.label }}</div>
+          <div
+            class="heatmap-cell"
+            [style.background]="heatColor(row.newAccountCtr, maxBreakdownRate('ctr'))"
+          >
+            <p>CTR {{ row.newAccountCtr | number: '1.1-2' }}%</p>
+            <p>Add {{ row.newAccountAddToCartRate | number: '1.1-2' }}%</p>
+          </div>
+          <div
+            class="heatmap-cell"
+            [style.background]="heatColor(row.withHistoryCtr, maxBreakdownRate('ctr'))"
+          >
+            <p>CTR {{ row.withHistoryCtr | number: '1.1-2' }}%</p>
+            <p>Add {{ row.withHistoryAddToCartRate | number: '1.1-2' }}%</p>
+          </div>
+        </ng-container>
+      </div>
+    </article>
+
+    <div class="coldstart-chart-wrap">
+      <p class="panel-kicker">Cold-start gap</p>
+      <div class="coldstart-chart-head">
+        <h4>So sanh chenh lech giua tai khoan moi voi co lich su</h4>
+        <div class="telemetry-window-buttons" role="group" aria-label="Chon metric gap">
+          <button
+            type="button"
+            class="window-btn"
+            [class.window-btn--active]="gapMetric() === 'ctr'"
+            (click)="setGapMetric('ctr')"
+          >
+            CTR gap
+          </button>
+          <button
+            type="button"
+            class="window-btn"
+            [class.window-btn--active]="gapMetric() === 'add_to_cart'"
+            (click)="setGapMetric('add_to_cart')"
+          >
+            Add-to-cart gap
+          </button>
+        </div>
+      </div>
+
+      <div class="gap-alert" *ngIf="gapAlerts().length > 0">
+        <p class="gap-alert-title">
+          Canh bao: gap vuot {{ gapAlertThreshold() | number: '1.0-1' }}%
+        </p>
+        <p class="gap-alert-text">
+          {{ gapAlerts()[0].label }} dang lech {{ gapAlerts()[0].gap | number: '1.1-2' }}% (co lich
+          su - tai khoan moi).
+        </p>
+      </div>
+
+      <canvas id="coldStartGapChart" #coldStartGapChart></canvas>
+    </div>
+  </section>
+</div>

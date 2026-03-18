@@ -7,6 +7,7 @@ import { AdminOrdersComponent } from './admin-orders/admin-orders.component';
 import { AdminUsersComponent } from './admin-users/admin-users.component';
 import { AdminReportsV2Component } from './admin-reports-v2/admin-reports-v2.component';
 import { AdminAuditComponent } from './admin-audit/admin-audit.component';
+import { AdminMlInsightsComponent } from './admin-ml-insights/admin-ml-insights.component';
 
 export const adminRoutes: Routes = [
   {
@@ -20,6 +21,7 @@ export const adminRoutes: Routes = [
       { path: 'orders', component: AdminOrdersComponent },
       { path: 'users', component: AdminUsersComponent },
       { path: 'reports', component: AdminReportsV2Component },
+      { path: 'ml-insights', component: AdminMlInsightsComponent },
       { path: 'audit', component: AdminAuditComponent },
     ],
   },

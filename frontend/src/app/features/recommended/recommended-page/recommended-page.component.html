@@ -1,7 +1,7 @@
 <!-- Page Hero -->
 <section class="page-hero">
   <div class="container page-hero__content">
-    <span class="eyebrow">🤖 Cá nhân hóa</span>
+    <span class="eyebrow"> Cá nhân hóa</span>
     <h1 class="page-title">Gợi ý dành riêng cho bạn</h1>
     <p class="page-description">
       Chúng tôi chọn lọc sản phẩm dựa trên sở thích và lịch sử mua sắm của bạn
@@ -20,7 +20,9 @@
 <section class="section-card container">
   <div class="section-head">
     <div class="section-head__text">
-      <span class="eyebrow">💚 Cho riêng bạn</span>
+      <span class="eyebrow"
+        ><span class="material-symbols-outlined g-icon">favorite</span> Cho riêng bạn</span
+      >
       <h2>Tiếp nối những gì bạn thích</h2>
       <p class="section-desc">
         @if (loading()) {
@@ -32,7 +34,7 @@
         }
       </p>
     </div>
-    <button class="btn btn--outline" (click)="load()">🔄 Làm mới</button>
+    <button class="btn btn--outline" (click)="load()">Làm mới</button>
   </div>
   @if (loading()) {
     <div class="skeleton-grid">
@@ -42,20 +44,42 @@
     </div>
   } @else if (personal().length === 0) {
     <div class="empty-state">
-      <p>🛒 Chưa có gợi ý cá nhân. Hãy mua thêm để nhận gợi ý!</p>
+      <p>
+        <span class="material-symbols-outlined g-icon">shopping_cart</span>
+        Chưa có gợi ý cá nhân. Hãy mua thêm để nhận gợi ý!
+      </p>
       <a routerLink="/products" class="btn btn--primary">Mua sắm ngay</a>
     </div>
   } @else {
     <div class="products-grid">
       @for (r of personal(); track r.product_id) {
         <div class="rec-card">
-          <img [src]="r.image || 'images/brand/LogoVVV.png'" [alt]="r.name" class="rec-img" />
+          <a
+            [routerLink]="['/products', r.product_id]"
+            (click)="onProductClick('personal', '' + r.product_id)"
+            class="rec-link"
+          >
+            <img [src]="r.image || 'images/brand/LogoVVV.png'" [alt]="r.name" class="rec-img" />
+          </a>
           <div class="rec-info">
-            <p class="rec-name">{{ r.name }}</p>
+            <a
+              [routerLink]="['/products', r.product_id]"
+              (click)="onProductClick('personal', '' + r.product_id)"
+              class="rec-name"
+            >
+              {{ r.name }}
+            </a>
             <p class="rec-price">{{ r.price | number }}đ</p>
             @if (r.reason) {
               <p class="rec-reason">{{ r.reason }}</p>
             }
+            <button
+              class="btn btn--primary"
+              type="button"
+              (click)="onAddToCart('personal', toProduct(r))"
+            >
+              Thêm vào giỏ
+            </button>
           </div>
         </div>
       }
@@ -67,30 +91,69 @@
 <section class="section-card container">
   <div class="section-head">
     <div class="section-head__text">
-      <span class="eyebrow">🔍 Gần giống khẩu vị</span>
+      <span class="eyebrow"> Gần giống khẩu vị</span>
       <h2>Sản phẩm tương tự</h2>
-      <p class="section-desc">Ưu tiên cùng danh mục hoặc tiểu mục bạn mua nhiều nhất.</p>
+      <p class="section-desc">
+        @if (isGuest()) {
+          Gợi ý khám phá từ nhiều sản phẩm đang thịnh hành, ưu tiên đa dạng nhóm hàng.
+        } @else if (!hasPersonalHistory()) {
+          Tài khoản mới: gợi ý tương tự dựa trên xu hướng chung trước khi có đủ lịch sử mua.
+        } @else if (similar().length === 0) {
+          Chưa đủ dữ liệu cá nhân hóa, đang dùng danh mục phổ biến làm dự phòng.
+        } @else {
+          Mô hình ML chọn {{ similar().length }} sản phẩm tương tự từ nhiều nhóm sản phẩm bạn quan
+          tâm.
+        }
+      </p>
     </div>
   </div>
-  <div class="products-grid">
-    @for (p of similar(); track p.id) {
-      <app-product-card [product]="p" />
-    }
-  </div>
+  @if (similar().length === 0) {
+    <div class="empty-state">
+      <p>Chưa có dữ liệu tương đồng để hiển thị.</p>
+    </div>
+  } @else {
+    <div class="products-grid">
+      @for (p of similar(); track p.id) {
+        <app-product-card
+          [product]="p"
+          (productClick)="onProductClick('similar', $event.id)"
+          (addToCartClick)="onAddToCart('similar', $event)"
+        />
+      }
+    </div>
+  }
 </section>
 
 <!-- Section 3: Trending -->
 <section class="section-card container">
   <div class="section-head">
     <div class="section-head__text">
-      <span class="eyebrow">📈 Xu hướng</span>
+      <span class="eyebrow"> Xu hướng</span>
       <h2>Mua nhiều tại Vựa Vui Vẻ</h2>
-      <p class="section-desc">Top sản phẩm được thêm giỏ nhiều nhất.</p>
+      <p class="section-desc">
+        @if (isGuest()) {
+          Dành cho người mới: top sản phẩm toàn sàn được phối đa dạng để bạn khám phá nhanh.
+        } @else if (trending().length === 0) {
+          Chưa tải được xu hướng từ ML, đang dùng danh sách dự phòng.
+        } @else {
+          Danh sách xu hướng được lấy từ dữ liệu toàn sàn và đã giới hạn lặp nhóm để tránh đơn điệu.
+        }
+      </p>
     </div>
   </div>
-  <div class="products-grid">
-    @for (p of trending(); track p.id) {
-      <app-product-card [product]="p" />
-    }
-  </div>
+  @if (trending().length === 0) {
+    <div class="empty-state">
+      <p>Chưa có dữ liệu xu hướng để hiển thị.</p>
+    </div>
+  } @else {
+    <div class="products-grid">
+      @for (p of trending(); track p.id) {
+        <app-product-card
+          [product]="p"
+          (productClick)="onProductClick('trending', $event.id)"
+          (addToCartClick)="onAddToCart('trending', $event)"
+        />
+      }
+    </div>
+  }
 </section>

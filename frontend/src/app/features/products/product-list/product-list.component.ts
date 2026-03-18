@@ -15,16 +15,18 @@ import { ProductService } from '../../../core/services/product.service';
 import { CartService } from '../../../core/services/cart.service';
 import { Product } from '../../../core/models/product.model';
 import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
+import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
+import { Subscription } from 'rxjs';
 
 const CATS = [
-  { key: 'veg', label: 'Rau Củ', icon: '🥬' },
-  { key: 'fruit', label: 'Trái Cây', icon: '🍎' },
-  { key: 'meat', label: 'Thịt & Cá', icon: '🥩' },
-  { key: 'drink', label: 'Đồ Uống', icon: '🧃' },
-  { key: 'dry', label: 'Hàng Khô', icon: '🌾' },
-  { key: 'spice', label: 'Gia Vị', icon: '🧂' },
-  { key: 'household', label: 'Gia Dụng', icon: '🏠' },
-  { key: 'sweet', label: 'Bánh Kẹo', icon: '🍰' },
+  { key: 'veg', label: 'Rau Củ', icon: 'eco' },
+  { key: 'fruit', label: 'Trái Cây', icon: 'nutrition' },
+  { key: 'meat', label: 'Thịt & Cá', icon: 'set_meal' },
+  { key: 'drink', label: 'Đồ Uống', icon: 'local_drink' },
+  { key: 'dry', label: 'Hàng Khô', icon: 'grain' },
+  { key: 'spice', label: 'Gia Vị', icon: 'soup_kitchen' },
+  { key: 'household', label: 'Gia Dụng', icon: 'cleaning_services' },
+  { key: 'sweet', label: 'Bánh Kẹo', icon: 'cookie' },
 ];
 const SORTS = [
   { key: 'default', label: 'Mặc định' },
@@ -56,6 +58,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private platformId = inject(PLATFORM_ID);
+  private realtime = inject(RealtimeSyncService);
 
   readonly catList = CATS;
   readonly sortList = SORTS;
@@ -72,6 +75,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
   flashProducts = signal<Product[]>([]);
   countdown = signal('--:--:--');
   private _cd: ReturnType<typeof setInterval> | null = null;
+  private realtimeSub?: Subscription;
 
   filtered = computed(() => {
     let list = this.allProducts();
@@ -105,12 +109,10 @@ export class ProductListComponent implements OnInit, OnDestroy {
       if (p['cat']) this.selectedCat.set(p['cat']);
       if (p['q']) this.searchQuery.set(p['q']);
     });
-    // Tải toàn bộ sản phẩm (không giới hạn)
-    this.productSvc.getAllProducts().subscribe((ps) => {
-      this.allProducts.set(ps);
-      this.cartSvc.hydrateFromProducts(ps);
-      this.updateFlash(ps);
-      this.loading.set(false);
+    this.loadProducts();
+
+    this.realtimeSub = this.realtime.ofType('product.changed').subscribe(() => {
+      this.loadProducts(false);
     });
     this.tickCd();
     this._cd = setInterval(() => this.tickCd(), 1000);
@@ -119,6 +121,17 @@ export class ProductListComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     if (this._cd) clearInterval(this._cd);
+    this.realtimeSub?.unsubscribe();
+  }
+
+  private loadProducts(showLoading = true): void {
+    if (showLoading) this.loading.set(true);
+    this.productSvc.getAllProducts().subscribe((ps) => {
+      this.allProducts.set(ps);
+      this.cartSvc.hydrateFromProducts(ps);
+      this.updateFlash(ps);
+      this.loading.set(false);
+    });
   }
 
   setSearch(q: string): void {

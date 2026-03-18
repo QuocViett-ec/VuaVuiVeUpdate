@@ -14,13 +14,17 @@ import { CartItem } from '../../core/models/product.model';
     <aside class="cart-sidebar" [class.open]="isOpen()">
       <div class="cart-sidebar__head">
         <h3>Giỏ hàng ({{ cartService.itemCount() }})</h3>
-        <button class="close-btn" (click)="close()">✕</button>
+        <button class="close-btn" (click)="close()" aria-label="Đóng giỏ hàng">
+          <span class="material-symbols-outlined g-icon">close</span>
+        </button>
       </div>
 
       <div class="cart-sidebar__body">
         @if (cart().items.length === 0) {
           <div class="empty-cart">
-            <div class="empty-icon">🛒</div>
+            <div class="empty-icon">
+              <span class="material-symbols-outlined g-icon">shopping_cart</span>
+            </div>
             <p>Giỏ hàng trống</p>
             <a routerLink="/products" class="btn btn--primary" (click)="close()">Mua sắm ngay</a>
           </div>
@@ -41,7 +45,9 @@ import { CartItem } from '../../core/models/product.model';
                 <span>{{ item.quantity }}</span>
                 <button (click)="inc(item)" class="qty-btn">+</button>
               </div>
-              <button class="remove-btn" (click)="remove(item.product.id)">🗑</button>
+              <button class="remove-btn" (click)="remove(item.product.id)">
+                <span class="material-symbols-outlined g-icon">delete</span>
+              </button>
             </div>
           }
         }

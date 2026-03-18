@@ -74,14 +74,21 @@
                   aria-label="Lấy vị trí hiện tại"
                 >
                   @if (isLocating()) {
-                    <span>⏳ Đang xác định...</span>
+                    <span>
+                      <span class="material-symbols-outlined g-icon">hourglass_top</span>
+                      Đang xác định...
+                    </span>
                   } @else {
-                    <span>📍 Lấy vị trí hiện tại</span>
+                    <span>
+                      <span class="material-symbols-outlined g-icon">my_location</span>
+                      Lấy vị trí hiện tại
+                    </span>
                   }
                 </button>
                 @if (locationError()) {
                   <p class="field-error" role="alert" style="margin: 4px 0 0">
-                    ⚠ {{ locationError() }}
+                    <span class="material-symbols-outlined g-icon">warning</span>
+                    {{ locationError() }}
                   </p>
                 }
               </div>
@@ -135,7 +142,9 @@
                   [class.input--error]="isPwInvalid('currentPassword')"
                 />
                 <button type="button" class="toggle-pw" (click)="showOldPw.set(!showOldPw())">
-                  {{ showOldPw() ? '🙈' : '👁' }}
+                  <span class="material-symbols-outlined g-icon">{{
+                    showOldPw() ? 'visibility_off' : 'visibility'
+                  }}</span>
                 </button>
               </div>
               @if (isPwInvalid('currentPassword')) {
@@ -160,7 +169,9 @@
                   [class.input--error]="isPwInvalid('newPassword')"
                 />
                 <button type="button" class="toggle-pw" (click)="showNewPw.set(!showNewPw())">
-                  {{ showNewPw() ? '🙈' : '👁' }}
+                  <span class="material-symbols-outlined g-icon">{{
+                    showNewPw() ? 'visibility_off' : 'visibility'
+                  }}</span>
                 </button>
               </div>
               @if (isPwInvalid('newPassword')) {

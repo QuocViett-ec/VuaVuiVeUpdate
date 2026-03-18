@@ -4,7 +4,7 @@
     @for (s of stats(); track s.label) {
       <div class="stat-card">
         <div class="stat-icon" [style.background]="s.bg" [style.color]="s.color">
-          {{ s.icon }}
+          <span class="material-symbols-outlined g-icon">{{ s.icon }}</span>
         </div>
         <div class="stat-body">
           <p class="stat-label">{{ s.label }}</p>

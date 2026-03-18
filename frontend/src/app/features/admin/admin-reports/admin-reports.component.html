@@ -2,21 +2,33 @@
   <!-- Summary cards -->
   <div class="summary-grid">
     <div class="s-card">
-      <span class="s-icon" style="background: #dcfce7; color: #15803d">💰</span>
+      <span
+        class="s-icon material-symbols-outlined g-icon"
+        style="background: #dcfce7; color: #15803d"
+        >payments</span
+      >
       <div>
         <p class="s-label">Tổng doanh thu</p>
         <strong class="s-val">{{ totalRevenue() | number }}đ</strong>
       </div>
     </div>
     <div class="s-card">
-      <span class="s-icon" style="background: #dbeafe; color: #1d4ed8">📦</span>
+      <span
+        class="s-icon material-symbols-outlined g-icon"
+        style="background: #dbeafe; color: #1d4ed8"
+        >local_shipping</span
+      >
       <div>
         <p class="s-label">Tổng đơn hàng</p>
         <strong class="s-val">{{ totalOrders() }}</strong>
       </div>
     </div>
     <div class="s-card">
-      <span class="s-icon" style="background: #fef9c3; color: #a16207">📅</span>
+      <span
+        class="s-icon material-symbols-outlined g-icon"
+        style="background: #fef9c3; color: #a16207"
+        >calendar_month</span
+      >
       <div>
         <p class="s-label">Số tháng ghi nhận</p>
         <strong class="s-val">{{ byMonth().length }}</strong>

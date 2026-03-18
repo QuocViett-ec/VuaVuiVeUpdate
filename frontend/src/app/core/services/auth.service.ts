@@ -32,8 +32,33 @@ export class AuthService {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem('vvv_users_v1');
     }
+    const initialRole = String(this._session()?.role || '').toLowerCase();
+    if (this._isCustomerPortalRuntime() && initialRole === 'admin') {
+      this._clearSession();
+    }
+    if (this._isAdminPortalRuntime() && initialRole && initialRole !== 'admin') {
+      this._clearSession();
+    }
     // Restore session từ server cookie khi app khởi động
     this._restoreServerSession();
+  }
+
+  private _isAdminPortalRuntime(): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+      return new URL(environment.adminPortalBase).origin === window.location.origin;
+    } catch {
+      return false;
+    }
+  }
+
+  private _isCustomerPortalRuntime(): boolean {
+    if (typeof window === 'undefined') return false;
+    try {
+      return new URL(environment.customerPortalBase).origin === window.location.origin;
+    } catch {
+      return false;
+    }
   }
 
   // ─── Restore session từ server (GET /api/auth/me) ───────────────────────────
@@ -43,6 +68,16 @@ export class AuthService {
       next: (res) => {
         if (this._isLoggingOut) return;
         if (res?.data) {
+          const role = String(res.data.role || '').toLowerCase();
+          if (this._isCustomerPortalRuntime() && role === 'admin') {
+            this._clearSession();
+            return;
+          }
+          if (this._isAdminPortalRuntime() && role !== 'admin') {
+            this._clearSession();
+            return;
+          }
+
           const sess: AuthSession = {
             id: res.data._id ?? res.data.id,
             name: res.data.name,
@@ -167,18 +202,56 @@ export class AuthService {
     }
   }
 
+  // ─── Admin Login (separate admin portal entrypoint) ─────────────────────────
+  async loginAdmin(req: LoginRequest): Promise<AuthResponse> {
+    try {
+      const res = await firstValueFrom(
+        this.http.post<any>(`${API_BASE}/api/auth/admin/login`, req, { withCredentials: true }),
+      );
+      if (res?.data) {
+        const sess: AuthSession = {
+          id: res.data._id ?? res.data.id,
+          name: res.data.name,
+          email: res.data.email ?? '',
+          phone: res.data.phone ?? '',
+          address: res.data.address ?? '',
+          role: res.data.role ?? 'admin',
+          avatar: res.data.avatar ?? '',
+          provider: res.data.provider ?? 'local',
+        };
+        this._saveSession(sess);
+        return { ok: true, user: sess as unknown as User };
+      }
+      return { ok: false, message: 'Đăng nhập quản trị thất bại.' };
+    } catch (err: any) {
+      if (err?.status === 0) {
+        return {
+          ok: false,
+          message: 'Không thể kết nối đến server. Vui lòng kiểm tra backend đang chạy.',
+        };
+      }
+      return { ok: false, message: err.error?.message ?? 'Đăng nhập quản trị thất bại.' };
+    }
+  }
+
   // ─── Logout ─────────────────────────────────────────────────────────────────
   logout(): void {
     this._isLoggingOut = true;
     this.http.post(`${API_BASE}/api/auth/logout`, {}, { withCredentials: true }).subscribe({
       next: () => {
         this._clearSession();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vvv:auth-logout'));
+        }
         this.router.navigate(['/auth/login'], { replaceUrl: true });
         this._isLoggingOut = false;
       },
       error: () => {
         // Dù backend lỗi, vẫn clear local session để người dùng thoát khỏi UI hiện tại.
         this._clearSession();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('vvv:auth-logout'));
+        }
         this.router.navigate(['/auth/login'], { replaceUrl: true });
         this._isLoggingOut = false;
       },

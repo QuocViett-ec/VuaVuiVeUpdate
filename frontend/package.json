@@ -3,8 +3,12 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "start": "node scripts/ensure-port-free.cjs 4200 customer && ng serve frontend --port 4200",
+    "start:customer": "node scripts/ensure-port-free.cjs 4200 customer && ng serve frontend --port 4200",
+    "start:admin": "node scripts/ensure-port-free.cjs 4201 admin && start \"\" http://localhost:4201/auth/login && ng serve admin --port 4201",
     "build": "ng build",
+    "build:customer": "ng build frontend",
+    "build:admin": "ng build admin",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:frontend": "node dist/frontend/server/server.mjs"
@@ -32,6 +36,7 @@
     "@angular/platform-server": "^21.1.0",
     "@angular/router": "^21.1.0",
     "@angular/ssr": "^21.1.5",
+    "chart.js": "^4.4.1",
     "express": "^5.1.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"

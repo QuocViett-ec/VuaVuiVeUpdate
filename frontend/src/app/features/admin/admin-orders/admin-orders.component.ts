@@ -12,7 +12,10 @@ import { Order } from '../../../core/models/product.model';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="admin-section">
-      <h1>📦 Quản lý đơn hàng</h1>
+      <h1>
+        <span class="material-symbols-outlined g-icon">package_2</span>
+        Quản lý đơn hàng
+      </h1>
 
       <div class="filters">
         <select [(ngModel)]="statusFilter" (ngModelChange)="onFilter($event)" class="input">
@@ -55,19 +58,21 @@ import { Order } from '../../../core/models/product.model';
                   <span class="badge" [attr.data-status]="o.status">
                     @switch (o.status) {
                       @case ('pending') {
-                        🕐 Chờ xác nhận
+                        <span class="material-symbols-outlined g-icon">schedule</span> Chờ xác nhận
                       }
                       @case ('confirmed') {
-                        ✅ Đã xác nhận
+                        <span class="material-symbols-outlined g-icon">check_circle</span> Đã xác
+                        nhận
                       }
                       @case ('shipping') {
-                        🚚 Đang giao
+                        <span class="material-symbols-outlined g-icon">local_shipping</span> Đang
+                        giao
                       }
                       @case ('delivered') {
-                        📦 Đã giao
+                        <span class="material-symbols-outlined g-icon">inventory_2</span> Đã giao
                       }
                       @case ('cancelled') {
-                        ❌ Đã hủy
+                        <span class="material-symbols-outlined g-icon">cancel</span> Đã hủy
                       }
                       @default {
                         {{ o.status }}

@@ -7,7 +7,9 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "dev:plain": "node server.js",
-    "seed": "node scripts/seed.js && node scripts/seed-orders.js"
+    "seed": "node scripts/seed.js && node scripts/seed-orders.js",
+    "seed:ml-events": "node scripts/seed-ml-events.js",
+    "smoke:recommender": "node scripts/smoke-recommender-test.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

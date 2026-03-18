@@ -5,6 +5,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { GoogleLoginButtonComponent } from '../../../shared/google-login-button/google-login-button.component';
 import { AuthSession } from '../../../core/models/user.model';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -27,6 +28,7 @@ export class LoginPageComponent {
   loading = signal(false);
   error = signal('');
   capsLock = signal(false);
+  private adminPortalUrl = environment.adminPortalBase;
 
   onKeydown(e: KeyboardEvent): void {
     this.capsLock.set(e.getModifierState?.('CapsLock') ?? false);
@@ -60,8 +62,6 @@ export class LoginPageComponent {
       const returnUrl = this.route.snapshot.queryParams['returnUrl'];
       if (returnUrl && returnUrl.startsWith('/')) {
         this.router.navigateByUrl(returnUrl);
-      } else if (this.auth.isAdmin()) {
-        this.router.navigate(['/admin']);
       } else {
         this.router.navigate(['/']);
       }
@@ -76,7 +76,7 @@ export class LoginPageComponent {
     if (returnUrl && returnUrl.startsWith('/')) {
       this.router.navigateByUrl(returnUrl);
     } else if (session.role === 'admin') {
-      this.router.navigate(['/admin']);
+      window.location.href = `${this.adminPortalUrl}/auth/login`;
     } else {
       this.router.navigate(['/']);
     }

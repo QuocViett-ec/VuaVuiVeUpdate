@@ -43,28 +43,28 @@ export class AdminDashboardComponent implements OnInit {
       const revenue = paid.reduce((s: number, o: any) => s + (o.totalAmount ?? 0), 0);
       this.stats.set([
         {
-          icon: '🛍️',
+          icon: 'inventory_2',
           label: 'Sản phẩm',
           value: products.length.toLocaleString(),
           bg: '#dcfce7',
           color: '#15803d',
         },
         {
-          icon: '📦',
+          icon: 'local_shipping',
           label: 'Đơn hàng',
           value: orders.length.toLocaleString(),
           bg: '#dbeafe',
           color: '#1d4ed8',
         },
         {
-          icon: '👥',
+          icon: 'group',
           label: 'Người dùng',
           value: users.length.toLocaleString(),
           bg: '#fef9c3',
           color: '#a16207',
         },
         {
-          icon: '💰',
+          icon: 'payments',
           label: 'Doanh thu',
           value: revenue.toLocaleString('vi-VN') + 'đ',
           bg: '#fce7f3',

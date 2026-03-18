@@ -1,0 +1,45 @@
+<section class="admin-login-page">
+  <div class="admin-login-card">
+    <p class="eyebrow">Admin Portal</p>
+    <h1>Đăng nhập quản trị</h1>
+    <p class="sub">Cổng này chỉ dành cho tài khoản quản trị viên.</p>
+
+    <form (ngSubmit)="onSubmit()" class="admin-login-form" novalidate>
+      <label>
+        Tài khoản (SĐT hoặc Email)
+        <input
+          [(ngModel)]="credential"
+          name="credential"
+          type="text"
+          placeholder="0912345678 hoặc admin@example.com"
+          autocomplete="username"
+          required
+        />
+      </label>
+
+      <label>
+        Mật khẩu
+        <input
+          [(ngModel)]="password"
+          name="password"
+          type="password"
+          placeholder="Mật khẩu"
+          autocomplete="current-password"
+          required
+        />
+      </label>
+
+      @if (error()) {
+        <p class="error">{{ error() }}</p>
+      }
+
+      <button type="submit" [disabled]="loading()">
+        {{ loading() ? 'Đang đăng nhập...' : 'Đăng nhập Admin' }}
+      </button>
+    </form>
+
+    <a class="customer-link" [href]="customerPortalUrl" target="_blank" rel="noopener noreferrer"
+      >Mở trang khách hàng</a
+    >
+  </div>
+</section>

@@ -1,7 +1,6 @@
 <div class="news-page">
   <div class="page-title-wrap">
     <h1 class="page-title">Vựa Tin Tức</h1>
-    <p class="page-sub">Cập nhật nhanh tin tức từ VNExpress</p>
   </div>
 
   <!-- TABS -->
@@ -41,12 +40,12 @@
                 [alt]="item.title"
                 loading="lazy"
                 referrerpolicy="no-referrer"
-                onerror="this.src='images/brand/LogoVVV.png'"
+                onerror="this.src = 'images/brand/LogoVVV.png'"
               />
             }
             <div class="rss-content">
               <h3 class="rss-title" [innerHTML]="item.title"></h3>
-              <p class="rss-date">{{ item.pubDate | date:'dd/MM/yyyy HH:mm' }}</p>
+              <p class="rss-date">{{ item.pubDate | date: 'dd/MM/yyyy HH:mm' }}</p>
             </div>
           </a>
         }

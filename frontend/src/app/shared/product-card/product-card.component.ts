@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Product } from '../../core/models/product.model';
@@ -11,9 +11,10 @@ import { inject } from '@angular/core';
   imports: [CommonModule, RouterLink],
   template: `
     <div class="product-card">
-      <a [routerLink]="['/products', product.id]" class="card-img-wrap">
+      <a [routerLink]="['/products', product.id]" class="card-img-wrap" (click)="onProductClick()">
         <img
-          [src]="product.img || 'images/brand/LogoVVV.png'"
+          [src]="product.img || fallbackImg"
+          (error)="onImageError($event)"
           [alt]="product.name"
           class="card-img"
           loading="lazy"
@@ -23,7 +24,9 @@ import { inject } from '@angular/core';
         }
       </a>
       <div class="card-body">
-        <a [routerLink]="['/products', product.id]" class="card-name">{{ product.name }}</a>
+        <a [routerLink]="['/products', product.id]" class="card-name" (click)="onProductClick()">{{
+          product.name
+        }}</a>
         <div class="card-price">
           <span class="price-current">{{ product.price | number }}đ</span>
           @if (product.oldPrice && product.oldPrice > product.price) {
@@ -59,7 +62,10 @@ import { inject } from '@angular/core';
 })
 export class ProductCardComponent {
   @Input({ required: true }) product!: Product;
+  @Output() productClick = new EventEmitter<Product>();
+  @Output() addToCartClick = new EventEmitter<Product>();
   private cart = inject(CartService);
+  readonly fallbackImg = '/images/brand/LogoVVV.png';
 
   cartQty() {
     return this.cart.getQuantity(this.product.id);
@@ -69,6 +75,20 @@ export class ProductCardComponent {
     return Math.round((1 - this.product.price / this.product.oldPrice) * 100);
   }
   add() {
-    this.cart.addToCart(this.product);
+    const hasExternalHandler = this.addToCartClick.observers.length > 0;
+    this.addToCartClick.emit(this.product);
+    if (!hasExternalHandler) {
+      this.cart.addToCart(this.product);
+    }
+  }
+
+  onProductClick() {
+    this.productClick.emit(this.product);
+  }
+
+  onImageError(event: Event): void {
+    const img = event.target as HTMLImageElement;
+    if (!img || img.src.includes(this.fallbackImg)) return;
+    img.src = this.fallbackImg;
   }
 }

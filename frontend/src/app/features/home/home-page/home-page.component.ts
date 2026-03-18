@@ -1,4 +1,13 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnInit, OnDestroy, AfterViewInit, PLATFORM_ID } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  OnInit,
+  OnDestroy,
+  AfterViewInit,
+  PLATFORM_ID,
+} from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ProductService } from '../../../core/services/product.service';
@@ -8,14 +17,14 @@ import { CartService } from '../../../core/services/cart.service';
 import { Product, Recommendation } from '../../../core/models/product.model';
 
 const CATEGORIES = [
-  { key: 'veg', label: 'Rau Củ', icon: '🥬' },
-  { key: 'fruit', label: 'Trái Cây', icon: '🍎' },
-  { key: 'meat', label: 'Thịt & Cá', icon: '🥩' },
-  { key: 'drink', label: 'Đồ Uống', icon: '🧃' },
-  { key: 'dry', label: 'Hàng Khô', icon: '🌾' },
-  { key: 'spice', label: 'Gia Vị', icon: '🧂' },
-  { key: 'household', label: 'Gia Dụng', icon: '🏠' },
-  { key: 'sweet', label: 'Bánh Kẹo', icon: '🍰' },
+  { key: 'veg', label: 'Rau Củ', icon: 'eco' },
+  { key: 'fruit', label: 'Trái Cây', icon: 'nutrition' },
+  { key: 'meat', label: 'Thịt & Cá', icon: 'set_meal' },
+  { key: 'drink', label: 'Đồ Uống', icon: 'local_drink' },
+  { key: 'dry', label: 'Hàng Khô', icon: 'grain' },
+  { key: 'spice', label: 'Gia Vị', icon: 'soup_kitchen' },
+  { key: 'household', label: 'Gia Dụng', icon: 'cleaning_services' },
+  { key: 'sweet', label: 'Bánh Kẹo', icon: 'cookie' },
 ];
 
 const SLIDES = [
@@ -32,7 +41,8 @@ const SLIDES = [
   standalone: true,
   imports: [CommonModule, RouterLink],
   templateUrl: './home-page.component.html',
-  styleUrl: './home-page.component.scss' })
+  styleUrl: './home-page.component.scss',
+})
 export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   private productSvc = inject(ProductService);
   private recommenderSvc = inject(RecommenderService);
@@ -78,7 +88,14 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
     const user = this.auth.currentUser();
     if (user?.id) {
       this.recommenderSvc
-        .getTimeAwareRecommendations(user.id, 4)
+        .getTimeAwareRecommendations({
+          user_id: user.id,
+          user_email: user.email || undefined,
+          user_name: user.name || undefined,
+          user_phone: user.phone || undefined,
+          n: 4,
+          filter_purchased: true,
+        })
         .subscribe((r) => this.recommended.set(r));
     }
   }
@@ -129,11 +146,11 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
       } else {
         this.shopLastTs = ts;
       }
-      
-      // ALWAYS sync the progress bar based on the true scroll position, 
+
+      // ALWAYS sync the progress bar based on the true scroll position,
       // even when auto-scrolling is paused or when smoothly scrolling via nav buttons.
       setBar();
-      
+
       this.shopRafId = requestAnimationFrame(tick);
     };
     this.shopRafId = requestAnimationFrame(tick);
@@ -208,11 +225,11 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
   shopScroll(px: number): void {
     const el = document.getElementById('scroll');
     if (!el) return;
-    
+
     // Temporarily pause auto-scrolling so it doesn't interrupt the smooth scroll animation
     this.shopPaused = true;
     el.scrollBy({ left: px, behavior: 'smooth' });
-    
+
     // Resume auto-scrolling after smooth scroll completes (approx ~800ms)
     setTimeout(() => {
       this.shopPaused = false;

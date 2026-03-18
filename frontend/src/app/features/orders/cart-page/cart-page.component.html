@@ -1,7 +1,10 @@
 <main class="section">
   <div class="container cart-container">
     <div class="cart-header">
-      <h2 class="cart-title">🛒 Giỏ Hàng</h2>
+      <h2 class="cart-title">
+        <span class="material-symbols-outlined g-icon">shopping_cart</span>
+        Giỏ Hàng
+      </h2>
       @if (items().length > 0) {
         <label class="select-all-label">
           <input type="checkbox" [checked]="allSelected()" (change)="toggleAll($event)" />
@@ -12,7 +15,9 @@
 
     @if (!items().length) {
       <div class="empty-cart">
-        <div class="empty-cart__icon">🛒</div>
+        <div class="empty-cart__icon">
+          <span class="material-symbols-outlined g-icon">shopping_cart</span>
+        </div>
         <h3>Giỏ hàng trống</h3>
         <p>Hãy khám phá sản phẩm tươi ngon của chúng tôi!</p>
         <a routerLink="/products" class="btn btn--primary">Mua sắm ngay →</a>
@@ -49,7 +54,7 @@
             </div>
             <p class="cart-subtotal">{{ item.product.price * item.quantity | number }}đ</p>
             <button class="cart-remove" (click)="remove(item.product.id)" aria-label="Xóa sản phẩm">
-              ✕
+              <span class="material-symbols-outlined g-icon">close</span>
             </button>
           </div>
         }

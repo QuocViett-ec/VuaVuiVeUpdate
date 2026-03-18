@@ -22,12 +22,12 @@ const TEST_USER = {
 async function main() {
   const uri = process.env.MONGO_URI;
   if (!uri) {
-    console.error("❌ MONGO_URI chưa được set trong .env");
+    console.error(" MONGO_URI chưa được set trong .env");
     process.exit(1);
   }
 
   await mongoose.connect(uri);
-  console.log("✅ Đã kết nối MongoDB");
+  console.log(" Đã kết nối MongoDB");
 
   // Xoá user cũ nếu tồn tại (để reset password)
   await User.deleteOne({
@@ -35,7 +35,7 @@ async function main() {
   });
 
   const user = await User.create(TEST_USER);
-  console.log("✅ Tạo user test thành công:");
+  console.log(" Tạo user test thành công:");
   console.log(`   Tên   : ${user.name}`);
   console.log(`   Email : ${user.email}`);
   console.log(`   SĐT   : ${user.phone}`);
@@ -47,7 +47,7 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("❌ Lỗi:", err.message);
+  console.error(" Lỗi:", err.message);
   mongoose.disconnect();
   process.exit(1);
 });

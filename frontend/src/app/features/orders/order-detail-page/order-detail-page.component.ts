@@ -1,10 +1,19 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  OnInit,
+  OnDestroy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { OrderService } from '../../../core/services/order.service';
 import { CartService } from '../../../core/services/cart.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Order } from '../../../core/models/product.model';
+import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -29,19 +38,20 @@ import { Order } from '../../../core/models/product.model';
             <span class="status-badge" [attr.data-status]="order()!.status">
               @switch (order()!.status) {
                 @case ('pending') {
-                  🕐 Chờ xác nhận
+                  <span class="material-symbols-outlined g-icon">schedule</span> Chờ xác nhận
                 }
                 @case ('confirmed') {
-                  ✅ Đã xác nhận
+                  <span class="material-symbols-outlined g-icon">check_circle</span> Đã xác nhận
                 }
                 @case ('shipping') {
-                  🚚 Đang giao hàng
+                  <span class="material-symbols-outlined g-icon">local_shipping</span> Đang giao
+                  hàng
                 }
                 @case ('delivered') {
-                  📦 Đã giao
+                  <span class="material-symbols-outlined g-icon">inventory_2</span> Đã giao
                 }
                 @case ('cancelled') {
-                  ❌ Đã hủy
+                  <span class="material-symbols-outlined g-icon">cancel</span> Đã hủy
                 }
                 @default {
                   {{ order()!.status }}
@@ -68,19 +78,23 @@ import { Order } from '../../../core/models/product.model';
                 <strong>Phương thức:</strong>
                 @switch (order()!.paymentMethod) {
                   @case ('vnpay') {
-                    🏦 VNPay
+                    <span class="material-symbols-outlined g-icon">account_balance</span> VNPay
                   }
                   @case ('momo') {
-                    📱 MoMo
+                    <span class="material-symbols-outlined g-icon">smartphone</span> MoMo
                   }
                   @default {
-                    💵 COD
+                    <span class="material-symbols-outlined g-icon">payments</span> COD
                   }
                 }
               </p>
               <p>
                 <strong>Trạng thái:</strong>
-                {{ order()!.paymentStatus === 'paid' ? '✅ Đã thanh toán' : '⏳ Chờ thanh toán' }}
+                @if (order()!.paymentStatus === 'paid') {
+                  <span class="material-symbols-outlined g-icon">check_circle</span> Đã thanh toán
+                } @else {
+                  <span class="material-symbols-outlined g-icon">hourglass_top</span> Chờ thanh toán
+                }
               </p>
               @if (order()!.paidAt) {
                 <p><strong>Thanh toán lúc:</strong> {{ order()!.paidAt | date: 'dd/MM HH:mm' }}</p>
@@ -135,11 +149,22 @@ import { Order } from '../../../core/models/product.model';
           <div class="od-actions">
             @if (order()!.status === 'pending' || order()!.status === 'confirmed') {
               <button class="btn btn--danger" (click)="cancelOrder()" [disabled]="cancelling()">
-                {{ cancelling() ? 'Đang hủy...' : '✕ Hủy đơn hàng' }}
+                @if (cancelling()) {
+                  Đang hủy...
+                } @else {
+                  <span class="material-symbols-outlined g-icon">cancel</span>
+                  Hủy đơn hàng
+                }
               </button>
             }
-            <button class="btn btn--outline" (click)="reorder()">🔄 Mua lại</button>
-            <a routerLink="/orders" class="btn btn--ghost">← Quay lại</a>
+            <button class="btn btn--outline" (click)="reorder()">
+              <span class="material-symbols-outlined g-icon">replay</span>
+              Mua lại
+            </button>
+            <a routerLink="/orders" class="btn btn--ghost">
+              <span class="material-symbols-outlined g-icon">arrow_back</span>
+              Quay lại
+            </a>
           </div>
         </div>
       }
@@ -147,12 +172,14 @@ import { Order } from '../../../core/models/product.model';
   `,
   styleUrl: './order-detail-page.component.scss',
 })
-export class OrderDetailPageComponent implements OnInit {
+export class OrderDetailPageComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private orderSvc = inject(OrderService);
   private cartSvc = inject(CartService);
   private toast = inject(ToastService);
+  private realtime = inject(RealtimeSyncService);
+  private realtimeSub?: Subscription;
 
   order = signal<Order | null>(null);
   loading = signal(true);
@@ -160,6 +187,23 @@ export class OrderDetailPageComponent implements OnInit {
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') || '';
+    this.loadOrder(id);
+
+    this.realtimeSub = this.realtime.ofType('order.status_updated').subscribe((evt: any) => {
+      const payload = evt?.payload || {};
+      const incomingOrderId = String(payload.orderId || '');
+      const incomingDbId = String(payload.dbId || '');
+      if (!incomingOrderId && !incomingDbId) return;
+      if (incomingOrderId !== id && incomingDbId !== id) return;
+      this.loadOrder(id);
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.realtimeSub?.unsubscribe();
+  }
+
+  private loadOrder(id: string): void {
     this.orderSvc.getOrderById(id).subscribe((o) => {
       this.order.set(o);
       this.loading.set(false);

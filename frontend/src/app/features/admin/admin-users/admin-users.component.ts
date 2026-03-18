@@ -11,7 +11,10 @@ import { User } from '../../../core/models/user.model';
   imports: [CommonModule],
   template: `
     <div class="admin-section">
-      <h1>👥 Người dùng</h1>
+      <h1>
+        <span class="material-symbols-outlined g-icon">group</span>
+        Người dùng
+      </h1>
       <div class="table-wrap">
         <table class="data-table">
           <thead>

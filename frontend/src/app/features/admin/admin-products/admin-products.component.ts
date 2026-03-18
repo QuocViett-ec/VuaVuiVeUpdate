@@ -1,10 +1,65 @@
 import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
 import { ProductService } from '../../../core/services/product.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Product } from '../../../core/models/product.model';
+
+type CategoryOption = { value: string; label: string };
+
+const CATEGORY_OPTIONS: CategoryOption[] = [
+  { value: 'veg', label: 'Rau Củ' },
+  { value: 'fruit', label: 'Trái Cây' },
+  { value: 'meat', label: 'Thịt & Cá' },
+  { value: 'drink', label: 'Đồ Uống' },
+  { value: 'dry', label: 'Hàng Khô' },
+  { value: 'spice', label: 'Gia Vị' },
+  { value: 'household', label: 'Gia Dụng' },
+  { value: 'sweet', label: 'Bánh Kẹo' },
+];
+
+const SUBCATEGORY_OPTIONS: Record<string, CategoryOption[]> = {
+  veg: [
+    { value: 'leafy', label: 'Rau Lá' },
+    { value: 'root', label: 'Củ Quả' },
+    { value: 'herb', label: 'Rau Gia Vị' },
+  ],
+  fruit: [
+    { value: 'tropical', label: 'Nhiệt Đới' },
+    { value: 'citrus', label: 'Có Múi' },
+    { value: 'berry', label: 'Berry' },
+  ],
+  meat: [
+    { value: 'pork', label: 'Thịt Heo' },
+    { value: 'beef', label: 'Thịt Bò' },
+    { value: 'seafood', label: 'Hải Sản' },
+  ],
+  drink: [
+    { value: 'milk', label: 'Sữa' },
+    { value: 'juice', label: 'Nước Ép' },
+    { value: 'soft', label: 'Nước Ngọt' },
+  ],
+  dry: [
+    { value: 'rice', label: 'Gạo' },
+    { value: 'noodle', label: 'Mì/Bún' },
+    { value: 'bean', label: 'Đậu/Hạt' },
+  ],
+  spice: [
+    { value: 'salt', label: 'Muối/Đường' },
+    { value: 'powder', label: 'Bột Gia Vị' },
+    { value: 'sauce', label: 'Nước Chấm' },
+  ],
+  household: [
+    { value: 'cleaning', label: 'Vệ Sinh' },
+    { value: 'kitchen', label: 'Nhà Bếp' },
+    { value: 'paper', label: 'Giấy/Túi' },
+  ],
+  sweet: [
+    { value: 'candy', label: 'Kẹo' },
+    { value: 'cake', label: 'Bánh' },
+    { value: 'snack', label: 'Snack' },
+  ],
+};
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -14,7 +69,10 @@ import { Product } from '../../../core/models/product.model';
   template: `
     <div class="admin-section">
       <div class="section-head">
-        <h1>🛍️ Quản lý sản phẩm</h1>
+        <h1>
+          <span class="material-symbols-outlined g-icon">inventory_2</span>
+          Quản lý sản phẩm
+        </h1>
         <button class="btn btn--primary" (click)="openAdd()">+ Thêm sản phẩm</button>
       </div>
 
@@ -23,7 +81,7 @@ import { Product } from '../../../core/models/product.model';
           [ngModel]="search()"
           (ngModelChange)="search.set($event)"
           type="search"
-          placeholder="Tìm sản phẩm..."
+          placeholder="Nhập tên để tìm nhanh..."
           class="input"
         />
       </div>
@@ -54,8 +112,12 @@ import { Product } from '../../../core/models/product.model';
                   >{{ p.status ?? 'active' }}
                 </td>
                 <td class="actions">
-                  <button class="btn btn--sm btn--outline" (click)="openEdit(p)">✏️</button>
-                  <button class="btn btn--sm btn--danger" (click)="deleteProduct(p.id)">🗑</button>
+                  <button class="btn btn--sm btn--outline" (click)="openEdit(p)">
+                    <span class="material-symbols-outlined g-icon">edit</span>
+                  </button>
+                  <button class="btn btn--sm btn--danger" (click)="deleteProduct(p.id)">
+                    <span class="material-symbols-outlined g-icon">delete</span>
+                  </button>
                 </td>
               </tr>
             }
@@ -71,15 +133,36 @@ import { Product } from '../../../core/models/product.model';
             <form (ngSubmit)="saveProduct()" class="modal-form">
               <div class="field">
                 <label>Tên sản phẩm *</label
-                ><input [(ngModel)]="form.name" name="name" class="input" required />
+                ><input
+                  [(ngModel)]="form.name"
+                  name="name"
+                  class="input"
+                  placeholder="Ví dụ: Táo Envy New Zealand"
+                  required
+                />
               </div>
               <div class="form-row">
                 <div class="field">
-                  <label>Danh mục</label><input [(ngModel)]="form.cat" name="cat" class="input" />
+                  <label>Danh mục</label>
+                  <select
+                    [(ngModel)]="form.cat"
+                    (ngModelChange)="onCategoryChange($event)"
+                    name="cat"
+                    class="input"
+                    required
+                  >
+                    @for (option of categoryOptions; track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
                 </div>
                 <div class="field">
-                  <label>Danh mục con</label
-                  ><input [(ngModel)]="form.sub" name="sub" class="input" />
+                  <label>Danh mục con</label>
+                  <select [(ngModel)]="form.sub" name="sub" class="input">
+                    @for (option of currentSubOptions(); track option.value) {
+                      <option [value]="option.value">{{ option.label }}</option>
+                    }
+                  </select>
                 </div>
               </div>
               <div class="form-row">
@@ -92,6 +175,7 @@ import { Product } from '../../../core/models/product.model';
                     type="number"
                     min="0"
                     class="input"
+                    placeholder="Ví dụ: 45000"
                   />
                 </div>
                 <div class="field">
@@ -103,14 +187,27 @@ import { Product } from '../../../core/models/product.model';
                     type="number"
                     min="0"
                     class="input"
+                    placeholder="Ví dụ: 120"
                   />
                 </div>
               </div>
               <div class="field">
-                <label>URL ảnh</label><input [(ngModel)]="form.img" name="img" class="input" />
+                <label>URL ảnh</label
+                ><input
+                  [(ngModel)]="form.img"
+                  name="img"
+                  class="input"
+                  placeholder="Ví dụ: /images/FRUIT/Mixed/Táo.jpg hoặc https://..."
+                />
               </div>
               <div class="field">
-                <label>Đơn vị</label><input [(ngModel)]="form.unit" name="unit" class="input" />
+                <label>Đơn vị</label
+                ><input
+                  [(ngModel)]="form.unit"
+                  name="unit"
+                  class="input"
+                  placeholder="Ví dụ: kg, bó, quả, chai, gói"
+                />
               </div>
               <div class="field">
                 <label>Trạng thái</label>
@@ -134,7 +231,8 @@ import { Product } from '../../../core/models/product.model';
 export class AdminProductsComponent implements OnInit {
   private prodSvc = inject(ProductService);
   private toast = inject(ToastService);
-  private router = inject(Router);
+
+  readonly categoryOptions = CATEGORY_OPTIONS;
 
   products = signal<Product[]>([]);
   search = signal('');
@@ -156,17 +254,46 @@ export class AdminProductsComponent implements OnInit {
   }
 
   openAdd(): void {
-    this.form = { status: 'active', stock: 0, price: 0 };
+    const defaultCategory = this.categoryOptions[0]?.value || 'veg';
+    this.form = {
+      status: 'active',
+      stock: 0,
+      price: 0,
+      cat: defaultCategory,
+      sub: SUBCATEGORY_OPTIONS[defaultCategory]?.[0]?.value || 'all',
+    };
     this.editingId.set('');
     this.showModal.set(true);
   }
+
   openEdit(p: Product): void {
-    this.form = { ...p };
+    const fallbackCategory = this.categoryOptions[0]?.value || 'veg';
+    const category = p.cat || fallbackCategory;
+    const validSubs = SUBCATEGORY_OPTIONS[category] || [];
+    const sub = p.sub || validSubs[0]?.value || 'all';
+
+    this.form = { ...p, cat: category, sub };
     this.editingId.set(p.id);
     this.showModal.set(true);
   }
+
   closeModal(): void {
     this.showModal.set(false);
+  }
+
+  currentSubOptions(): CategoryOption[] {
+    const category = String(this.form.cat || this.categoryOptions[0]?.value || 'veg');
+    const options = SUBCATEGORY_OPTIONS[category] || [];
+    return options.length ? options : [{ value: 'all', label: 'Mặc định' }];
+  }
+
+  onCategoryChange(category: string): void {
+    const options = SUBCATEGORY_OPTIONS[category] || [];
+    const currentSub = String(this.form.sub || '');
+    const hasCurrentSub = options.some((option) => option.value === currentSub);
+    if (!hasCurrentSub) {
+      this.form.sub = options[0]?.value || 'all';
+    }
   }
 
   onNonNegativeChange(field: 'price' | 'stock', value: number | string | null): void {
@@ -175,6 +302,16 @@ export class AdminProductsComponent implements OnInit {
   }
 
   saveProduct(): void {
+    if (!this.form.name?.toString().trim()) {
+      this.toast.error('Vui lòng nhập tên sản phẩm.');
+      return;
+    }
+
+    if (!this.form.cat?.toString().trim()) {
+      this.toast.error('Vui lòng chọn danh mục.');
+      return;
+    }
+
     this.form.price = Math.max(0, Number(this.form.price ?? 0));
     this.form.stock = Math.max(0, Number(this.form.stock ?? 0));
 
@@ -184,14 +321,10 @@ export class AdminProductsComponent implements OnInit {
       : this.prodSvc.updateProduct(this.editingId(), this.form);
 
     obs.subscribe({
-      next: (res) => {
-        this.toast.success('Đã lưu!');
+      next: () => {
+        this.toast.success(isNew ? 'Đã thêm sản phẩm.' : 'Đã cập nhật sản phẩm.');
         this.closeModal();
-        if (isNew && res.id) {
-          this.router.navigate(['/products', res.id]);
-        } else {
-          this.load();
-        }
+        this.load();
       },
       error: () => this.toast.error('Lỗi khi lưu.'),
     });

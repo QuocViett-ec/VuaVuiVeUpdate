@@ -102,10 +102,10 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
     if (!isRefresh) this.loading.set(true);
 
     this.http
-      .get<{ success: boolean; data: DashboardAnalytics }>(
-        `${environment.apiBase}/api/users/dashboard/analytics`,
-        { withCredentials: true },
-      )
+      .get<{
+        success: boolean;
+        data: DashboardAnalytics;
+      }>(`${environment.apiBase}/api/users/dashboard/analytics`, { withCredentials: true })
       .subscribe({
         next: (res) => {
           this.analyticsData = res.data;
@@ -114,7 +114,7 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
           this.headline.set(this.buildHeadline(this.analyticsData.overview));
           this.loading.set(false);
           this.chartsDrawn = false; // Need to redraw when data refreshes
-          
+
           if (isPlatformBrowser(this.platformId)) {
             this.loadChartJs().then(() => this.tryDrawCharts());
           }
@@ -128,7 +128,7 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
 
   private tryDrawCharts(attempts = 0): void {
     if (!this.analyticsData) return;
-    
+
     const ChartClass = (window as any).Chart;
     const revenueCanvas = document.getElementById('revenueChart');
     const statusCanvas = document.getElementById('statusChart');
@@ -210,7 +210,10 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
         type: 'line',
         data: {
           labels: analytics.revenueLast7Days.map((item) =>
-            new Date(item.day || '').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+            new Date(item.day || '').toLocaleDateString('vi-VN', {
+              day: '2-digit',
+              month: '2-digit',
+            }),
           ),
           datasets: [
             {

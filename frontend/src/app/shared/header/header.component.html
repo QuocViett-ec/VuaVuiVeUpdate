@@ -54,7 +54,8 @@
       @if (isLoggedIn()) {
         <div class="account-menu">
           <button type="button" class="btn--account" (click)="toggleAccountDropdown()">
-            👤 Tài Khoản
+            <span class="material-symbols-outlined g-icon">person</span>
+            Tài Khoản
           </button>
           @if (showAccountDropdown()) {
             <div class="dropdown">
@@ -69,10 +70,13 @@
               >
               @if (isAdmin()) {
                 <a
-                  routerLink="/admin"
+                  [href]="adminPortalUrl"
                   class="dropdown-item dropdown-item--admin"
                   (click)="showAccountDropdown.set(false)"
-                  >⚙ Quản Lý</a
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  ><span class="material-symbols-outlined g-icon">admin_panel_settings</span> Quản
+                  Lý</a
                 >
               }
               <hr class="dropdown-divider" />
@@ -84,13 +88,15 @@
         </div>
       } @else {
         <button type="button" class="btn--account" (click)="router.navigate(['/auth/login'])">
-          👤 Đăng Nhập
+          <span class="material-symbols-outlined g-icon">login</span>
+          Đăng Nhập
         </button>
       }
 
       <!-- Cart -->
       <button type="button" class="btn--cart" (click)="openCart()" aria-label="Giỏ hàng">
-        🛒 Giỏ Hàng
+        <span class="material-symbols-outlined g-icon">shopping_cart</span>
+        Giỏ Hàng
         @if (cartCount() > 0) {
           <span class="cart-badge">{{ cartCount() }}</span>
         }

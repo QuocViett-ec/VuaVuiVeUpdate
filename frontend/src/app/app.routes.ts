@@ -23,10 +23,6 @@ export const routes: Routes = [
     loadChildren: () => import('./features/account/account.routes').then((m) => m.accountRoutes),
   },
   {
-    path: 'admin',
-    loadChildren: () => import('./features/admin/admin.routes').then((m) => m.adminRoutes),
-  },
-  {
     path: 'recommended',
     loadChildren: () =>
       import('./features/recommended/recommended.routes').then((m) => m.recommendedRoutes),

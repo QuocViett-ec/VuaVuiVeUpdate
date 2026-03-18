@@ -10,7 +10,7 @@
           this.nextElementSibling.style.display = 'block';
         "
       />
-      <span class="auth-logo-text" style="display: none">🛒 Vựa Vui Vẻ</span>
+      <span class="auth-logo-text" style="display: none">Vựa Vui Vẻ</span>
     </a>
     <h1 class="auth-title blenda">Đăng Nhập</h1>
 
@@ -51,11 +51,16 @@
             (click)="showPw = !showPw"
             [attr.aria-label]="showPw ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
           >
-            {{ showPw ? '🙈' : '👁' }}
+            <span class="material-symbols-outlined g-icon g-icon--sm">{{
+              showPw ? 'visibility_off' : 'visibility'
+            }}</span>
           </button>
         </div>
         @if (capsLock()) {
-          <p class="hint-caps">⚠ Caps Lock đang bật</p>
+          <p class="hint-caps">
+            <span class="material-symbols-outlined g-icon g-icon--sm">warning</span>
+            Caps Lock đang bật
+          </p>
         }
       </div>
 

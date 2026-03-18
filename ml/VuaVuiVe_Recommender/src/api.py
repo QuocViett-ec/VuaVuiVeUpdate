@@ -27,9 +27,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODELS_DIR = PROJECT_ROOT / "models"
 FEATURES_DIR = PROJECT_ROOT / "data" / "03_features"
 
-print("🔥 Loading recommendation model...")
+print(" Loading recommendation model...")
 recommender = HybridRecommender(MODELS_DIR, FEATURES_DIR)
-print("✓ Model loaded successfully!")
+print(" Model loaded successfully!")
 
 # Load VVV Adapter
 # PROJECT_ROOT = VuaVuiVeUpdate/ml/VuaVuiVe_Recommender
@@ -37,9 +37,9 @@ print("✓ Model loaded successfully!")
 VVV_DATA_DIR = PROJECT_ROOT.parents[2] / 'backoffice' / 'data'
 MAPPING_FILE = PROJECT_ROOT / 'mappings' / 'vvv_instacart_mapping.json'
 
-print("🔄 Loading VVV-Instacart adapter...")
+print(" Loading VVV-Instacart adapter...")
 adapter = VVVInstacartAdapter(VVV_DATA_DIR, MAPPING_FILE)
-print("✓ Adapter loaded successfully!")
+print(" Adapter loaded successfully!")
 
 
 @app.route('/health', methods=['GET'])
@@ -106,6 +106,20 @@ def get_recommendations():
         n = int(data.get('n', 10))
         filter_purchased = bool(data.get('filter_purchased', True))
 
+        # Diversification controls: keep item-level relevance but avoid one-category domination.
+        diversity_enabled = bool(data.get('diversify', True))
+        # Stronger default diversity: for medium lists, keep each root capped low.
+        if n >= 8:
+            max_per_root_default = 2
+        elif n >= 4:
+            max_per_root_default = 1
+        else:
+            max_per_root_default = n
+        max_per_root = int(data.get('max_per_root', max_per_root_default))
+        max_per_root = max(1, min(max_per_root, max(1, n)))
+        min_unique_roots = int(data.get('min_unique_roots', 4))
+        min_unique_roots = max(1, min(min_unique_roots, max(1, n)))
+
         # Allow frontend to tune weights
         # Defaults are tuned for VVV proxy usage (we mainly trust basket co-occurrence)
         w_cf = float(data.get('w_cf', 0.0))
@@ -127,6 +141,7 @@ def get_recommendations():
             name=user_name,
             phone=user_phone,
         )
+        has_history = len(vvv_purchase_history) > 0
 
         # Build a time-decayed preference profile from recent orders.
         # Recent orders should influence more than old ones; larger quantities also matter.
@@ -215,7 +230,8 @@ def get_recommendations():
                 'user_id': vvv_user_id,
                 'recommendations': recommendations,
                 'count': len(recommendations),
-                'method': 'popularity'
+                'method': 'popularity',
+                'has_history': False,
             })
         
         # 2. Map VVV products → Instacart products
@@ -277,7 +293,7 @@ def get_recommendations():
 
         if (not is_trending_request) and cat_counts:
             # Prefer the top 1-2 most frequent category keys (e.g. veg/root vs veg/leaf)
-            top_cats = sorted(cat_counts.items(), key=lambda x: x[1], reverse=True)[:2]
+            top_cats = sorted(cat_counts.items(), key=lambda x: x[1], reverse=True)[:1]
             boost_base = max((float(r.get('score', 0.0)) for r in vvv_recommendations), default=10.0)
 
             injected = []
@@ -292,7 +308,7 @@ def get_recommendations():
                     pid = str(p.get('id'))
                     if not pid or pid in purchased_set_all:
                         continue
-                    score = boost_base + 6.0 + (2.0 * (cnt / max_cat if max_cat else 0.0)) - (0.02 * i) - (0.2 * rank_cat)
+                    score = boost_base + 2.0 + (1.0 * (cnt / max_cat if max_cat else 0.0)) - (0.02 * i) - (0.2 * rank_cat)
                     injected.append({
                         'product_id': int(pid),
                         'score': round(score, 2),
@@ -303,7 +319,7 @@ def get_recommendations():
                         'reason': 'Dựa trên những món bạn mua gần đây'
                     })
                     added += 1
-                    if added >= 6:
+                    if added >= 3:
                         break
                     if len(injected) >= inject_limit:
                         break
@@ -336,12 +352,12 @@ def get_recommendations():
                 cat_boost = 0.0
                 root_boost = 0.0
                 if max_cat and cat_key in cat_counts:
-                    cat_boost = 0.6 * (cat_counts[cat_key] / max_cat)
+                    cat_boost = 0.25 * (cat_counts[cat_key] / max_cat)
                 if max_root and root in root_counts:
-                    root_boost = 0.3 * (root_counts[root] / max_root)
+                    root_boost = 0.15 * (root_counts[root] / max_root)
 
                 # Small penalty for categories the user never bought
-                penalty = 0.10 if root and root_counts and root not in root_counts else 0.0
+                penalty = 0.05 if root and root_counts and root not in root_counts else 0.0
                 rec['score'] = round(base_score * (1.0 + cat_boost + root_boost - penalty), 2)
 
             vvv_recommendations.sort(key=lambda x: x.get('score', 0), reverse=True)
@@ -353,6 +369,65 @@ def get_recommendations():
                 rec for rec in vvv_recommendations 
                 if str(rec['product_id']) not in purchased_set
             ]
+
+        # 5.5 Diversify by root-category after scoring so top-N is not monopolized by one root.
+        # This still preserves product-level ranking within each root bucket.
+        if diversity_enabled and vvv_recommendations:
+            def _root_of(rec):
+                cat_key = str(rec.get('category', '')).strip()
+                return cat_key.split('/')[0] if '/' in cat_key else (cat_key or 'other')
+
+            ranked = sorted(vvv_recommendations, key=lambda x: float(x.get('score', 0.0)), reverse=True)
+
+            root_best = {}
+            for rec in ranked:
+                root = _root_of(rec)
+                if root not in root_best:
+                    root_best[root] = rec
+
+            selected = []
+            selected_ids = set()
+            root_quota = {}
+
+            # Pass A: reserve high-scoring head items from multiple roots.
+            diverse_heads = sorted(root_best.values(), key=lambda x: float(x.get('score', 0.0)), reverse=True)
+            for rec in diverse_heads:
+                if len(selected) >= min_unique_roots or len(selected) >= n:
+                    break
+                pid = rec.get('product_id')
+                if pid in selected_ids:
+                    continue
+                root = _root_of(rec)
+                selected.append(rec)
+                selected_ids.add(pid)
+                root_quota[root] = root_quota.get(root, 0) + 1
+
+            # Pass B: fill remaining by score with a soft cap per root.
+            for rec in ranked:
+                if len(selected) >= n:
+                    break
+                pid = rec.get('product_id')
+                if pid in selected_ids:
+                    continue
+                root = _root_of(rec)
+                if root_quota.get(root, 0) >= max_per_root:
+                    continue
+                selected.append(rec)
+                selected_ids.add(pid)
+                root_quota[root] = root_quota.get(root, 0) + 1
+
+            # Pass C: if still not enough (strict cap), backfill regardless of cap.
+            if len(selected) < n:
+                for rec in ranked:
+                    if len(selected) >= n:
+                        break
+                    pid = rec.get('product_id')
+                    if pid in selected_ids:
+                        continue
+                    selected.append(rec)
+                    selected_ids.add(pid)
+
+            vvv_recommendations = selected
         
         # 6. Return top N
         final_recommendations = vvv_recommendations[:n]
@@ -362,11 +437,15 @@ def get_recommendations():
             'recommendations': final_recommendations,
             'count': len(final_recommendations),
             'method': 'hybrid_instacart_mapping',
+            'has_history': has_history,
             'debug': {
                 'vvv_history_count': len(vvv_purchase_history),
                 'instacart_proxy_count': len(instacart_proxy),
                 'instacart_recs_count': len(instacart_recs),
-                'vvv_candidates_count': len(vvv_recommendations)
+                'vvv_candidates_count': len(vvv_recommendations),
+                'diversify': diversity_enabled,
+                'max_per_root': max_per_root,
+                'min_unique_roots': min_unique_roots,
             }
         })
         
@@ -410,6 +489,43 @@ def get_similar_items():
         product_id_raw = data['product_id']
         product_id = int(product_id_raw)
         n = int(data.get('n', 10))
+        max_per_root = int(data.get('max_per_root', 2 if n >= 8 else 1))
+        max_per_root = max(1, min(max_per_root, max(1, n)))
+
+        def _diversify_similar(items, take_n):
+            ranked = sorted(items, key=lambda x: float(x.get('score', 0.0)), reverse=True)
+            selected = []
+            selected_ids = set()
+            root_quota = {}
+
+            def _root_of(rec):
+                cat_key = str(rec.get('category', '')).strip()
+                return cat_key.split('/')[0] if '/' in cat_key else (cat_key or 'other')
+
+            for rec in ranked:
+                if len(selected) >= take_n:
+                    break
+                pid = rec.get('product_id')
+                if pid in selected_ids:
+                    continue
+                root = _root_of(rec)
+                if root_quota.get(root, 0) >= max_per_root:
+                    continue
+                selected.append(rec)
+                selected_ids.add(pid)
+                root_quota[root] = root_quota.get(root, 0) + 1
+
+            if len(selected) < take_n:
+                for rec in ranked:
+                    if len(selected) >= take_n:
+                        break
+                    pid = rec.get('product_id')
+                    if pid in selected_ids:
+                        continue
+                    selected.append(rec)
+                    selected_ids.add(pid)
+
+            return selected
 
         # If frontend sends a VVV product id, return VVV-enriched similar items.
         vvv_product = adapter.product_index.get(str(product_id))
@@ -438,7 +554,7 @@ def get_similar_items():
             for rec in vvv_similar:
                 rec['reason'] = 'Sản phẩm tương tự khẩu vị của bạn'
 
-            vvv_similar = vvv_similar[:n]
+            vvv_similar = _diversify_similar(vvv_similar, n)
             return jsonify({
                 'product_id': product_id,
                 'similar_items': vvv_similar,
@@ -512,7 +628,7 @@ def batch_recommendations():
 if __name__ == '__main__':
     # Run development server
     print("\n" + "="*50)
-    print("🎯 Recommendation API Server")
+    print(" Recommendation API Server")
     print("="*50)
     print("\nEndpoints:")
     print("  GET  /health")

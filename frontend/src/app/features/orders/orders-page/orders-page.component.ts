@@ -1,10 +1,19 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  OnInit,
+  OnDestroy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { OrderService } from '../../../core/services/order.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { Order } from '../../../core/models/product.model';
+import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
+import { Subscription } from 'rxjs';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Chờ xác nhận',
@@ -28,7 +37,10 @@ const STATUS_COLORS: Record<string, string> = {
   imports: [CommonModule, RouterLink, FormsModule],
   template: `
     <div class="container orders-page">
-      <h1 class="page-title">📦 Đơn hàng của tôi</h1>
+      <h1 class="page-title">
+        <span class="material-symbols-outlined g-icon">package_2</span>
+        Đơn hàng của tôi
+      </h1>
 
       <div class="filter-row">
         <select
@@ -76,7 +88,12 @@ const STATUS_COLORS: Record<string, string> = {
               <div class="order-foot">
                 <span class="total">{{ order.totalAmount | number }}đ</span>
                 <span class="pay-badge" [class.paid]="order.paymentStatus === 'paid'">
-                  {{ order.paymentStatus === 'paid' ? '💳 Đã thanh toán' : '⏳ Chờ thanh toán' }}
+                  @if (order.paymentStatus === 'paid') {
+                    <span class="material-symbols-outlined g-icon">credit_card</span> Đã thanh toán
+                  } @else {
+                    <span class="material-symbols-outlined g-icon">hourglass_top</span> Chờ thanh
+                    toán
+                  }
                 </span>
                 <a [routerLink]="['/orders', order.id]" class="btn btn--outline btn--sm"
                   >Chi tiết</a
@@ -90,9 +107,11 @@ const STATUS_COLORS: Record<string, string> = {
   `,
   styleUrl: './orders-page.component.scss',
 })
-export class OrdersPageComponent implements OnInit {
+export class OrdersPageComponent implements OnInit, OnDestroy {
   private orderSvc = inject(OrderService);
   private auth = inject(AuthService);
+  private realtime = inject(RealtimeSyncService);
+  private realtimeSub?: Subscription;
 
   orders = signal<Order[]>([]);
   loading = signal(true);
@@ -105,6 +124,13 @@ export class OrdersPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadOrders();
+    this.realtimeSub = this.realtime.ofType('order.status_updated').subscribe(() => {
+      this.loadOrders();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.realtimeSub?.unsubscribe();
   }
 
   onStatusChange(status: string): void {

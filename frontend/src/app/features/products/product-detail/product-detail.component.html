@@ -18,7 +18,7 @@
     <div class="skeleton-detail"></div>
   } @else if (!product()) {
     <div class="not-found">
-      <h2>😕 Không tìm thấy sản phẩm</h2>
+      <h2>Không tìm thấy sản phẩm</h2>
       <a routerLink="/products" class="btn btn--primary">Quay lại danh sách</a>
     </div>
   } @else {
@@ -40,34 +40,34 @@
         <span class="pd-cat-badge">
           @switch (product()!.cat) {
             @case ('veg') {
-              🥦 Rau củ
+              <span class="material-symbols-outlined g-icon">eco</span> Rau củ
             }
             @case ('fruit') {
-              🍎 Trái cây
+              <span class="material-symbols-outlined g-icon">nutrition</span> Trái cây
             }
             @case ('meat') {
-              🥩 Thịt & Cá
+              <span class="material-symbols-outlined g-icon">set_meal</span> Thịt & Cá
             }
             @case ('drink') {
-              🥤 Đồ uống
+              <span class="material-symbols-outlined g-icon">local_drink</span> Đồ uống
             }
             @case ('dry') {
-              🌾 Hàng khô
+              <span class="material-symbols-outlined g-icon">grain</span> Hàng khô
             }
             @case ('sweet') {
-              🍬 Bánh kẹo
+              <span class="material-symbols-outlined g-icon">cookie</span> Bánh kẹo
             }
             @case ('spice') {
-              🧂 Gia vị
+              <span class="material-symbols-outlined g-icon">soup_kitchen</span> Gia vị
             }
             @case ('household') {
-              🧴 Gia dụng
+              <span class="material-symbols-outlined g-icon">cleaning_services</span> Gia dụng
             }
             @case ('frozen') {
-              🧊 Đông lạnh
+              <span class="material-symbols-outlined g-icon">ac_unit</span> Đông lạnh
             }
             @default {
-              🛒 {{ product()!.cat }}
+              <span class="material-symbols-outlined g-icon">category</span> {{ product()!.cat }}
             }
           }
         </span>
@@ -84,7 +84,12 @@
         </div>
 
         <p class="pd-stock" [class.out]="product()!.stock === 0">
-          {{ product()!.stock === 0 ? '⚠ Hết hàng' : '✓ Còn hàng (' + product()!.stock + ')' }}
+          @if (product()!.stock === 0) {
+            <span class="material-symbols-outlined g-icon">warning</span> Hết hàng
+          } @else {
+            <span class="material-symbols-outlined g-icon">check_circle</span>
+            Còn hàng ({{ product()!.stock }})
+          }
         </p>
 
         @if (product()!.description) {
@@ -109,7 +114,8 @@
             (click)="addToCart()"
             [disabled]="product()!.stock === 0"
           >
-            🛒 Thêm vào giỏ
+            <span class="material-symbols-outlined g-icon">shopping_cart</span>
+            Thêm vào giỏ
           </button>
         </div>
       </div>

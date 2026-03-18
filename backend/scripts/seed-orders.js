@@ -68,6 +68,15 @@ function computeShippingFee(address, subtotal) {
   return 20000;
 }
 
+function ensureValidPhone(phone, seedValue) {
+  const raw = String(phone || "").trim();
+  if (/^0[3-9]\d{8}$/.test(raw)) return raw;
+
+  const digits = String(seedValue ?? Date.now()).replace(/\D/g, "");
+  const tail = (digits.slice(-8) || "12345678").padStart(8, "0");
+  return `09${tail}`;
+}
+
 function decideOrderStatus(dayOffset, orderIndex) {
   if (dayOffset <= 1) {
     return ["pending", "confirmed", "shipping"][(dayOffset + orderIndex) % 3];
@@ -95,9 +104,10 @@ function buildDemoOrders(users, products) {
     const endOfMonthFactor = day.getDate() > 25 ? 1.3 : 1.0;
     // Nhiều đơn hơn trong 30 ngày gần nhất
     const recentFactor = dayOffset <= 7 ? 2.0 : dayOffset <= 30 ? 1.5 : 1.1;
-    
+
     // Tăng volume cơ bản để biểu đồ nhìn đẹp hơn
-    const rawVolume = monthFactor * weekendFactor * endOfMonthFactor * recentFactor * 2.5;
+    const rawVolume =
+      monthFactor * weekendFactor * endOfMonthFactor * recentFactor * 2.5;
     const orderCount = Math.max(
       1, // Ít nhất 1 đơn mỗi ngày
       Math.min(15, Math.round(rawVolume + ((dayOffset * 17) % 5) - 1)),
@@ -122,7 +132,8 @@ function buildDemoOrders(users, products) {
             : 0;
       const totalAmount = Math.max(0, subtotal + shippingFee - discount);
       const status = decideOrderStatus(dayOffset, orderIndex);
-      const paymentMethod = PAYMENT_METHODS[(dayOffset + orderIndex) % PAYMENT_METHODS.length];
+      const paymentMethod =
+        PAYMENT_METHODS[(dayOffset + orderIndex) % PAYMENT_METHODS.length];
       const paymentStatus =
         status === "cancelled"
           ? "pending"
@@ -135,16 +146,23 @@ function buildDemoOrders(users, products) {
       createdAt.setSeconds((dayOffset * 29 + orderIndex * 7) % 60);
 
       const updatedAt = new Date(createdAt);
-      updatedAt.setHours(createdAt.getHours() + (status === "delivered" ? 18 : 4));
+      updatedAt.setHours(
+        createdAt.getHours() + (status === "delivered" ? 18 : 4),
+      );
 
       orders.push({
         userId: user._id,
         items,
         delivery: {
           name: user.name,
-          phone: user.phone,
+          phone: ensureValidPhone(
+            user.phone,
+            `${user._id}${dayOffset}${orderIndex}`,
+          ),
           address: user.address || "TP.HCM",
-          slot: DELIVERY_SLOTS[(dayOffset + orderIndex) % DELIVERY_SLOTS.length],
+          slot: DELIVERY_SLOTS[
+            (dayOffset + orderIndex) % DELIVERY_SLOTS.length
+          ],
         },
         payment: {
           method: paymentMethod,
@@ -170,18 +188,24 @@ async function seedOrders() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
 
-    const users = await User.find({ role: "user", isActive: true }).sort({ createdAt: 1 }).lean();
+    const users = await User.find({ role: "user", isActive: true })
+      .sort({ createdAt: 1 })
+      .lean();
     const products = await Product.find().sort({ createdAt: 1 }).lean();
 
     if (!users.length || !products.length) {
-      throw new Error("Can seed orders only after users and products are seeded");
+      throw new Error(
+        "Can seed orders only after users and products are seeded",
+      );
     }
 
     await Order.deleteMany({});
     const orders = buildDemoOrders(users, products);
     await Order.insertMany(orders);
 
-    console.log(`Created ${orders.length} demo orders for dashboard and reports`);
+    console.log(
+      `Created ${orders.length} demo orders for dashboard and reports`,
+    );
   } catch (err) {
     console.error("Order seed failed:", err.message);
     process.exit(1);

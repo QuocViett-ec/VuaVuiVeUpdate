@@ -1,6 +1,7 @@
 "use strict";
 
 const Product = require("../models/Product.model");
+const { publishToCustomers } = require("../services/realtime-bus");
 
 /**
  * GET /api/products
@@ -113,7 +114,7 @@ exports.create = async (req, res, next) => {
 
     const imageUrl = req.file
       ? `/uploads/products/${req.file.filename}`
-      : (imageUrlFromBody || "");
+      : imageUrlFromBody || "";
 
     const tagsArray =
       typeof tags === "string"
@@ -136,12 +137,28 @@ exports.create = async (req, res, next) => {
       stock: stock !== undefined ? Number(stock) : 0,
       unit,
       tags: tagsArray,
-      isActive: isActive !== undefined ? isActive === true || isActive === "true" : true,
+      isActive:
+        isActive !== undefined
+          ? isActive === true || isActive === "true"
+          : true,
+    });
+
+    publishToCustomers("product.changed", {
+      action: "created",
+      productId: String(product._id),
+      isActive: product.isActive,
+      category: product.category,
+      updatedAt: product.updatedAt,
+      source: "admin",
     });
 
     return res
       .status(201)
-      .json({ success: true, message: "Tạo sản phẩm thành công", data: product });
+      .json({
+        success: true,
+        message: "Tạo sản phẩm thành công",
+        data: product,
+      });
   } catch (err) {
     next(err);
   }
@@ -176,7 +193,8 @@ exports.update = async (req, res, next) => {
     if (description !== undefined) updates.description = description;
     if (stock !== undefined) updates.stock = Number(stock);
     if (unit !== undefined) updates.unit = unit;
-    if (isActive !== undefined) updates.isActive = isActive === true || isActive === "true";
+    if (isActive !== undefined)
+      updates.isActive = isActive === true || isActive === "true";
     if (imageUrlFromBody !== undefined) updates.imageUrl = imageUrlFromBody;
 
     if (tags !== undefined) {
@@ -195,17 +213,25 @@ exports.update = async (req, res, next) => {
       updates.imageUrl = `/uploads/products/${req.file.filename}`;
     }
 
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      { new: true, runValidators: true },
-    );
+    const product = await Product.findByIdAndUpdate(req.params.id, updates, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!product) {
       return res
         .status(404)
         .json({ success: false, message: "Không tìm thấy sản phẩm" });
     }
+
+    publishToCustomers("product.changed", {
+      action: "updated",
+      productId: String(product._id),
+      isActive: product.isActive,
+      category: product.category,
+      updatedAt: product.updatedAt,
+      source: "admin",
+    });
 
     return res.json({
       success: true,
@@ -233,6 +259,15 @@ exports.remove = async (req, res, next) => {
         .status(404)
         .json({ success: false, message: "Không tìm thấy sản phẩm" });
     }
+
+    publishToCustomers("product.changed", {
+      action: "removed",
+      productId: String(product._id),
+      isActive: product.isActive,
+      category: product.category,
+      updatedAt: product.updatedAt,
+      source: "admin",
+    });
 
     return res.json({ success: true, message: "Đã ẩn sản phẩm thành công" });
   } catch (err) {
