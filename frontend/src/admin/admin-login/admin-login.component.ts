@@ -50,7 +50,7 @@ export class AdminLoginComponent {
     }
 
     const returnUrl = this.route.snapshot.queryParams['returnUrl'];
-    if (returnUrl && returnUrl.startsWith('/')) {
+    if (this.auth.isSafeReturnUrl(returnUrl)) {
       this.router.navigateByUrl(returnUrl);
       return;
     }

@@ -1,4 +1,11 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  OnInit,
+  OnDestroy,
+} from '@angular/core';
 import {
   ReactiveFormsModule,
   FormsModule,
@@ -8,11 +15,16 @@ import {
   AbstractControl,
   ValidationErrors,
 } from '@angular/forms';
+import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { GeolocationService } from '../../../core/services/geolocation.service';
 import { switchMap } from 'rxjs/operators';
+import { OrderService } from '../../../core/services/order.service';
+import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
+import { Order } from '../../../core/models/product.model';
+import { Subscription } from 'rxjs';
 
 type Tab = 'profile' | 'orders' | 'security';
 
@@ -38,19 +50,24 @@ function confirmNewMatchValidator(group: AbstractControl): ValidationErrors | nu
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-account-page',
-  imports: [FormsModule, ReactiveFormsModule, RouterLink],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, DatePipe],
   templateUrl: './account-page.component.html',
   styleUrl: './account-page.component.scss',
 })
-export class AccountPageComponent implements OnInit {
+export class AccountPageComponent implements OnInit, OnDestroy {
   private auth = inject(AuthService);
   private toast = inject(ToastService);
   private fb = inject(FormBuilder);
   private geoSvc = inject(GeolocationService);
+  private orderSvc = inject(OrderService);
+  private realtime = inject(RealtimeSyncService);
+  private realtimeSub?: Subscription;
 
   readonly user = this.auth.currentUser;
 
   tab = signal<Tab>('profile');
+  ordersPreview = signal<Order[]>([]);
+  ordersLoading = signal(false);
   saving = signal(false);
   savingPw = signal(false);
   acctMsg = signal('');
@@ -86,6 +103,71 @@ export class AccountPageComponent implements OnInit {
     const u = this.user();
     this.editName = u?.name ?? '';
     this.editAddress = u?.address ?? '';
+
+    this.realtimeSub = this.realtime.ofType('order.status_updated').subscribe((evt: any) => {
+      if (this.tab() === 'orders') {
+        // Keep the preview synced without forcing a full reload request.
+        // This avoids wiping the list if there is a transient auth/session issue.
+        this.applyRealtimePreviewUpdate(evt?.payload || {});
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.realtimeSub?.unsubscribe();
+  }
+
+  setTab(nextTab: Tab): void {
+    this.tab.set(nextTab);
+    if (nextTab === 'orders') {
+      this.loadOrdersPreview();
+    }
+  }
+
+  orderStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      pending: 'Chờ xác nhận',
+      confirmed: 'Đã xác nhận',
+      shipping: 'Đang giao',
+      delivered: 'Đã giao',
+      cancelled: 'Đã hủy',
+    };
+    return labels[status] ?? status;
+  }
+
+  private loadOrdersPreview(): void {
+    this.ordersLoading.set(true);
+    this.orderSvc.getMyOrders().subscribe({
+      next: (orders) => {
+        this.ordersPreview.set(orders.slice(0, 5));
+        this.ordersLoading.set(false);
+      },
+      error: () => {
+        // Preserve existing preview data to avoid blank state on transient failures.
+        this.ordersLoading.set(false);
+      },
+    });
+  }
+
+  private applyRealtimePreviewUpdate(payload: any): void {
+    const orderId = String(payload?.orderId || '');
+    const dbId = String(payload?.dbId || '');
+    const status = String(payload?.status || '');
+    const paymentStatus = String(payload?.paymentStatus || '');
+    if (!orderId && !dbId) return;
+
+    this.ordersPreview.update((list) =>
+      list.map((o) => {
+        const isMatch = o.id === orderId || (o.dbId ? o.dbId === dbId : false);
+        if (!isMatch) return o;
+        return {
+          ...o,
+          status: (status || o.status) as Order['status'],
+          paymentStatus: (paymentStatus || o.paymentStatus) as Order['paymentStatus'],
+          updatedAt: payload?.updatedAt || o.updatedAt,
+        };
+      }),
+    );
   }
 
   async saveProfile(): Promise<void> {

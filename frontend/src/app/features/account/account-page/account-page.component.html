@@ -7,21 +7,17 @@
         <button
           class="account-item"
           [class.active]="tab() === 'profile'"
-          (click)="tab.set('profile')"
+          (click)="setTab('profile')"
         >
           <span>Sửa thông tin cá nhân</span><span>›</span>
         </button>
-        <button
-          class="account-item"
-          [class.active]="tab() === 'orders'"
-          (click)="tab.set('orders')"
-        >
+        <button class="account-item" [class.active]="tab() === 'orders'" (click)="setTab('orders')">
           <span>Đơn hàng từng mua</span><span>›</span>
         </button>
         <button
           class="account-item"
           [class.active]="tab() === 'security'"
-          (click)="tab.set('security')"
+          (click)="setTab('security')"
         >
           <span>Đổi mật khẩu</span><span>›</span>
         </button>
@@ -110,12 +106,36 @@
         <!-- Orders -->
         @if (tab() === 'orders') {
           <section class="account-panel" style="padding: 16px">
-            <p class="muted">Xem toàn bộ lịch sử đơn hàng của bạn.</p>
+            <p class="muted">Các đơn hàng gần đây sẽ tự đồng bộ khi admin cập nhật trạng thái.</p>
+
+            @if (ordersLoading()) {
+              <p class="muted" style="margin-top: 10px">Đang tải đơn hàng...</p>
+            } @else if (!ordersPreview().length) {
+              <p class="muted" style="margin-top: 10px">Chưa có đơn hàng nào.</p>
+            } @else {
+              <div class="order-preview-list">
+                @for (order of ordersPreview(); track order.id) {
+                  <div class="order-preview-item">
+                    <div>
+                      <strong>{{ order.id }}</strong>
+                      <div class="muted">{{ order.createdAt | date: 'dd/MM/yyyy HH:mm' }}</div>
+                    </div>
+                    <div class="order-preview-meta">
+                      <span class="order-status">{{ orderStatusLabel(order.status) }}</span>
+                      <span class="order-payment" [class.paid]="order.paymentStatus === 'paid'">
+                        {{ order.paymentStatus === 'paid' ? 'Paid' : 'Pending' }}
+                      </span>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+
             <a
               routerLink="/orders"
               class="btn btn--pri"
               style="display: inline-block; margin-top: 12px"
-              >Xem đơn hàng</a
+              >Xem tất cả đơn hàng</a
             >
           </section>
         }

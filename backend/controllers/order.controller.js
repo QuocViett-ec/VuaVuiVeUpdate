@@ -3,6 +3,7 @@
 const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
 const { publishToUser } = require("../services/realtime-bus");
+const { createAuditLog } = require("./user.controller");
 
 const VALID_STATUSES = [
   "pending",
@@ -12,6 +13,13 @@ const VALID_STATUSES = [
   "cancelled",
 ];
 const CANCELLABLE_STATUSES = ["pending", "confirmed"];
+const ALLOWED_TRANSITIONS = {
+  pending: ["confirmed", "cancelled"],
+  confirmed: ["shipping", "cancelled"],
+  shipping: ["delivered"],
+  delivered: [],
+  cancelled: [],
+};
 
 /**
  * POST /api/orders  (auth required)
@@ -153,11 +161,7 @@ exports.updateStatus = async (req, res, next) => {
       ? { $or: [{ _id: id }, { orderId: id }] }
       : { orderId: id };
 
-    const order = await Order.findOneAndUpdate(
-      query,
-      { status },
-      { new: true },
-    );
+    const order = await Order.findOne(query);
 
     if (!order) {
       return res
@@ -165,11 +169,55 @@ exports.updateStatus = async (req, res, next) => {
         .json({ success: false, message: "Không tìm thấy đơn hàng" });
     }
 
+    const previousStatus = String(order.status || "");
+    const previousPaymentStatus = String(order.payment?.status || "pending");
+
+    if (previousStatus === status) {
+      return res.json({
+        success: true,
+        message: "Đơn hàng đã ở trạng thái này",
+        data: order,
+      });
+    }
+
+    const allowedNext = ALLOWED_TRANSITIONS[previousStatus] || [];
+    if (!allowedNext.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Không thể chuyển từ ${previousStatus} sang ${status}`,
+      });
+    }
+
+    order.status = status;
+    if (status === "delivered") {
+      order.payment = order.payment || {};
+      order.payment.status = "paid";
+    }
+    await order.save();
+
+    const paymentStatus = String(order.payment?.status || "pending");
+
+    await createAuditLog({
+      adminId: req.session.userId,
+      action: "order.update",
+      target: `Order:${order.orderId || order._id}`,
+      details: {
+        previousStatus,
+        nextStatus: order.status,
+        previousPaymentStatus,
+        nextPaymentStatus: paymentStatus,
+      },
+      ip: req.ip,
+    });
+
     publishToUser(order.userId, "order.status_updated", {
       orderId: String(order.orderId || ""),
       dbId: String(order._id),
       userId: String(order.userId || ""),
       status: order.status,
+      paymentStatus,
+      previousStatus,
+      previousPaymentStatus,
       updatedAt: order.updatedAt,
       source: "admin",
     });
@@ -278,6 +326,16 @@ exports.markOrderPaid = async (req, res, next) => {
     order.payment.status = "paid";
     await order.save();
 
+    publishToUser(order.userId, "order.status_updated", {
+      orderId: String(order.orderId || ""),
+      dbId: String(order._id),
+      userId: String(order.userId || ""),
+      status: order.status,
+      paymentStatus: "paid",
+      updatedAt: order.updatedAt,
+      source: "payment",
+    });
+
     return res.json({
       success: true,
       message: "Cập nhật trạng thái thanh toán thành công",
@@ -294,10 +352,24 @@ exports.markOrderPaid = async (req, res, next) => {
  */
 exports.getAllOrders = async (req, res, next) => {
   try {
-    const { status, page = 1, limit = 20 } = req.query;
+    const { status, page = 1, limit = 20, q = "" } = req.query;
 
     const filter = {};
     if (status && VALID_STATUSES.includes(status)) filter.status = status;
+
+    const keyword = String(q || "").trim();
+    if (keyword) {
+      const regex = new RegExp(
+        keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i",
+      );
+      filter.$or = [
+        { orderId: regex },
+        { "delivery.name": regex },
+        { "delivery.phone": regex },
+        { note: regex },
+      ];
+    }
 
     const pageNum = Math.max(1, parseInt(page, 10));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10)));

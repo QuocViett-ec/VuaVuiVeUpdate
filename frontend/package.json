@@ -5,7 +5,7 @@
     "ng": "ng",
     "start": "node scripts/ensure-port-free.cjs 4200 customer && ng serve frontend --port 4200",
     "start:customer": "node scripts/ensure-port-free.cjs 4200 customer && ng serve frontend --port 4200",
-    "start:admin": "node scripts/ensure-port-free.cjs 4201 admin && start \"\" http://localhost:4201/auth/login && ng serve admin --port 4201",
+    "start:admin": "node scripts/ensure-port-free.cjs 4201 admin && ng serve admin --port 4201",
     "build": "ng build",
     "build:customer": "ng build frontend",
     "build:admin": "ng build admin",

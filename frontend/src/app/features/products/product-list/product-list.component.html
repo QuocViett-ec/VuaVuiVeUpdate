@@ -1,4 +1,48 @@
-﻿<!-- ===== FLASH SALE ===== -->
+﻿<!-- ===== PROMO BANNER ===== -->
+<section class="section promo-section">
+  <div class="container promo-container">
+    <div class="promo-slider" aria-label="Khuyen mai noi bat">
+      <div
+        class="promo-slider__track"
+        [style.transform]="'translateX(-' + activePromo() * 100 + '%)'"
+      >
+        @for (banner of promoBanners; track banner.image) {
+          <div class="promo-slider__slide">
+            <img
+              [src]="banner.image"
+              [alt]="banner.alt"
+              [loading]="$index === 0 ? 'eager' : 'lazy'"
+              [attr.fetchpriority]="$index === 0 ? 'high' : 'low'"
+              decoding="async"
+            />
+          </div>
+        }
+      </div>
+
+      @if (promoBanners.length > 1) {
+        <button class="promo-slider__arrow prev" (click)="prevPromo()" aria-label="Banner truoc">
+          ‹
+        </button>
+        <button class="promo-slider__arrow next" (click)="nextPromo()" aria-label="Banner sau">
+          ›
+        </button>
+
+        <div class="promo-slider__dots" role="tablist" aria-label="Chon banner">
+          @for (banner of promoBanners; track banner.image; let i = $index) {
+            <button
+              class="dot"
+              [class.active]="activePromo() === i"
+              [attr.aria-label]="'Banner ' + (i + 1)"
+              (click)="goPromo(i)"
+            ></button>
+          }
+        </div>
+      }
+    </div>
+  </div>
+</section>
+
+<!-- ===== FLASH SALE ===== -->
 <section id="flashsale" class="section">
   <div class="container">
     <div class="title">
@@ -28,13 +72,13 @@
     </div>
 
     @if (loading()) {
-      <div class="grid">
-        @for (i of [1, 2, 3, 4]; track i) {
+      <div class="grid flash-grid">
+        @for (i of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; track i) {
           <div class="skeleton-card"></div>
         }
       </div>
     } @else {
-      <div class="grid">
+      <div class="grid flash-grid">
         @for (p of flashProducts(); track p.id) {
           <app-product-card [product]="p" />
         }
@@ -102,7 +146,7 @@
     </p>
 
     @if (loading()) {
-      <div class="grid">
+      <div class="grid product-grid">
         @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
           <div class="skeleton-card"></div>
         }
@@ -113,7 +157,7 @@
         <button class="btn btn--outline" (click)="resetFilters()">Xóa bộ lọc</button>
       </div>
     } @else {
-      <div class="grid">
+      <div class="grid product-grid">
         @for (p of filtered(); track p.id) {
           <app-product-card [product]="p" />
         }

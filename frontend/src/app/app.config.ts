@@ -6,6 +6,7 @@ import { provideClientHydration, withEventReplay } from '@angular/platform-brows
 import { routes } from './app.routes';
 import { credentialsInterceptor } from './core/interceptors/credentials.interceptor';
 import { loadingInterceptor } from './core/interceptors/loading.interceptor';
+import { customerAuthErrorInterceptor } from './core/interceptors/customer-auth-error.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -15,7 +16,10 @@ export const appConfig: ApplicationConfig = {
       withComponentInputBinding(),
       withInMemoryScrolling({ scrollPositionRestoration: 'top' }),
     ),
-    provideHttpClient(withFetch(), withInterceptors([credentialsInterceptor, loadingInterceptor])),
+    provideHttpClient(
+      withFetch(),
+      withInterceptors([credentialsInterceptor, loadingInterceptor, customerAuthErrorInterceptor]),
+    ),
     provideClientHydration(withEventReplay()),
   ],
 };

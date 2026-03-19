@@ -81,12 +81,19 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
   private refreshInterval: any;
   private analyticsData: DashboardAnalytics | null = null;
   private chartsDrawn = false;
+  private readonly onVisibilityChange = () => {
+    if (!isPlatformBrowser(this.platformId)) return;
+    if (document.hidden) return;
+    this.fetchDashboardData(true);
+  };
 
   ngOnInit(): void {
     this.fetchDashboardData();
     if (isPlatformBrowser(this.platformId)) {
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
       // Auto-refresh every 30 seconds
       this.refreshInterval = setInterval(() => {
+        if (document.hidden) return;
         this.fetchDashboardData(true);
       }, 30000);
     }
@@ -95,6 +102,9 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
+    }
+    if (isPlatformBrowser(this.platformId)) {
+      document.removeEventListener('visibilitychange', this.onVisibilityChange);
     }
   }
 

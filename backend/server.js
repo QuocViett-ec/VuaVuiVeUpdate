@@ -29,6 +29,82 @@ const { csrfProtection } = require("./middleware/csrf.middleware");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
+const SESSION_SECRET = process.env.SESSION_SECRET;
+
+if (process.env.NODE_ENV === "production" && !SESSION_SECRET) {
+  throw new Error("SESSION_SECRET is required in production");
+}
+
+const SESSION_TTL_MS = parseInt(process.env.SESSION_MAX_AGE_MS || "604800000");
+const sessionStore = MongoStore.create({
+  mongoUrl: process.env.MONGO_URI,
+  collectionName: "sessions",
+  ttl: SESSION_TTL_MS / 1000,
+});
+
+function getRequestOrigin(req) {
+  const origin = req.headers.origin;
+  if (origin) return origin;
+  const referer = req.headers.referer || req.headers.referrer;
+  if (!referer) return "";
+  try {
+    return new URL(referer).origin;
+  } catch {
+    return "";
+  }
+}
+
+function resolveSessionScope(req) {
+  const url = req.originalUrl || req.url || "";
+  if (url.startsWith("/api/admin") || url.startsWith("/api/users"))
+    return "admin";
+  if (/^\/api\/orders\/[^/]+\/status(?:\?|$)/.test(url)) return "admin";
+
+  const origin = getRequestOrigin(req);
+  if (origin) {
+    try {
+      const parsed = new URL(origin);
+      const port = parsed.port || (parsed.protocol === "https:" ? "443" : "80");
+      if (port === "4201") return "admin";
+      if (port === "4200") return "customer";
+    } catch {
+      // Ignore malformed origin and fall through to default scope.
+    }
+  }
+
+  return "customer";
+}
+
+function createSessionMiddleware(cookieName) {
+  return session({
+    name: cookieName,
+    secret: SESSION_SECRET || "vvv_secret",
+    resave: false,
+    saveUninitialized: false,
+    store: sessionStore,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
+      domain: COOKIE_DOMAIN,
+      maxAge: SESSION_TTL_MS,
+    },
+  });
+}
+
+function getCookieNames(req) {
+  const header = req.headers.cookie || "";
+  if (!header) return [];
+  return header
+    .split(";")
+    .map((item) => item.trim().split("=")[0])
+    .filter(Boolean);
+}
+
+const customerSession = createSessionMiddleware("vvv.customer.sid");
+const adminSession = createSessionMiddleware("vvv.admin.sid");
 
 function isAllowedOrigin(origin) {
   if (!origin) return true;
@@ -78,25 +154,14 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "vvv_secret",
-    resave: false,
-    saveUninitialized: false,
-    store: MongoStore.create({
-      mongoUrl: process.env.MONGO_URI,
-      collectionName: "sessions",
-      ttl: parseInt(process.env.SESSION_MAX_AGE_MS || "604800000") / 1000,
-    }),
-    cookie: {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      maxAge: parseInt(process.env.SESSION_MAX_AGE_MS || "604800000"),
-    },
-    name: "vvv.sid",
-  }),
-);
+app.use((req, res, next) => {
+  const scope = resolveSessionScope(req);
+  req.sessionScope = scope;
+  req.sessionCookieName =
+    scope === "admin" ? "vvv.admin.sid" : "vvv.customer.sid";
+  const middleware = scope === "admin" ? adminSession : customerSession;
+  return middleware(req, res, next);
+});
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/", express.static(path.join(__dirname, "../frontend/public")));
@@ -121,6 +186,31 @@ app.get("/api/health", (req, res) => {
     session: !!req.session?.userId,
   });
 });
+
+if (process.env.NODE_ENV !== "production") {
+  app.get("/api/debug/session", (req, res) => {
+    const cookieNames = getCookieNames(req);
+    res.json({
+      success: true,
+      message: "Development session debug info",
+      data: {
+        scope: req.sessionScope || "unknown",
+        activeCookieName: req.sessionCookieName || "unknown",
+        hasSession: !!req.session?.userId,
+        sessionId: req.sessionID || "",
+        userId: req.session?.userId || null,
+        role: req.session?.role || null,
+        origin: req.headers.origin || null,
+        referer: req.headers.referer || null,
+        path: req.originalUrl || req.url,
+        cookieNames,
+        hasAdminCookie: cookieNames.includes("vvv.admin.sid"),
+        hasCustomerCookie: cookieNames.includes("vvv.customer.sid"),
+        hasLegacyCookie: cookieNames.includes("vvv.sid"),
+      },
+    });
+  });
+}
 
 app.use(errorHandler);
 

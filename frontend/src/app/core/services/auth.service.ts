@@ -39,8 +39,29 @@ export class AuthService {
     if (this._isAdminPortalRuntime() && initialRole && initialRole !== 'admin') {
       this._clearSession();
     }
+
+    // Admin login must always show the login screen first.
+    // When opening /auth/login on admin portal, ignore cached session restore.
+    // Do not call server logout here to avoid racing with a new login request.
+    if (this._isAdminPortalRuntime() && this._isAdminLoginPath()) {
+      this._clearSession();
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (event) => {
+        if (event.key !== LS_SESSION) return;
+        this._session.set(this._loadSession());
+      });
+    }
+
     // Restore session từ server cookie khi app khởi động
     this._restoreServerSession();
+  }
+
+  private _isAdminLoginPath(): boolean {
+    if (typeof window === 'undefined') return false;
+    return window.location.pathname.startsWith('/auth/login');
   }
 
   private _isAdminPortalRuntime(): boolean {
@@ -126,6 +147,17 @@ export class AuthService {
       localStorage.removeItem(LS_SESSION);
     }
     this._session.set(null);
+  }
+
+  isSafeReturnUrl(value: unknown): value is string {
+    if (typeof value !== 'string') return false;
+    if (!value.startsWith('/')) return false;
+    if (value.startsWith('//')) return false;
+    return !/^[\w-]+:/.test(value);
+  }
+
+  forceClearClientSession(): void {
+    this._clearSession();
   }
 
   // ─── Register ───────────────────────────────────────────────────────────────

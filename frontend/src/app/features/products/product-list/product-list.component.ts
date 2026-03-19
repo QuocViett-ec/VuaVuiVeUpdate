@@ -35,6 +35,13 @@ const SORTS = [
   { key: 'name-asc', label: 'Tên A-Z' },
 ];
 
+type PromoBanner = {
+  image: string;
+  alt: string;
+};
+
+const FLASH_SALE_COUNT = 10;
+
 /** Chuẩn hóa chuỗi tiếng Việt: bỏ dấu, lowercase, trim */
 function vn(s: string): string {
   return s
@@ -62,6 +69,12 @@ export class ProductListComponent implements OnInit, OnDestroy {
 
   readonly catList = CATS;
   readonly sortList = SORTS;
+  readonly promoBanners: PromoBanner[] = [
+    { image: '/images/brand/Banner.png', alt: 'Uu dai tuan nay' },
+    { image: '/images/brand/newuser.png', alt: 'Uu dai nguoi dung moi' },
+    { image: '/images/brand/haloweenvvv.png', alt: 'Uu dai mua le hoi' },
+    { image: '/images/brand/xmasbanner.png', alt: 'Uu dai cuoi nam' },
+  ];
 
   allProducts = signal<Product[]>([]);
   loading = signal(true);
@@ -75,7 +88,21 @@ export class ProductListComponent implements OnInit, OnDestroy {
   flashProducts = signal<Product[]>([]);
   countdown = signal('--:--:--');
   private _cd: ReturnType<typeof setInterval> | null = null;
+  activePromo = signal(0);
+  private promoTimer: ReturnType<typeof setInterval> | null = null;
+  private preloadedBannerIndexes = new Set<number>();
   private realtimeSub?: Subscription;
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+  private loadingProducts = false;
+  private queuedRefresh = false;
+  private pendingVisibilityRefresh = false;
+  private readonly onVisibilityChange = () => {
+    if (!isPlatformBrowser(this.platformId)) return;
+    if (document.hidden) return;
+    if (!this.pendingVisibilityRefresh) return;
+    this.pendingVisibilityRefresh = false;
+    this.scheduleRealtimeRefresh();
+  };
 
   filtered = computed(() => {
     let list = this.allProducts();
@@ -112,26 +139,134 @@ export class ProductListComponent implements OnInit, OnDestroy {
     this.loadProducts();
 
     this.realtimeSub = this.realtime.ofType('product.changed').subscribe(() => {
-      this.loadProducts(false);
+      this.scheduleRealtimeRefresh();
     });
+
+    if (this.promoBanners.length > 1) {
+      this.promoTimer = setInterval(() => this.nextPromo(), 5500);
+    }
+    this.preloadBannerWindow(0);
+
     this.tickCd();
     this._cd = setInterval(() => this.tickCd(), 1000);
-    if (isPlatformBrowser(this.platformId)) this.injectChatbot();
+    if (isPlatformBrowser(this.platformId)) {
+      this.injectChatbot();
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+    }
   }
 
   ngOnDestroy(): void {
     if (this._cd) clearInterval(this._cd);
+    if (this.promoTimer) clearInterval(this.promoTimer);
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    if (isPlatformBrowser(this.platformId)) {
+      document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    }
     this.realtimeSub?.unsubscribe();
   }
 
-  private loadProducts(showLoading = true): void {
-    if (showLoading) this.loading.set(true);
-    this.productSvc.getAllProducts().subscribe((ps) => {
-      this.allProducts.set(ps);
-      this.cartSvc.hydrateFromProducts(ps);
-      this.updateFlash(ps);
-      this.loading.set(false);
+  prevPromo(): void {
+    const size = this.promoBanners.length;
+    if (size <= 1) return;
+    this.activePromo.update((v) => {
+      const next = (v - 1 + size) % size;
+      this.preloadBannerWindow(next);
+      return next;
     });
+    this.restartPromoTimer();
+  }
+
+  nextPromo(): void {
+    const size = this.promoBanners.length;
+    if (size <= 1) return;
+    this.activePromo.update((v) => {
+      const next = (v + 1) % size;
+      this.preloadBannerWindow(next);
+      return next;
+    });
+  }
+
+  goPromo(index: number): void {
+    if (index < 0 || index >= this.promoBanners.length) return;
+    this.activePromo.set(index);
+    this.preloadBannerWindow(index);
+    this.restartPromoTimer();
+  }
+
+  private restartPromoTimer(): void {
+    if (!this.promoTimer || this.promoBanners.length <= 1) return;
+    clearInterval(this.promoTimer);
+    this.promoTimer = setInterval(() => this.nextPromo(), 5500);
+  }
+
+  private preloadBannerWindow(centerIndex: number): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    const size = this.promoBanners.length;
+    if (!size) return;
+
+    const targets = [centerIndex, (centerIndex + 1) % size, (centerIndex + 2) % size];
+    for (const index of targets) {
+      this.preloadBannerByIndex(index);
+    }
+  }
+
+  private preloadBannerByIndex(index: number): void {
+    if (this.preloadedBannerIndexes.has(index)) return;
+    const banner = this.promoBanners[index];
+    if (!banner?.image) return;
+
+    const img = new Image();
+    img.decoding = 'async';
+    img.src = banner.image;
+    this.preloadedBannerIndexes.add(index);
+  }
+
+  private loadProducts(showLoading = true): void {
+    if (this.loadingProducts) {
+      this.queuedRefresh = true;
+      return;
+    }
+
+    this.loadingProducts = true;
+    if (showLoading) this.loading.set(true);
+    this.productSvc
+      .getAllProducts()
+      .subscribe({
+        next: (ps) => {
+          this.allProducts.set(ps);
+          this.cartSvc.hydrateFromProducts(ps);
+          this.updateFlash(ps);
+          this.loading.set(false);
+        },
+        error: () => {
+          this.loading.set(false);
+        },
+      })
+      .add(() => {
+        this.loadingProducts = false;
+        if (this.queuedRefresh) {
+          this.queuedRefresh = false;
+          this.loadProducts(false);
+        }
+      });
+  }
+
+  private scheduleRealtimeRefresh(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      this.loadProducts(false);
+      return;
+    }
+
+    if (document.hidden) {
+      this.pendingVisibilityRefresh = true;
+      return;
+    }
+
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+      this.loadProducts(false);
+    }, 350);
   }
 
   setSearch(q: string): void {
@@ -165,9 +300,9 @@ export class ProductListComponent implements OnInit, OnDestroy {
 
   private updateFlash(ps: Product[]): void {
     const withDiscount = ps.filter((p) => p.oldPrice && p.oldPrice > p.price);
-    const base = withDiscount.length >= 4 ? withDiscount : ps;
-    const i = this.flashSlot() === 'morning' ? 0 : 4;
-    this.flashProducts.set(base.slice(i, i + 4));
+    const base = withDiscount.length >= FLASH_SALE_COUNT ? withDiscount : ps;
+    const startIndex = this.flashSlot() === 'morning' ? 0 : FLASH_SALE_COUNT;
+    this.flashProducts.set(base.slice(startIndex, startIndex + FLASH_SALE_COUNT));
   }
 
   private tickCd(): void {

@@ -147,7 +147,7 @@ cd e:\Nam3\TailLieuHocKi7\WEB2\VuaVuiVeNC\VuaVuiVeUpdate\frontend
 npm run start:admin
 ```
 
-Lenh nay se mo thang trang dang nhap admin: `http://localhost:4201/auth/login`.
+Sau khi lenh chay, mo thu cong trang admin login: `http://localhost:4201/auth/login`.
 
 Terminal 4 - VNPay:
 

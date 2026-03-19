@@ -124,8 +124,8 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadOrders();
-    this.realtimeSub = this.realtime.ofType('order.status_updated').subscribe(() => {
-      this.loadOrders();
+    this.realtimeSub = this.realtime.ofType('order.status_updated').subscribe((evt: any) => {
+      this.applyRealtimeOrderUpdate(evt?.payload || {});
     });
   }
 
@@ -141,16 +141,48 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
   private loadOrders(): void {
     this.loading.set(true);
     const userId = this.auth.currentUser()?.id;
-    this.orderSvc.getOrders({ userId, status: this.selectedStatus }).subscribe((orders) => {
-      // Filter by current user phone/email as fallback
-      const user = this.auth.currentUser();
-      this.orders.set(
-        orders.filter(
-          (o) =>
-            !userId || o.userId === userId || o.phone === user?.phone || o.email === user?.email,
-        ),
-      );
-      this.loading.set(false);
+    this.orderSvc.getOrders({ userId, status: this.selectedStatus }).subscribe({
+      next: (orders) => {
+        // Filter by current user phone/email as fallback
+        const user = this.auth.currentUser();
+        this.orders.set(
+          orders.filter(
+            (o) =>
+              !userId || o.userId === userId || o.phone === user?.phone || o.email === user?.email,
+          ),
+        );
+        this.loading.set(false);
+      },
+      error: () => {
+        // Keep current list to avoid visual data loss on transient auth/network issues.
+        this.loading.set(false);
+      },
+    });
+  }
+
+  private applyRealtimeOrderUpdate(payload: any): void {
+    const orderId = String(payload?.orderId || '');
+    const dbId = String(payload?.dbId || '');
+    const status = String(payload?.status || '');
+    const paymentStatus = String(payload?.paymentStatus || '');
+
+    if (!orderId && !dbId) return;
+
+    this.orders.update((list) => {
+      const next = list
+        .map((o) => {
+          const isMatch = o.id === orderId || (o.dbId ? o.dbId === dbId : false);
+          if (!isMatch) return o;
+          return {
+            ...o,
+            status: (status || o.status) as Order['status'],
+            paymentStatus: (paymentStatus || o.paymentStatus) as Order['paymentStatus'],
+            updatedAt: payload?.updatedAt || o.updatedAt,
+          };
+        })
+        .filter((o) => this.selectedStatus === 'all' || o.status === this.selectedStatus);
+
+      return next;
     });
   }
 }

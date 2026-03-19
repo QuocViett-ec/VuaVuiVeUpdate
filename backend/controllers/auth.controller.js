@@ -218,12 +218,27 @@ exports.logout = (req, res, next) => {
   }
   req.session.destroy((err) => {
     if (err) return next(err);
-    res.clearCookie("vvv.sid", {
+
+    const cookieBaseOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       path: "/",
-    });
+      domain: process.env.COOKIE_DOMAIN || undefined,
+    };
+
+    const activeCookieName =
+      req.sessionCookieName ||
+      (req.sessionScope === "admin" ? "vvv.admin.sid" : "vvv.customer.sid");
+
+    // Clear active portal cookie and legacy cookie names for backward compatibility.
+    [activeCookieName, "vvv.admin.sid", "vvv.customer.sid", "vvv.sid"].forEach(
+      (name) => {
+        if (!name) return;
+        res.clearCookie(name, cookieBaseOptions);
+      },
+    );
+
     return res.json({ success: true, message: "Đăng xuất thành công" });
   });
 };
@@ -233,6 +248,8 @@ exports.logout = (req, res, next) => {
  */
 exports.me = async (req, res, next) => {
   try {
+    const sessionRole = String(req.session?.role || "").toLowerCase();
+    const scope = req.sessionScope === "admin" ? "admin" : "customer";
     const user = await User.findById(req.session.userId);
     if (!user) {
       req.session.destroy(() => {});
@@ -240,6 +257,25 @@ exports.me = async (req, res, next) => {
         .status(401)
         .json({ success: false, message: "Người dùng không tồn tại" });
     }
+
+    const userRole = String(user.role || "").toLowerCase();
+    const isRoleMismatch = sessionRole && sessionRole !== userRole;
+    const isScopeMismatch =
+      (scope === "admin" && userRole !== "admin") ||
+      (scope === "customer" && userRole === "admin");
+
+    if (isRoleMismatch || isScopeMismatch) {
+      req.session.destroy(() => {});
+      return res.status(401).json({
+        success: false,
+        message: "Phiên đăng nhập không hợp lệ với cổng hiện tại",
+      });
+    }
+
+    if (!sessionRole) {
+      req.session.role = userRole;
+    }
+
     return res.json({
       success: true,
       data: {

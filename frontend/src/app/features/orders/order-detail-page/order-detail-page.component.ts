@@ -195,7 +195,15 @@ export class OrderDetailPageComponent implements OnInit, OnDestroy {
       const incomingDbId = String(payload.dbId || '');
       if (!incomingOrderId && !incomingDbId) return;
       if (incomingOrderId !== id && incomingDbId !== id) return;
-      this.loadOrder(id);
+      this.order.update((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          status: (payload.status || current.status) as Order['status'],
+          paymentStatus: (payload.paymentStatus || current.paymentStatus) as Order['paymentStatus'],
+          updatedAt: payload.updatedAt || current.updatedAt,
+        };
+      });
     });
   }
 

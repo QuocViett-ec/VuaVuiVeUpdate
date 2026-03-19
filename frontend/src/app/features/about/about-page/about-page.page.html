@@ -1,0 +1,102 @@
+<section class="team-page">
+  <div class="hero-bg"></div>
+  <div class="hero-noise"></div>
+
+  <section class="hero container">
+    <p class="kicker">VUAVUIVE PROJECT TEAM</p>
+    <h1>Đồ Án Được Xây Dựng Bởi<br />Một Đội Ngũ 5 Thành Viên</h1>
+    <p class="hero-sub">
+      Trang này giới thiệu những thành viên đã cùng phát triển hệ thống Vựa Vui Vẻ và các kiến thức
+      lập trình web front-end/back-end được vận dụng trong đồ án.
+    </p>
+  </section>
+
+  <section class="team-grid container">
+    @for (member of members; track member.name) {
+      <article class="member-card" [attr.data-accent]="member.accent">
+        <div class="avatar-wrap">
+          <img [src]="member.imagePath" [alt]="member.name" loading="lazy" />
+        </div>
+        <div class="member-content">
+          <h3>{{ member.name }}</h3>
+          <p class="role">{{ member.role }}</p>
+          <p class="desc">{{ member.highlight }}</p>
+        </div>
+      </article>
+    }
+  </section>
+
+  <section class="mentor container">
+    <div class="mentor-card">
+      <div class="mentor-copy">
+        <p class="kicker">TRI ÂN GIẢNG VIÊN HƯỚNG DẪN</p>
+        <h2>Xin Chân Thành Cảm Ơn<br />Thầy Trần Duy Thanh</h2>
+        <p>
+          Nhóm chúng em xin gửi lời cảm ơn sâu sắc đến Thầy Trần Duy Thanh đã tận tình chỉ dạy, định
+          hướng và góp ý trong suốt quá trình thực hiện đồ án.
+        </p>
+      </div>
+
+      <div class="mentor-photo">
+        <img src="/images/team/thay-tran-duy-thanh.png" alt="Thầy Trần Duy Thanh" loading="lazy" />
+      </div>
+    </div>
+  </section>
+
+  <section class="skills container">
+    <div class="skills-head">
+      <p class="kicker">KIẾN THỨC ĐÃ VẬN DỤNG</p>
+      <h2>Front-end &amp; Back-end Trong Đồ Án</h2>
+    </div>
+
+    <div class="skills-columns">
+      <div class="skill-col">
+        <h3>Front-end</h3>
+        @for (item of frontendSkills; track item.title) {
+          <article class="skill-card">
+            <div class="skill-title">
+              <span class="material-symbols-outlined g-icon">{{ item.icon }}</span>
+              <h4>{{ item.title }}</h4>
+            </div>
+            <ul>
+              @for (point of item.points; track point) {
+                <li>{{ point }}</li>
+              }
+            </ul>
+          </article>
+        }
+      </div>
+
+      <div class="skill-col">
+        <h3>Back-end</h3>
+        @for (item of backendSkills; track item.title) {
+          <article class="skill-card">
+            <div class="skill-title">
+              <span class="material-symbols-outlined g-icon">{{ item.icon }}</span>
+              <h4>{{ item.title }}</h4>
+            </div>
+            <ul>
+              @for (point of item.points; track point) {
+                <li>{{ point }}</li>
+              }
+            </ul>
+          </article>
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="cta container">
+    <div class="cta-card">
+      <h3>Cảm ơn bạn đã theo dõi đồ án của nhóm</h3>
+      <p>
+        Vựa Vui Vẻ là nỗ lực kết hợp giữa kỹ thuật lập trình web hiện đại, tư duy sản phẩm và tinh
+        thần làm việc nhóm.
+      </p>
+      <div class="cta-actions">
+        <a routerLink="/products" class="btn btn-primary">Khám phá sản phẩm</a>
+        <a routerLink="/" class="btn btn-outline">Về trang chủ</a>
+      </div>
+    </div>
+  </section>
+</section>

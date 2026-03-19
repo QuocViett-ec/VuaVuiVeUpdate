@@ -5,20 +5,21 @@
       <h1>Trợ lý Công thức Nấu ăn</h1>
       <p>Tìm công thức yêu thích và thêm tất cả nguyên liệu vào giỏ hàng chỉ với một cú nhấp</p>
       <video class="hero-video" autoplay muted loop playsinline>
-        <source src="../../../../vid/introVuavuive.mp4" type="video/mp4" />
+        <source src="/vid/introVuavuive.mp4" type="video/mp4" />
       </video>
     </div>
   </div>
 </section>
 
 <!-- Search + Browse -->
-<section class="section" style="background: #effeee">
+<section class="section" style="background: #effeee" id="recipeSearchSection">
   <div class="container">
     <div class="title"><h2>Tìm công thức</h2></div>
 
     <!-- Search bar -->
     <div class="recipe-row">
       <input
+        id="recipeSearchInput"
         [(ngModel)]="query"
         (keyup.enter)="search()"
         type="search"
@@ -36,17 +37,6 @@
         <span class="material-symbols-outlined g-icon">search</span>
         Tìm
       </button>
-      @if (!showAll()) {
-        <button class="btn btn--outline" (click)="showAll.set(true)">
-          <span class="material-symbols-outlined g-icon">format_list_bulleted</span>
-          Xem tất cả ({{ allRecipes().length }})
-        </button>
-      } @else {
-        <button class="btn btn--outline" (click)="showAll.set(false)">
-          <span class="material-symbols-outlined g-icon">close</span>
-          Thu lại
-        </button>
-      }
       @if (selected()) {
         <button class="btn btn--primary" (click)="addAllToCart()">
           <span class="material-symbols-outlined g-icon">shopping_cart</span>
@@ -57,7 +47,7 @@
 
     <!-- Recipe detail -->
     @if (selected(); as recipe) {
-      <div class="recipe-detail">
+      <div id="recipeDetailCard" class="recipe-detail">
         <button class="btn btn--outline btn--sm" (click)="back()" style="margin-bottom: 12px">
           ← Quay lại
         </button>
@@ -103,13 +93,15 @@
       <div class="recipe-cards">
         @for (r of results(); track r.id) {
           <button class="recipe-card" (click)="select(r)" type="button">
-            <img
-              [src]="recipeImg(r)"
-              [alt]="r.name"
-              class="recipe-card__img"
-              loading="lazy"
-              (error)="$any($event.target).src = 'images/brand/LogoVVV.png'"
-            />
+            <div class="recipe-card__media">
+              <img
+                [src]="recipeImg(r)"
+                [alt]="r.name"
+                class="recipe-card__img"
+                loading="lazy"
+                (error)="$any($event.target).src = 'images/brand/LogoVVV.png'"
+              />
+            </div>
             <div class="recipe-card__body">
               <strong>{{ r.name }}</strong>
               <span class="muted">{{ r.ingredients.length }} nguyên liệu</span>
@@ -126,6 +118,29 @@
       </p>
     }
 
+    <!-- How It Works -->
+    <section class="section howto-section">
+      <div class="container">
+        <div class="howto-head">
+          <h2 class="gradient-title">Cách sử dụng</h2>
+          <p>Chỉ 3 bước đơn giản để có đầy đủ nguyên liệu cho bữa ăn ngon của bạn</p>
+        </div>
+
+        <div class="howto-grid">
+          @for (step of howToSteps; track step.id) {
+            <article class="howto-card" [attr.data-tone]="step.tone">
+              <div class="howto-icon-wrap">
+                <span class="material-symbols-outlined g-icon">{{ step.icon }}</span>
+              </div>
+              <p class="howto-number">{{ step.number }}</p>
+              <h3>{{ step.title }}</h3>
+              <p>{{ step.desc }}</p>
+            </article>
+          }
+        </div>
+      </div>
+    </section>
+
     <!-- Featured / Browse all -->
     @if (!selected()) {
       @if (loading()) {
@@ -136,20 +151,21 @@
         </div>
       } @else {
         <div class="title" style="margin-top: 2rem">
-          <h2>
-            {{ showAll() ? 'Tất cả công thức (' + allRecipes().length + ')' : 'Công thức nổi bật' }}
-          </h2>
+          <h2>Tất cả công thức ({{ allRecipes().length }})</h2>
         </div>
+
         <div class="recipe-cards">
-          @for (r of showAll() ? browseList() : featured(); track r.id) {
+          @for (r of pageItems(); track r.id) {
             <button class="recipe-card" (click)="select(r)" type="button">
-              <img
-                [src]="recipeImg(r)"
-                [alt]="r.name"
-                class="recipe-card__img"
-                loading="lazy"
-                (error)="$any($event.target).src = 'images/brand/LogoVVV.png'"
-              />
+              <div class="recipe-card__media">
+                <img
+                  [src]="recipeImg(r)"
+                  [alt]="r.name"
+                  class="recipe-card__img"
+                  loading="lazy"
+                  (error)="$any($event.target).src = 'images/brand/LogoVVV.png'"
+                />
+              </div>
               <div class="recipe-card__body">
                 <strong>{{ r.name }}</strong>
                 <span class="muted">{{ r.ingredients.length }} nguyên liệu</span>
@@ -157,14 +173,86 @@
             </button>
           }
         </div>
-        @if (!showAll() && allRecipes().length > 12) {
-          <div style="text-align: center; margin-top: 1.5rem">
-            <button class="btn btn--outline" (click)="showAll.set(true)">
-              Xem tất cả {{ allRecipes().length }} công thức
+
+        @if (totalPages() > 1) {
+          <div class="recipes-pagination" aria-label="Phân trang công thức">
+            <button
+              class="recipes-pagination__btn"
+              type="button"
+              (click)="prevPage()"
+              [disabled]="currentPage() <= 1"
+            >
+              ← Trang trước
             </button>
+
+            <div class="recipes-pagination__numbers">
+              @for (token of paginationTokens(); track token.id) {
+                @if (token.type === 'page') {
+                  <button
+                    type="button"
+                    class="recipes-pagination__page"
+                    [class.is-active]="token.value === currentPage()"
+                    (click)="goToPage(token.value ?? 1)"
+                  >
+                    {{ token.value }}
+                  </button>
+                } @else {
+                  <span class="recipes-pagination__ellipsis">...</span>
+                }
+              }
+            </div>
+
+            <button
+              class="recipes-pagination__btn"
+              type="button"
+              (click)="nextPage()"
+              [disabled]="currentPage() >= totalPages()"
+            >
+              Trang sau →
+            </button>
+
+            <span class="recipes-pagination__meta"
+              >Trang {{ currentPage() }} của {{ totalPages() }}</span
+            >
           </div>
         }
       }
     }
+  </div>
+</section>
+
+<!-- Benefits -->
+<section class="section benefits-section">
+  <div class="container">
+    <div class="benefits-wrap">
+      <video class="benefits-video" autoplay muted loop playsinline>
+        <source src="\vid\freshvet.mp4" type="video/mp4" />
+      </video>
+
+      <div class="benefits-copy">
+        <h2 class="gradient-title">Tiết kiệm thời gian và công sức</h2>
+        <p>
+          Không cần phải lên danh sách nguyên liệu thủ công hay mất thời gian suy nghĩ về những gì
+          cần mua.
+        </p>
+        <p>
+          Chỉ với một cú nhấp chuột, tất cả nguyên liệu cần thiết sẽ được thêm vào giỏ hàng của bạn
+          ngay lập tức.
+        </p>
+        <p>Nhận giao hàng tận nơi và bắt đầu nấu những món ăn ngon nhất cho gia đình.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section recipes-cta">
+  <div class="container cta-container">
+    <h2 class="gradient-title gradient-title--pastel">Sẵn sàng bắt đầu nấu ăn?</h2>
+    <p>Tìm món ăn bạn muốn và để chúng tôi chuẩn bị nguyên liệu cho bạn</p>
+    <div class="cta-actions">
+      <button type="button" class="btn btn--light" (click)="focusRecipeSearch()">Thử ngay</button>
+      <a href="/products" class="btn btn--outline-light">Xem sản phẩm</a>
+    </div>
   </div>
 </section>

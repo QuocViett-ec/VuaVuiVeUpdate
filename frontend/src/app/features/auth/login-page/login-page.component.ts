@@ -60,7 +60,7 @@ export class LoginPageComponent {
     if (result.ok) {
       this.toast.success(`Chào mừng ${result.user?.name}!`);
       const returnUrl = this.route.snapshot.queryParams['returnUrl'];
-      if (returnUrl && returnUrl.startsWith('/')) {
+      if (this.auth.isSafeReturnUrl(returnUrl)) {
         this.router.navigateByUrl(returnUrl);
       } else {
         this.router.navigate(['/']);
@@ -73,7 +73,7 @@ export class LoginPageComponent {
   async onGoogleSuccess(session: AuthSession): Promise<void> {
     this.toast.success(`Chào mừng ${session.name}!`);
     const returnUrl = this.route.snapshot.queryParams['returnUrl'];
-    if (returnUrl && returnUrl.startsWith('/')) {
+    if (this.auth.isSafeReturnUrl(returnUrl)) {
       this.router.navigateByUrl(returnUrl);
     } else if (session.role === 'admin') {
       window.location.href = `${this.adminPortalUrl}/auth/login`;

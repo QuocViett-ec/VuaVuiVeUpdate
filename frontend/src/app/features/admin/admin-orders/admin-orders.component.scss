@@ -11,6 +11,60 @@
   gap: 1rem;
   margin-bottom: 1rem;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.filter-status {
+  min-width: 180px;
+}
+
+.search-box {
+  display: flex;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 280px;
+}
+
+.table-meta {
+  margin-left: auto;
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.btn {
+  border: 1px solid #d9e2d9;
+  background: #fff;
+  color: #1b2a1e;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.btn-search {
+  background: #2e7d32;
+  color: #fff;
+  border-color: #2e7d32;
+}
+
+.btn-ghost {
+  background: #f8fafc;
+}
+
+.loading-text,
+.error-text {
+  margin: 0.5rem 0 0.75rem;
+  font-size: 0.85rem;
+}
+
+.error-text {
+  color: #c62828;
 }
 .table-wrap {
   background: #fff;
@@ -18,6 +72,9 @@
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow-x: auto;
+  &.dimmed {
+    opacity: 0.75;
+  }
 }
 .data-table {
   width: 100%;
@@ -74,8 +131,12 @@
 
 .pay-badge {
   font-size: 0.75rem;
-  color: #888;
+  color: #8b5e00;
+  background: #fff8e1;
+  padding: 0.22rem 0.5rem;
+  border-radius: 999px;
   &.paid {
+    background: #e8f5e9;
     color: #2e7d32;
     font-weight: 600;
   }
@@ -94,4 +155,17 @@
     padding: 0.3rem 0.5rem;
     font-size: 0.78rem;
   }
+}
+
+.empty-row {
+  text-align: center;
+  color: #7a8698;
+  padding: 1rem;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }

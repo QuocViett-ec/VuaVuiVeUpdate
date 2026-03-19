@@ -28,13 +28,13 @@ const ACTION_LABELS: Record<string, string> = {
   login: 'Đăng nhập',
   logout: 'Đăng xuất',
   'order.create': 'Tạo đơn hàng',
-  'order.update': 'Cập nhật đơn',
   'order.cancel': 'Hủy đơn',
   'product.create': 'Tạo sản phẩm',
   'product.update': 'Cập nhật sản phẩm',
   'product.delete': 'Xóa sản phẩm',
   'profile.update': 'Cập nhật thông tin',
   'password.change': 'Đổi mật khẩu',
+  'order.update': 'Cập nhật trạng thái đơn',
   seed: 'Khởi tạo dữ liệu',
 };
 

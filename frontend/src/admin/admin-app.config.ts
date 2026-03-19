@@ -5,6 +5,7 @@ import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/
 import { adminAppRoutes } from './admin-app.routes';
 import { credentialsInterceptor } from '../app/core/interceptors/credentials.interceptor';
 import { loadingInterceptor } from '../app/core/interceptors/loading.interceptor';
+import { adminAuthErrorInterceptor } from '../app/core/interceptors/admin-auth-error.interceptor';
 
 export const adminAppConfig: ApplicationConfig = {
   providers: [
@@ -14,6 +15,9 @@ export const adminAppConfig: ApplicationConfig = {
       withComponentInputBinding(),
       withInMemoryScrolling({ scrollPositionRestoration: 'top' }),
     ),
-    provideHttpClient(withFetch(), withInterceptors([credentialsInterceptor, loadingInterceptor])),
+    provideHttpClient(
+      withFetch(),
+      withInterceptors([credentialsInterceptor, loadingInterceptor, adminAuthErrorInterceptor]),
+    ),
   ],
 };

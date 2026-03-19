@@ -4,6 +4,16 @@ import { Observable, catchError, of, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Order, DeliverySlot, VoucherResult } from '../models/product.model';
 
+export interface AdminOrdersResult {
+  data: Order[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
 const VOUCHERS: Record<string, (subtotal: number, shippingFee: number) => VoucherResult> = {
   FREESHIP: (_, ship) => ({ ok: true, type: 'ship', value: ship, message: 'Đã áp dụng freeship.' }),
   GIAM10: () => ({ ok: true, type: 'percent', value: 10, message: 'Giảm 10% đơn hàng.' }),
@@ -119,7 +129,6 @@ export class OrderService {
         }
         return normalized;
       }),
-      catchError(() => of([])),
     );
   }
 
@@ -129,23 +138,61 @@ export class OrderService {
         const list = Array.isArray(res) ? res : (res?.data ?? []);
         return list.map((o: any) => this.normalizeOrder(o));
       }),
-      catchError(() => of([])),
     );
   }
 
-  getAdminOrders(params?: { status?: string; page?: number; limit?: number }): Observable<Order[]> {
+  getAdminOrders(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+    q?: string;
+  }): Observable<Order[]> {
+    return this.getAdminOrdersPaged(params).pipe(map((res) => res.data));
+  }
+
+  getAdminOrdersPaged(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+    q?: string;
+  }): Observable<AdminOrdersResult> {
     const qs = new URLSearchParams();
     if (params?.status && params.status !== 'all') qs.set('status', params.status);
     if (params?.page) qs.set('page', String(params.page));
     if (params?.limit) qs.set('limit', String(params.limit));
+    if (params?.q?.trim()) qs.set('q', params.q.trim());
 
     const url = `${this.api}/api/admin/orders${qs.toString() ? `?${qs.toString()}` : ''}`;
     return this.http.get<any>(url, { withCredentials: true }).pipe(
       map((res: any) => {
         const list = Array.isArray(res) ? res : (res?.data ?? []);
-        return list.map((o: any) => this.normalizeOrder(o));
+        const page = Number(res?.pagination?.page ?? params?.page ?? 1);
+        const limit = Number((res?.pagination?.limit ?? params?.limit ?? list.length) || 0);
+        const total = Number(res?.pagination?.total ?? list.length);
+        const totalPages = Number(
+          res?.pagination?.totalPages ?? (limit > 0 ? Math.ceil(total / limit) : 1),
+        );
+        return {
+          data: list.map((o: any) => this.normalizeOrder(o)),
+          pagination: {
+            total,
+            page,
+            limit,
+            totalPages,
+          },
+        };
       }),
-      catchError(() => of([])),
+      catchError(() =>
+        of({
+          data: [],
+          pagination: {
+            total: 0,
+            page: Number(params?.page ?? 1),
+            limit: Number(params?.limit ?? 20),
+            totalPages: 0,
+          },
+        }),
+      ),
     );
   }
 
