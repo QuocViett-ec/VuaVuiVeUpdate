@@ -35,6 +35,7 @@ export class MomoReturnPageComponent implements OnInit, OnDestroy {
     const p = this.route.snapshot.queryParams;
     const resultCode = Number(p['resultCode'] ?? '-1');
     const orderId = p['orderId'] ?? '';
+    const transId = String(p['transId'] ?? '').trim();
     const rawAmount = p['amount'] ?? '0';
     const errMessage = p['message'] ?? 'Thanh toán không thành công.';
 
@@ -45,7 +46,7 @@ export class MomoReturnPageComponent implements OnInit, OnDestroy {
     this.amount.set(formatted);
 
     if (resultCode === 0 && orderId) {
-      this.orderSvc.markOrderPaid(orderId).subscribe({
+      this.orderSvc.markOrderPaid(orderId, { gateway: 'momo', transactionId: transId }).subscribe({
         next: () => {
           this.orderId.set(orderId);
           this.success.set(true);

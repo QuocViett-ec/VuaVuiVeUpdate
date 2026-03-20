@@ -14,6 +14,9 @@ import { AuthService } from '../../../core/services/auth.service';
 import { Order } from '../../../core/models/product.model';
 import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
 import { Subscription } from 'rxjs';
+import { PaymentService } from '../../../core/services/payment.service';
+import { ToastService } from '../../../core/services/toast.service';
+import { firstValueFrom } from 'rxjs';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Chờ xác nhận',
@@ -98,6 +101,20 @@ const STATUS_COLORS: Record<string, string> = {
                 <a [routerLink]="['/orders', order.id]" class="btn btn--outline btn--sm"
                   >Chi tiết</a
                 >
+                @if (canRetryPayment(order)) {
+                  <button
+                    type="button"
+                    class="btn btn--primary btn--sm"
+                    [disabled]="retryingOrderId() === order.id"
+                    (click)="retryPayment(order)"
+                  >
+                    @if (retryingOrderId() === order.id) {
+                      Đang tạo link...
+                    } @else {
+                      Thanh toán lại
+                    }
+                  </button>
+                }
               </div>
             </div>
           }
@@ -111,10 +128,13 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
   private orderSvc = inject(OrderService);
   private auth = inject(AuthService);
   private realtime = inject(RealtimeSyncService);
+  private paymentSvc = inject(PaymentService);
+  private toast = inject(ToastService);
   private realtimeSub?: Subscription;
 
   orders = signal<Order[]>([]);
   loading = signal(true);
+  retryingOrderId = signal('');
   selectedStatus = 'all';
 
   readonly statusList = Object.entries(STATUS_LABELS).map(([key, label]) => ({ key, label }));
@@ -136,6 +156,36 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
   onStatusChange(status: string): void {
     this.selectedStatus = status;
     this.loadOrders();
+  }
+
+  canRetryPayment(order: Order): boolean {
+    const isPendingPayment = String(order.paymentStatus || '') === 'pending';
+    const method = String(order.paymentMethod || '');
+    return isPendingPayment && (method === 'vnpay' || method === 'momo');
+  }
+
+  async retryPayment(order: Order): Promise<void> {
+    if (!this.canRetryPayment(order)) return;
+    this.retryingOrderId.set(order.id);
+
+    try {
+      const result = await firstValueFrom(
+        this.paymentSvc.createGatewayUrl(order.paymentMethod as 'vnpay' | 'momo', {
+          orderId: order.id,
+        }),
+      );
+
+      if (result.paymentUrl) {
+        window.location.href = result.paymentUrl;
+        return;
+      }
+
+      this.toast.warning(result.message || 'Không tạo được link thanh toán. Vui lòng thử lại.');
+    } catch {
+      this.toast.error('Không thể kết nối cổng thanh toán. Vui lòng thử lại.');
+    } finally {
+      this.retryingOrderId.set('');
+    }
   }
 
   private loadOrders(): void {

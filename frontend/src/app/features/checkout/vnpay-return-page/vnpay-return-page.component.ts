@@ -2,6 +2,7 @@ import { Component, ChangeDetectionStrategy, signal, OnInit, OnDestroy } from '@
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { OrderService } from '../../../core/services/order.service';
+import { PaymentService } from '../../../core/services/payment.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -27,11 +28,12 @@ export class VnpayReturnPageComponent implements OnInit, OnDestroy {
   constructor(
     private route: ActivatedRoute,
     private orderSvc: OrderService,
+    private paymentSvc: PaymentService,
     private router: Router,
   ) {}
 
   ngOnInit(): void {
-    const p = this.route.snapshot.queryParams;
+    const p = this.route.snapshot.queryParams as Record<string, string>;
     const code = p['vnp_ResponseCode'];
     const info = p['vnp_OrderInfo'] || '';
     const amt = p['vnp_Amount'] || '0';
@@ -41,6 +43,7 @@ export class VnpayReturnPageComponent implements OnInit, OnDestroy {
     const orderIdMatch = info.match(/ORD-[A-Z0-9-]+/);
     // Ưu tiên vnp_TxnRef (chứa orderId chính xác), fallback sang regex từ OrderInfo
     const orderId = (p['vnp_TxnRef'] || '').trim() || (orderIdMatch ? orderIdMatch[0] : '');
+    const txnNo = (p['vnp_TransactionNo'] || '').trim();
 
     // Format amount (VNPay sends in units * 100)
     const formatted = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
@@ -68,23 +71,7 @@ export class VnpayReturnPageComponent implements OnInit, OnDestroy {
     this.bankCode.set(bank);
     this.payDate.set(dateStr);
 
-    if (code === '00' && orderId) {
-      this.orderSvc.markOrderPaid(orderId).subscribe({
-        next: () => {
-          this.orderId.set(orderId);
-          this.success.set(true);
-          this.loading.set(false);
-          this._startCountdown();
-        },
-        error: () => {
-          // VNPay đã xác nhận — vẫn hiển thị thành công
-          this.orderId.set(orderId);
-          this.success.set(true);
-          this.loading.set(false);
-          this._startCountdown();
-        },
-      });
-    } else {
+    const failWithCode = (rawCode: string) => {
       const messages: Record<string, string> = {
         '07': 'Giao dịch bị nghi ngờ gian lận.',
         '09': 'Thẻ / tài khoản chưa đăng ký dịch vụ.',
@@ -97,10 +84,45 @@ export class VnpayReturnPageComponent implements OnInit, OnDestroy {
         '75': 'Ngân hàng bảo trì.',
         '99': 'Lỗi không xác định.',
       };
-      this.message.set(messages[code] ?? 'Thanh toán không thành công.');
+      this.message.set(messages[rawCode] ?? 'Thanh toán không thành công.');
       this.loading.set(false);
       this._startCountdown();
+    };
+
+    if (!orderId) {
+      failWithCode(code || '99');
+      return;
     }
+
+    this.paymentSvc.verifyVNPayReturn(p).subscribe({
+      next: (verify) => {
+        if (verify.success) {
+          this.orderSvc
+            .markOrderPaid(orderId, { gateway: 'vnpay', transactionId: txnNo })
+            .subscribe({
+              next: () => {
+                this.orderId.set(orderId);
+                this.success.set(true);
+                this.loading.set(false);
+                this._startCountdown();
+              },
+              error: () => {
+                // Backend return đã verify và có thể đã cập nhật paid, vẫn hiển thị thành công.
+                this.orderId.set(orderId);
+                this.success.set(true);
+                this.loading.set(false);
+                this._startCountdown();
+              },
+            });
+          return;
+        }
+
+        failWithCode(verify.code || code || '99');
+      },
+      error: () => {
+        failWithCode(code || '99');
+      },
+    });
   }
 
   private _startCountdown(): void {

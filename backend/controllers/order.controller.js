@@ -1,5 +1,6 @@
 "use strict";
 
+const mongoose = require("mongoose");
 const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
 const { publishToUser } = require("../services/realtime-bus");
@@ -42,6 +43,29 @@ exports.createOrder = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: "Đơn hàng phải có ít nhất một sản phẩm",
+      });
+    }
+
+    const invalidIdItem = items.find(
+      (item) => !mongoose.Types.ObjectId.isValid(String(item?.productId || "")),
+    );
+    if (invalidIdItem) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Giỏ hàng có sản phẩm không hợp lệ. Vui lòng cập nhật lại giỏ hàng.",
+      });
+    }
+
+    const productIds = items.map((item) => String(item.productId));
+    const foundCount = await Product.countDocuments({
+      _id: { $in: productIds },
+    });
+    if (foundCount !== productIds.length) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Một số sản phẩm không còn tồn tại. Vui lòng tải lại giỏ hàng.",
       });
     }
 
@@ -323,7 +347,22 @@ exports.markOrderPaid = async (req, res, next) => {
       });
     }
 
+    if (order.payment?.status === "paid") {
+      return res.json({
+        success: true,
+        message: "Đơn hàng đã ở trạng thái thanh toán",
+        data: order,
+      });
+    }
+
+    const gateway = String(req.body?.gateway || order.payment?.method || "");
+    const transactionId = String(req.body?.transactionId || "");
+
     order.payment.status = "paid";
+    if (gateway) order.payment.gateway = gateway;
+    if (transactionId) order.payment.transactionId = transactionId;
+    order.payment.transactionTime = new Date();
+    order.payment.amount = Number(order.totalAmount || 0);
     await order.save();
 
     publishToUser(order.userId, "order.status_updated", {

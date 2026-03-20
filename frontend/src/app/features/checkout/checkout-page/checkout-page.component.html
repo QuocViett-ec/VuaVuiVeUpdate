@@ -158,11 +158,7 @@
           </div>
         </div>
 
-        <button
-          class="btn btn--primary btn--full"
-          (click)="placeOrder()"
-          [disabled]="loading() || !selectedSlotId"
-        >
+        <button class="btn btn--primary btn--full" (click)="placeOrder()" [disabled]="loading()">
           @if (loading()) {
             Đang xử lý...
           } @else if (paymentMethod === 'vnpay') {

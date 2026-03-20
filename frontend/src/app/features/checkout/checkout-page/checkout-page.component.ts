@@ -15,8 +15,9 @@ import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { GeolocationService } from '../../../core/services/geolocation.service';
 import { DeliverySlot, VoucherResult } from '../../../core/models/product.model';
-import { environment } from '../../../../environments/environment';
 import { switchMap } from 'rxjs/operators';
+import { firstValueFrom } from 'rxjs';
+import { PaymentService } from '../../../core/services/payment.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -32,6 +33,7 @@ export class CheckoutPageComponent implements OnInit {
   private toast = inject(ToastService);
   private router = inject(Router);
   private geoSvc = inject(GeolocationService);
+  private paymentSvc = inject(PaymentService);
 
   // Form fields
   name = '';
@@ -149,17 +151,14 @@ export class CheckoutPageComponent implements OnInit {
       this.toast.error('Giỏ hàng trống.');
       return;
     }
+
+    if (!this.selectedSlotId) {
+      this.slotError.set('Vui lòng chọn khung giờ giao hàng.');
+      this.toast.error('Vui lòng chọn khung giờ giao hàng.');
+      return;
+    }
+
     // Kiểm tra cart đã có đầy đủ thông tin sản phẩm chưa
-    if (!this.selectedSlotId) {
-      this.slotError.set('Vui lÃ²ng chá»n khung giá» giao hÃ ng.');
-      this.toast.error('Vui lÃ²ng chá»n khung giá» giao hÃ ng.');
-      return;
-    }
-    if (!this.selectedSlotId) {
-      this.slotError.set('Vui long chon khung gio giao hang.');
-      this.toast.error('Vui long chon khung gio giao hang.');
-      return;
-    }
     const hasInvalidItem = this.cartItems().some((i) => !i.product.name || !i.product.price);
     if (hasInvalidItem) {
       this.toast.error(
@@ -197,8 +196,6 @@ export class CheckoutPageComponent implements OnInit {
 
     this.orderSvc.createOrder(payload).subscribe({
       next: async (order) => {
-        // Lưu totalAmount TRƯỚC khi clear cart (vì sau clearCart() computed sẽ về 0)
-        const amount = order.totalAmount ?? payload.totalAmount ?? 0;
         const orderId = order.orderId ?? order._id ?? '';
         const selected = this.selectedIds();
         if (selected && selected.size > 0) {
@@ -209,48 +206,31 @@ export class CheckoutPageComponent implements OnInit {
         this.loading.set(false);
 
         if (this.paymentMethod === 'vnpay') {
-          const vnpayUrl = `${environment.paymentApi}/vnpay/create`;
-          const body = { amount, orderId };
           try {
-            const resp = await fetch(vnpayUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-              },
-              credentials: 'include',
-              body: JSON.stringify(body),
-            });
-            const data = await resp.json();
-            if (data?.data) {
-              window.location.href = data.data;
+            const result = await firstValueFrom(
+              this.paymentSvc.createGatewayUrl('vnpay', { orderId }),
+            );
+            if (result.paymentUrl) {
+              window.location.href = result.paymentUrl;
               return;
             }
             this.toast.warning(
-              'Không tạo được link VNPay. Đơn hàng đã lưu, vui lòng thanh toán sau.',
+              result.message ||
+                'Không tạo được link VNPay. Đơn hàng đã lưu, vui lòng thanh toán sau.',
             );
           } catch {
             this.toast.warning('Không kết nối được VNPay. Đơn hàng đã lưu với phương thức COD.');
           }
         } else if (this.paymentMethod === 'momo') {
-          const momoUrl = `${environment.paymentApi}/momo/create`;
-          const body = { amount, orderId };
           try {
-            const resp = await fetch(momoUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-              },
-              credentials: 'include',
-              body: JSON.stringify(body),
-            });
-            const data = await resp.json();
-            if (data?.payUrl) {
-              window.location.href = data.payUrl;
+            const result = await firstValueFrom(
+              this.paymentSvc.createGatewayUrl('momo', { orderId }),
+            );
+            if (result.paymentUrl) {
+              window.location.href = result.paymentUrl;
               return;
             }
-            this.toast.warning(data?.message || 'Không tạo được link MoMo. Đơn hàng đã lưu.');
+            this.toast.warning(result.message || 'Không tạo được link MoMo. Đơn hàng đã lưu.');
           } catch {
             this.toast.warning('Không kết nối được MoMo. Đơn hàng đã lưu.');
           }
@@ -259,9 +239,12 @@ export class CheckoutPageComponent implements OnInit {
         this.toast.success('Đặt hàng thành công! 🎉');
         this.router.navigate(['/orders']);
       },
-      error: () => {
+      error: (err) => {
         this.loading.set(false);
-        this.toast.error('Đặt hàng thất bại. Vui lòng thử lại.');
+        const backendMessage = err?.error?.message || '';
+        this.toast.error(
+          backendMessage || 'Đặt hàng thất bại. Vui lòng đăng nhập lại hoặc thử lại sau.',
+        );
       },
     });
   }

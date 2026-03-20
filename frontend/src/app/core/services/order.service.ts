@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, of, map } from 'rxjs';
+import { Observable, catchError, of, map, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Order, DeliverySlot, VoucherResult } from '../models/product.model';
 
@@ -22,6 +22,12 @@ const VOUCHERS: Record<string, (subtotal: number, shippingFee: number) => Vouche
 @Injectable({ providedIn: 'root' })
 export class OrderService {
   private readonly api = environment.apiBase;
+  private readonly writeOptions = {
+    withCredentials: true,
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+  };
 
   constructor(private http: HttpClient) {}
 
@@ -102,17 +108,18 @@ export class OrderService {
 
   // ─── Create order ─────────────────────────────────────────────────────────────
   createOrder(payload: Partial<Order>): Observable<any> {
-    return this.http.post<any>(`${this.api}/api/orders`, payload).pipe(
+    return this.http.post<any>(`${this.api}/api/orders`, payload, this.writeOptions).pipe(
       map((res: any) => res?.data ?? res),
-      catchError((err) => {
-        throw err;
-      }),
+      catchError((err) => throwError(() => err)),
     );
   }
 
-  markOrderPaid(orderId: string): Observable<Order> {
+  markOrderPaid(
+    orderId: string,
+    payload?: { gateway?: 'vnpay' | 'momo'; transactionId?: string },
+  ): Observable<Order> {
     return this.http
-      .patch<any>(`${this.api}/api/orders/${orderId}/paid`, {})
+      .patch<any>(`${this.api}/api/orders/${orderId}/paid`, payload ?? {}, this.writeOptions)
       .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
   }
 
@@ -208,13 +215,13 @@ export class OrderService {
 
   updateOrderStatus(id: string, status: string): Observable<Order> {
     return this.http
-      .put<any>(`${this.api}/api/orders/${id}/status`, { status })
+      .put<any>(`${this.api}/api/orders/${id}/status`, { status }, this.writeOptions)
       .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
   }
 
   cancelOrder(id: string): Observable<Order> {
     return this.http
-      .patch<any>(`${this.api}/api/orders/${id}/cancel`, {})
+      .patch<any>(`${this.api}/api/orders/${id}/cancel`, {}, this.writeOptions)
       .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
   }
 
