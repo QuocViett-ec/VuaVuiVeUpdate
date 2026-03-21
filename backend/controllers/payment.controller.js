@@ -439,7 +439,7 @@ exports.createMoMoUrl = async (req, res) => {
     }
 
     const requestId = partnerCode + Date.now();
-    const requestType = "captureWallet";
+    const requestType = process.env.MOMO_REQUEST_TYPE || "payWithMethod";
     const extraData = "";
     const amountStr = String(paymentAmount);
 
