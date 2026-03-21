@@ -4,15 +4,15 @@
   place-items: center;
   padding: 2rem 1rem;
   background:
-    radial-gradient(circle at 15% 20%, rgba(13, 148, 136, 0.15), transparent 42%),
-    radial-gradient(circle at 88% 18%, rgba(59, 130, 246, 0.14), transparent 45%),
-    linear-gradient(160deg, #eef6ff 0%, #f8fbff 45%, #f3faf6 100%);
+    radial-gradient(circle at 15% 20%, rgba(56, 142, 60, 0.15), transparent 42%),
+    radial-gradient(circle at 88% 18%, rgba(102, 187, 106, 0.14), transparent 45%),
+    linear-gradient(160deg, #f1f8e9 0%, #ffffff 45%, #f9fafb 100%);
 }
 
 .admin-login-card {
   width: min(460px, 100%);
   background: #fff;
-  border: 1px solid #d9e5f2;
+  border: 1px solid var(--border);
   border-radius: 18px;
   padding: 1.5rem;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
@@ -28,7 +28,7 @@
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #0f766e;
+  color: var(--green-800);
   font-weight: 700;
   font-size: 0.78rem;
 }
@@ -52,22 +52,22 @@
   }
 
   input {
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--border);
     border-radius: 10px;
     padding: 0.7rem 0.82rem;
     font-size: 0.95rem;
     outline: none;
 
     &:focus {
-      border-color: #0ea5a4;
-      box-shadow: 0 0 0 3px rgba(14, 165, 164, 0.15);
+      border-color: var(--green-700);
+      box-shadow: 0 0 0 3px rgba(56, 142, 60, 0.15);
     }
   }
 
   button {
     border: 0;
     border-radius: 10px;
-    background: linear-gradient(90deg, #0ea5a4, #0284c7);
+    background: linear-gradient(90deg, var(--green-600), var(--green-800));
     color: #fff;
     font-weight: 700;
     cursor: pointer;
@@ -93,7 +93,7 @@
 .customer-link {
   display: inline-block;
   margin-top: 0.9rem;
-  color: #0369a1;
+  color: var(--green-800);
   text-decoration: none;
   font-weight: 600;
 
