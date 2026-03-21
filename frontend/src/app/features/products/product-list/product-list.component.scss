@@ -250,6 +250,30 @@
   margin-bottom: 1rem;
 }
 
+.search-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  width: 100%;
+  margin-top: -0.2rem;
+}
+
+.hint-pill {
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #374151;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  padding: 0.28rem 0.62rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  &:hover {
+    border-color: #2e7d32;
+    color: #1b5e20;
+    background: #f0faf0;
+  }
+}
+
 /* Search bar */
 .search-wrap {
   position: relative;

@@ -12,10 +12,22 @@
   margin-bottom: 1.25rem;
 }
 .search-bar {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
   margin-bottom: 1rem;
   .input {
-    max-width: 360px;
+    max-width: 320px;
   }
+}
+
+.filter-check {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.82rem;
+  color: #334155;
 }
 
 .table-wrap {
@@ -193,6 +205,11 @@ select.input {
 }
 
 @media (max-width: 640px) {
+  .search-bar .input {
+    max-width: 100%;
+    flex: 1 1 100%;
+  }
+
   .form-row {
     grid-template-columns: 1fr;
   }

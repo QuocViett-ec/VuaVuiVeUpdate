@@ -80,6 +80,9 @@ export interface VoucherResult {
   value?: number;
   cap?: number;
   message: string;
+  warning?: string;
+  expiresAt?: string | null;
+  daysLeft?: number | null;
 }
 
 export interface Recommendation {

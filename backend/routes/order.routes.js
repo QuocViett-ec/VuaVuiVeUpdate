@@ -4,7 +4,11 @@ const express = require("express");
 const rateLimit = require("express-rate-limit");
 const router = express.Router();
 const orderCtrl = require("../controllers/order.controller");
-const { requireAuth, requireAdmin } = require("../middleware/auth.middleware");
+const {
+  requireAuth,
+  requireBackofficeRole,
+  requirePermission,
+} = require("../middleware/auth.middleware");
 
 const readLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -34,6 +38,12 @@ const writeLimiter = rateLimit({
 
 // User routes (auth required)
 router.post("/", requireAuth, writeLimiter, orderCtrl.createOrder);
+router.post(
+  "/voucher/validate",
+  requireAuth,
+  writeLimiter,
+  orderCtrl.validateVoucherForCheckout,
+);
 router.get("/me", requireAuth, readLimiter, orderCtrl.getMyOrders);
 router.get("/:id", requireAuth, readLimiter, orderCtrl.getOrderById);
 
@@ -45,7 +55,8 @@ router.patch("/:id/cancel", requireAuth, writeLimiter, orderCtrl.cancelOrder);
 router.put(
   "/:id/status",
   requireAuth,
-  requireAdmin,
+  requireBackofficeRole("admin", "staff"),
+  requirePermission("orders.write"),
   writeLimiter,
   orderCtrl.updateStatus,
 );

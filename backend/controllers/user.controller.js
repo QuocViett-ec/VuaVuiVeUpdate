@@ -60,7 +60,11 @@ async function buildAdminAnalytics() {
   const today = startOfDay(new Date());
   const last30Date = new Date(today);
   last30Date.setDate(today.getDate() - 29);
-  const last12MonthDate = new Date(today.getFullYear(), today.getMonth() - 11, 1);
+  const last12MonthDate = new Date(
+    today.getFullYear(),
+    today.getMonth() - 11,
+    1,
+  );
 
   const paidOrderMatch = {
     status: { $ne: "cancelled" },
@@ -170,8 +174,13 @@ async function buildAdminAnalytics() {
       .lean(),
   ]);
 
-  const revenueSummary = paidRevenueAgg[0] || { totalRevenue: 0, paidOrders: 0 };
-  const averageOrderValue = Math.round(averageOrderAgg[0]?.averageOrderValue || 0);
+  const revenueSummary = paidRevenueAgg[0] || {
+    totalRevenue: 0,
+    paidOrders: 0,
+  };
+  const averageOrderValue = Math.round(
+    averageOrderAgg[0]?.averageOrderValue || 0,
+  );
 
   const last30Map = new Map(
     last30DaysAgg.map((item) => [
@@ -230,7 +239,10 @@ exports.listUsers = async (req, res, next) => {
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [users, total] = await Promise.all([
-      User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)),
+      User.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
       User.countDocuments(filter),
     ]);
 
@@ -245,6 +257,53 @@ exports.listUsers = async (req, res, next) => {
         totalPages: Math.ceil(total / parseInt(limit)),
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/admin/users/export?search=&role=
+ */
+exports.exportUsersCsv = async (req, res, next) => {
+  try {
+    const { search = "", role } = req.query;
+    const filter = {};
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+    if (role) filter.role = role;
+
+    const users = await User.find(filter).sort({ createdAt: -1 }).lean();
+    const header = ["name", "phone", "email", "role", "isActive", "createdAt"];
+
+    const csv = [
+      header.join(","),
+      ...users.map((u) =>
+        [
+          u.name || "",
+          u.phone || "",
+          u.email || "",
+          u.role || "",
+          u.isActive !== false ? "active" : "inactive",
+          u.createdAt ? new Date(u.createdAt).toISOString() : "",
+        ]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(","),
+      ),
+    ].join("\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="users-${Date.now()}.csv"`,
+    );
+    return res.status(200).send(`\uFEFF${csv}`);
   } catch (err) {
     next(err);
   }
@@ -390,7 +449,10 @@ exports.createAuditLogRoute = async (req, res, next) => {
     if (!adminId || !action || !target) {
       return res
         .status(400)
-        .json({ success: false, message: "adminId, action, target là bắt buộc" });
+        .json({
+          success: false,
+          message: "adminId, action, target là bắt buộc",
+        });
     }
     const log = await AuditLog.create({
       adminId,

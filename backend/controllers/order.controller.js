@@ -5,6 +5,7 @@ const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
 const { publishToUser } = require("../services/realtime-bus");
 const { createAuditLog } = require("./user.controller");
+const { validateVoucher, markVoucherUsed } = require("./voucher.controller");
 
 const VALID_STATUSES = [
   "pending",
@@ -20,6 +21,55 @@ const ALLOWED_TRANSITIONS = {
   shipping: ["delivered"],
   delivered: [],
   cancelled: [],
+};
+
+/**
+ * POST /api/orders/voucher/validate (auth required)
+ */
+exports.validateVoucherForCheckout = async (req, res, next) => {
+  try {
+    const { code, subtotal = 0, shippingFee = 0 } = req.body || {};
+    const normalizedCode = String(code || "")
+      .trim()
+      .toUpperCase();
+
+    const result = await validateVoucher({
+      code: normalizedCode,
+      subtotal: Number(subtotal || 0),
+      shippingFee: Number(shippingFee || 0),
+    });
+
+    if (!result.ok) {
+      return res.status(400).json({
+        success: false,
+        message: result.message,
+        data: {
+          ok: false,
+          message: result.message,
+        },
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: result.message,
+      data: {
+        ok: true,
+        type: result.type,
+        value: Number(result.value || 0),
+        cap: Number(result.cap || 0),
+        message: result.message,
+        warning: String(result.warning || ""),
+        expiresAt: result.expiresAt || null,
+        daysLeft:
+          result.daysLeft === null || result.daysLeft === undefined
+            ? null
+            : Number(result.daysLeft),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 /**
@@ -58,15 +108,45 @@ exports.createOrder = async (req, res, next) => {
     }
 
     const productIds = items.map((item) => String(item.productId));
+    const uniqueProductIds = [...new Set(productIds)];
     const foundCount = await Product.countDocuments({
-      _id: { $in: productIds },
+      _id: { $in: uniqueProductIds },
     });
-    if (foundCount !== productIds.length) {
+    if (foundCount !== uniqueProductIds.length) {
       return res.status(400).json({
         success: false,
         message:
           "Một số sản phẩm không còn tồn tại. Vui lòng tải lại giỏ hàng.",
       });
+    }
+
+    const products = await Product.find({ _id: { $in: uniqueProductIds } })
+      .select("name stock isActive")
+      .lean();
+    const productMap = new Map(products.map((p) => [String(p._id), p]));
+
+    const quantityByProductId = new Map();
+    for (const item of items) {
+      const id = String(item.productId);
+      const qty = Math.max(1, Number(item.quantity || 0));
+      quantityByProductId.set(id, (quantityByProductId.get(id) || 0) + qty);
+    }
+
+    for (const [productId, quantity] of quantityByProductId.entries()) {
+      const product = productMap.get(productId);
+      if (!product || product.isActive === false) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Một số sản phẩm đang tạm ngưng bán. Vui lòng cập nhật giỏ hàng.",
+        });
+      }
+      if (Number(product.stock || 0) < quantity) {
+        return res.status(400).json({
+          success: false,
+          message: `Sản phẩm \"${product.name}\" chỉ còn ${Math.max(0, Number(product.stock || 0))} trong kho.`,
+        });
+      }
     }
 
     if (!delivery || !delivery.name || !delivery.phone || !delivery.address) {
@@ -81,18 +161,58 @@ exports.createOrder = async (req, res, next) => {
         .json({ success: false, message: "Thiếu thông tin tổng tiền" });
     }
 
+    let validatedDiscount = Number(discount ?? 0);
+    let normalizedVoucherCode = String(voucherCode || "")
+      .trim()
+      .toUpperCase();
+
+    if (normalizedVoucherCode) {
+      const voucherResult = await validateVoucher({
+        code: normalizedVoucherCode,
+        subtotal: Number(subtotal),
+        shippingFee: Number(shippingFee ?? 0),
+      });
+
+      if (!voucherResult.ok) {
+        return res.status(400).json({
+          success: false,
+          message: voucherResult.message,
+        });
+      }
+
+      if (voucherResult.type === "ship") {
+        validatedDiscount = Number(shippingFee ?? 0);
+      } else if (voucherResult.type === "percent") {
+        const percentValue = Math.round(
+          (Number(subtotal) * Number(voucherResult.value || 0)) / 100,
+        );
+        const cap = Number(voucherResult.cap || 0);
+        validatedDiscount =
+          cap > 0 ? Math.min(percentValue, cap) : percentValue;
+      } else {
+        validatedDiscount = Number(voucherResult.value || 0);
+      }
+    }
+
     const order = await Order.create({
       userId: req.session.userId,
       items,
       delivery,
       payment,
-      voucherCode,
+      voucherCode: normalizedVoucherCode,
       shippingFee: shippingFee ?? 0,
-      discount: discount ?? 0,
+      discount: validatedDiscount,
       subtotal: Number(subtotal),
-      totalAmount: Number(totalAmount),
+      totalAmount: Math.max(
+        0,
+        Number(subtotal) + Number(shippingFee ?? 0) - validatedDiscount,
+      ),
       note,
     });
+
+    if (normalizedVoucherCode) {
+      await markVoucherUsed(normalizedVoucherCode);
+    }
 
     // Giảm stock sau khi đặt hàng thành công
     await Promise.all(
@@ -434,6 +554,140 @@ exports.getAllOrders = async (req, res, next) => {
         totalPages: Math.ceil(total / limitNum),
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * PATCH /api/admin/orders/bulk-status (backoffice)
+ * Body: { orderIds: string[], status: string }
+ */
+exports.bulkUpdateStatus = async (req, res, next) => {
+  try {
+    const { orderIds = [], status } = req.body || {};
+
+    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Danh sách orderIds không hợp lệ",
+      });
+    }
+
+    if (!status || !VALID_STATUSES.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Trạng thái không hợp lệ. Giá trị cho phép: ${VALID_STATUSES.join(", ")}`,
+      });
+    }
+
+    const orders = await Order.find({ orderId: { $in: orderIds } });
+    let updatedCount = 0;
+
+    for (const order of orders) {
+      const previousStatus = String(order.status || "");
+      if (previousStatus === status) continue;
+      const allowedNext = ALLOWED_TRANSITIONS[previousStatus] || [];
+      if (!allowedNext.includes(status)) continue;
+
+      const previousPaymentStatus = String(order.payment?.status || "pending");
+      order.status = status;
+      if (status === "delivered") {
+        order.payment = order.payment || {};
+        order.payment.status = "paid";
+      }
+      await order.save();
+      updatedCount += 1;
+
+      const nextPaymentStatus = String(order.payment?.status || "pending");
+      await createAuditLog({
+        adminId: req.session.userId,
+        action: "order.bulk_update",
+        target: `Order:${order.orderId || order._id}`,
+        details: {
+          previousStatus,
+          nextStatus: status,
+          previousPaymentStatus,
+          nextPaymentStatus,
+        },
+        ip: req.ip,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Đã cập nhật ${updatedCount}/${orderIds.length} đơn hàng`,
+      data: { updatedCount, requested: orderIds.length },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/admin/orders/export?status=&q=
+ */
+exports.exportOrdersCsv = async (req, res, next) => {
+  try {
+    const { status, q = "" } = req.query;
+    const filter = {};
+    if (status && VALID_STATUSES.includes(status)) filter.status = status;
+
+    const keyword = String(q || "").trim();
+    if (keyword) {
+      const regex = new RegExp(
+        keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i",
+      );
+      filter.$or = [
+        { orderId: regex },
+        { "delivery.name": regex },
+        { "delivery.phone": regex },
+      ];
+    }
+
+    const rows = await Order.find(filter).sort({ createdAt: -1 }).lean();
+    const header = [
+      "orderId",
+      "customerName",
+      "phone",
+      "paymentMethod",
+      "paymentStatus",
+      "status",
+      "subtotal",
+      "shippingFee",
+      "discount",
+      "totalAmount",
+      "createdAt",
+    ];
+
+    const csv = [
+      header.join(","),
+      ...rows.map((o) =>
+        [
+          o.orderId || "",
+          o.delivery?.name || "",
+          o.delivery?.phone || "",
+          o.payment?.method || "",
+          o.payment?.status || "",
+          o.status || "",
+          o.subtotal || 0,
+          o.shippingFee || 0,
+          o.discount || 0,
+          o.totalAmount || 0,
+          o.createdAt ? new Date(o.createdAt).toISOString() : "",
+        ]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(","),
+      ),
+    ].join("\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="orders-${Date.now()}.csv"`,
+    );
+    return res.status(200).send(`\uFEFF${csv}`);
   } catch (err) {
     next(err);
   }

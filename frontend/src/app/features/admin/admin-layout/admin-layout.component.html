@@ -65,58 +65,84 @@
           </svg>
           Dashboard
         </a>
-        <a routerLink="orders" routerLinkActive="active" class="nav-item">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <path d="M16 10a4 4 0 0 1-8 0" />
-          </svg>
-          Đơn hàng
-        </a>
-        <a routerLink="products" routerLinkActive="active" class="nav-item">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"
-            />
-          </svg>
-          Sản phẩm
-        </a>
-        <a routerLink="users" routerLinkActive="active" class="nav-item">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-          Người dùng
-        </a>
+        @if (hasAnyRole(['admin', 'staff'])) {
+          <a routerLink="orders" routerLinkActive="active" class="nav-item">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <path d="M16 10a4 4 0 0 1-8 0" />
+            </svg>
+            Đơn hàng
+          </a>
+        }
+        @if (hasAnyRole(['admin', 'staff'])) {
+          <a routerLink="products" routerLinkActive="active" class="nav-item">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"
+              />
+            </svg>
+            Sản phẩm
+          </a>
+        }
+        @if (hasRole('admin')) {
+          <a routerLink="users" routerLinkActive="active" class="nav-item">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            Người dùng
+          </a>
+        }
+        @if (hasAnyRole(['admin', 'staff'])) {
+          <a routerLink="vouchers" routerLinkActive="active" class="nav-item">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M20.59 13.41 11 3.83a2 2 0 0 0-1.41-.59H4a2 2 0 0 0-2 2v5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l5.59-5.59a2 2 0 0 0 0-2.83z"
+              />
+              <line x1="7" y1="7" x2="7.01" y2="7" />
+            </svg>
+            Voucher
+          </a>
+        }
         <a routerLink="reports" routerLinkActive="active" class="nav-item">
           <svg
             width="18"
@@ -134,25 +160,27 @@
           </svg>
           Báo cáo
         </a>
-        <a routerLink="ml-insights" routerLinkActive="active" class="nav-item">
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M12 3v18" />
-            <path d="M3 12h18" />
-            <circle cx="12" cy="12" r="3" />
-            <path d="m19 5-2.5 2.5" />
-            <path d="m7.5 16.5-2.5 2.5" />
-          </svg>
-          Machine Learning
-        </a>
+        @if (hasRole('admin')) {
+          <a routerLink="ml-insights" routerLinkActive="active" class="nav-item">
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 3v18" />
+              <path d="M3 12h18" />
+              <circle cx="12" cy="12" r="3" />
+              <path d="m19 5-2.5 2.5" />
+              <path d="m7.5 16.5-2.5 2.5" />
+            </svg>
+            Machine Learning
+          </a>
+        }
         <a routerLink="audit" routerLinkActive="active" class="nav-item">
           <svg
             width="18"

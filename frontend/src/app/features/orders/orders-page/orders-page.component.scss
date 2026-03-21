@@ -95,6 +95,26 @@
   gap: 0.4rem;
   align-items: center;
 }
+
+.order-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.order-progress .step {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+}
+
+.order-progress .step.done {
+  color: #14532d;
+  background: #dcfce7;
+}
 .item-chip {
   background: #f5f5f5;
   border-radius: 6px;

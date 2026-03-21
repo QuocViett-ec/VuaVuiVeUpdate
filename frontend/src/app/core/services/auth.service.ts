@@ -15,6 +15,7 @@ import {
 
 const LS_SESSION = 'vvv_session_v1';
 const API_BASE = environment.apiBase;
+const BACKOFFICE_ROLES = new Set(['admin', 'staff', 'audit']);
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -22,7 +23,9 @@ export class AuthService {
   private _isLoggingOut = false;
   readonly currentUser = this._session.asReadonly();
   readonly isLoggedIn = computed(() => !!this._session());
-  readonly isAdmin = computed(() => this._session()?.role?.toLowerCase() === 'admin');
+  readonly isAdmin = computed(() =>
+    BACKOFFICE_ROLES.has(String(this._session()?.role || '').toLowerCase()),
+  );
 
   constructor(
     private http: HttpClient,
@@ -33,10 +36,10 @@ export class AuthService {
       localStorage.removeItem('vvv_users_v1');
     }
     const initialRole = String(this._session()?.role || '').toLowerCase();
-    if (this._isCustomerPortalRuntime() && initialRole === 'admin') {
+    if (this._isCustomerPortalRuntime() && BACKOFFICE_ROLES.has(initialRole)) {
       this._clearSession();
     }
-    if (this._isAdminPortalRuntime() && initialRole && initialRole !== 'admin') {
+    if (this._isAdminPortalRuntime() && initialRole && !BACKOFFICE_ROLES.has(initialRole)) {
       this._clearSession();
     }
 
@@ -90,11 +93,11 @@ export class AuthService {
         if (this._isLoggingOut) return;
         if (res?.data) {
           const role = String(res.data.role || '').toLowerCase();
-          if (this._isCustomerPortalRuntime() && role === 'admin') {
+          if (this._isCustomerPortalRuntime() && BACKOFFICE_ROLES.has(role)) {
             this._clearSession();
             return;
           }
-          if (this._isAdminPortalRuntime() && role !== 'admin') {
+          if (this._isAdminPortalRuntime() && !BACKOFFICE_ROLES.has(role)) {
             this._clearSession();
             return;
           }

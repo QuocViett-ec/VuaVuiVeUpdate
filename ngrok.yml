@@ -1,0 +1,9 @@
+version: 2
+authtoken: 3BEkP48bpNY4KHrYSjmDTMdSrI7_7zRhFP4GDncnV7xdexWQ
+tunnels:
+  backend:
+    proto: http
+    addr: 3000
+  frontend:
+    proto: http
+    addr: 4200

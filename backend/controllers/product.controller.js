@@ -2,6 +2,7 @@
 
 const Product = require("../models/Product.model");
 const { publishToCustomers } = require("../services/realtime-bus");
+const { createAuditLog } = require("./user.controller");
 
 /**
  * GET /api/products
@@ -45,6 +46,133 @@ exports.getAll = async (req, res, next) => {
         totalPages: Math.ceil(total / limitNum),
       },
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/admin/products
+ * Query: ?search=&category=&status=active|inactive|all&lowStock=1&minStock=&maxStock=&page=&limit=
+ */
+exports.getAdminProducts = async (req, res, next) => {
+  try {
+    const {
+      category,
+      search,
+      status = "all",
+      lowStock,
+      minStock,
+      maxStock,
+      page = 1,
+      limit = 50,
+      sort = "-createdAt",
+    } = req.query;
+
+    const filter = {};
+    if (category && category !== "all") filter.category = category;
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { tags: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    if (status === "active") filter.isActive = true;
+    if (status === "inactive") filter.isActive = false;
+
+    if (lowStock === "1" || lowStock === "true") {
+      filter.stock = { ...(filter.stock || {}), $lt: 10 };
+    }
+
+    if (minStock !== undefined && minStock !== "") {
+      filter.stock = {
+        ...(filter.stock || {}),
+        $gte: Math.max(0, Number(minStock)),
+      };
+    }
+    if (maxStock !== undefined && maxStock !== "") {
+      filter.stock = {
+        ...(filter.stock || {}),
+        $lte: Math.max(0, Number(maxStock)),
+      };
+    }
+
+    const pageNum = Math.max(1, parseInt(page, 10));
+    const limitNum = Math.min(500, Math.max(1, parseInt(limit, 10)));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [products, total] = await Promise.all([
+      Product.find(filter).sort(sort).skip(skip).limit(limitNum).lean(),
+      Product.countDocuments(filter),
+    ]);
+
+    return res.json({
+      success: true,
+      data: products,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/admin/products/export
+ */
+exports.exportProductsCsv = async (req, res, next) => {
+  try {
+    const { search = "", category = "all", status = "all" } = req.query;
+    const filter = {};
+    if (category !== "all") filter.category = category;
+    if (status === "active") filter.isActive = true;
+    if (status === "inactive") filter.isActive = false;
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { tags: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const rows = await Product.find(filter).sort({ createdAt: -1 }).lean();
+    const header = [
+      "name",
+      "category",
+      "subCategory",
+      "price",
+      "stock",
+      "isActive",
+      "updatedAt",
+    ];
+
+    const csv = [
+      header.join(","),
+      ...rows.map((p) =>
+        [
+          p.name || "",
+          p.category || "",
+          p.subCategory || "",
+          p.price || 0,
+          p.stock || 0,
+          p.isActive !== false ? "active" : "inactive",
+          p.updatedAt ? new Date(p.updatedAt).toISOString() : "",
+        ]
+          .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+          .join(","),
+      ),
+    ].join("\n");
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="products-${Date.now()}.csv"`,
+    );
+    return res.status(200).send(`\uFEFF${csv}`);
   } catch (err) {
     next(err);
   }
@@ -152,13 +280,24 @@ exports.create = async (req, res, next) => {
       source: "admin",
     });
 
-    return res
-      .status(201)
-      .json({
-        success: true,
-        message: "Tạo sản phẩm thành công",
-        data: product,
-      });
+    await createAuditLog({
+      adminId: req.session?.userId,
+      action: "CREATE_PRODUCT",
+      target: `Product:${product._id}`,
+      details: {
+        name: product.name,
+        category: product.category,
+        price: product.price,
+        stock: product.stock,
+      },
+      ip: req.ip,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Tạo sản phẩm thành công",
+      data: product,
+    });
   } catch (err) {
     next(err);
   }
@@ -233,6 +372,16 @@ exports.update = async (req, res, next) => {
       source: "admin",
     });
 
+    await createAuditLog({
+      adminId: req.session?.userId,
+      action: "UPDATE_PRODUCT",
+      target: `Product:${product._id}`,
+      details: {
+        updates,
+      },
+      ip: req.ip,
+    });
+
     return res.json({
       success: true,
       message: "Cập nhật sản phẩm thành công",
@@ -267,6 +416,17 @@ exports.remove = async (req, res, next) => {
       category: product.category,
       updatedAt: product.updatedAt,
       source: "admin",
+    });
+
+    await createAuditLog({
+      adminId: req.session?.userId,
+      action: "DELETE_PRODUCT",
+      target: `Product:${product._id}`,
+      details: {
+        name: product.name,
+        category: product.category,
+      },
+      ip: req.ip,
     });
 
     return res.json({ success: true, message: "Đã ẩn sản phẩm thành công" });

@@ -138,9 +138,9 @@ exports.createVNPayUrl = async (req, res) => {
       "127.0.0.1";
 
     // Credentials — fallback sang sandbox test nếu chưa set .env
-    const tmnCode = process.env.VNP_TMN_CODE || "B7MZSRZN";
+    const tmnCode = process.env.VNP_TMN_CODE || "TFQUUGXU";
     const secretKey =
-      process.env.VNP_HASH_SECRET || "N6EHMKL4RN3B3JAB7DG75R0U7VMVLKEH";
+      process.env.VNP_HASH_SECRET || "6CWJ6YCV87XZR9J3L6VUYRLZ93UHXEXK";
     const vnpUrl =
       process.env.VNP_URL ||
       "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
@@ -239,7 +239,7 @@ exports.vnpayReturn = async (req, res) => {
   delete vnp_Params["vnp_SecureHashType"];
 
   const secretKey =
-    process.env.VNP_HASH_SECRET || "N6EHMKL4RN3B3JAB7DG75R0U7VMVLKEH";
+    process.env.VNP_HASH_SECRET || "6CWJ6YCV87XZR9J3L6VUYRLZ93UHXEXK";
   const sorted = vnpSortObject(vnp_Params);
   const signData = vnpStringify(sorted);
   const signed = crypto
@@ -327,7 +327,7 @@ exports.vnpayIPN = async (req, res) => {
   delete vnp_Params["vnp_SecureHashType"];
 
   const secretKey =
-    process.env.VNP_HASH_SECRET || "N6EHMKL4RN3B3JAB7DG75R0U7VMVLKEH";
+    process.env.VNP_HASH_SECRET || "6CWJ6YCV87XZR9J3L6VUYRLZ93UHXEXK";
   const sorted = vnpSortObject(vnp_Params);
   const signData = vnpStringify(sorted);
   const signed = crypto

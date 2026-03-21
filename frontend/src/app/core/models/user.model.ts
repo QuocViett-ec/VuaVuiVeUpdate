@@ -4,7 +4,8 @@ export interface User {
   email: string;
   phone: string;
   address?: string;
-  role?: 'user' | 'customer' | 'admin';
+  role?: 'user' | 'customer' | 'admin' | 'staff' | 'audit';
+  isActive?: boolean;
   createdAt?: string;
   avatar?: string;
   provider?: 'local' | 'google';

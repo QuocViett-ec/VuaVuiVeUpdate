@@ -5,6 +5,7 @@ import {
   signal,
   computed,
   OnInit,
+  DoCheck,
 } from '@angular/core';
 import { RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -26,7 +27,7 @@ import { PaymentService } from '../../../core/services/payment.service';
   templateUrl: './checkout-page.component.html',
   styleUrl: './checkout-page.component.scss',
 })
-export class CheckoutPageComponent implements OnInit {
+export class CheckoutPageComponent implements OnInit, DoCheck {
   protected cart = inject(CartService);
   private orderSvc = inject(OrderService);
   private auth = inject(AuthService);
@@ -34,6 +35,8 @@ export class CheckoutPageComponent implements OnInit {
   private router = inject(Router);
   private geoSvc = inject(GeolocationService);
   private paymentSvc = inject(PaymentService);
+  private readonly checkoutDraftKey = 'vvv_checkout_draft_v1';
+  private lastDraftSnapshot = '';
 
   // Form fields
   name = '';
@@ -52,6 +55,24 @@ export class CheckoutPageComponent implements OnInit {
   locationError = signal('');
   slotError = signal('');
   selectedIds = signal<Set<string> | null>(null);
+  draftRecovered = signal(false);
+
+  readonly stockIssues = computed(() =>
+    this.cartItems()
+      .filter((item) => {
+        const stock = Math.max(0, Number(item.product.stock ?? 0));
+        return stock <= 0 || item.quantity > stock;
+      })
+      .map((item) => {
+        const stock = Math.max(0, Number(item.product.stock ?? 0));
+        return {
+          id: item.product.id,
+          name: item.product.name,
+          requested: item.quantity,
+          stock,
+        };
+      }),
+  );
 
   readonly cartItems = computed(() => {
     const allItems = this.cart.items();
@@ -100,16 +121,36 @@ export class CheckoutPageComponent implements OnInit {
       this.email = user.email;
       this.address = user.address ?? '';
     }
+
+    this.restoreCheckoutDraft();
+  }
+
+  ngDoCheck(): void {
+    this.persistCheckoutDraft();
   }
 
   applyVoucher(): void {
-    const result = this.orderSvc.applyVoucher(
-      this.voucherCode,
-      this.subtotal(),
-      this.shippingFee(),
-    );
-    this.voucherResult.set(result);
-    result.ok ? this.toast.success(result.message) : this.toast.error(result.message);
+    this.orderSvc
+      .applyVoucher(this.voucherCode, this.subtotal(), this.shippingFee())
+      .subscribe((result) => {
+        this.voucherResult.set(result);
+        if (result.ok) {
+          this.toast.success(result.message);
+          if (result.warning) this.toast.warning(result.warning);
+        } else {
+          this.toast.error(result.message);
+        }
+      });
+  }
+
+  clearVoucher(): void {
+    this.voucherCode = '';
+    this.voucherResult.set(null);
+  }
+
+  onVoucherCodeChange(value: string): void {
+    this.voucherCode = value;
+    this.voucherResult.set(null);
   }
 
   /** Lấy địa chỉ từ GPS + Nominatim reverse geocoding */
@@ -149,6 +190,14 @@ export class CheckoutPageComponent implements OnInit {
     }
     if (this.itemCount() === 0) {
       this.toast.error('Giỏ hàng trống.');
+      return;
+    }
+
+    if (this.stockIssues().length > 0) {
+      const first = this.stockIssues()[0];
+      this.toast.error(
+        `Sản phẩm ${first.name} chỉ còn ${first.stock}. Vui lòng cập nhật giỏ hàng.`,
+      );
       return;
     }
 
@@ -237,6 +286,7 @@ export class CheckoutPageComponent implements OnInit {
         }
 
         this.toast.success('Đặt hàng thành công! 🎉');
+        this.clearCheckoutDraft();
         this.router.navigate(['/orders']);
       },
       error: (err) => {
@@ -247,5 +297,66 @@ export class CheckoutPageComponent implements OnInit {
         );
       },
     });
+  }
+
+  private buildDraftPayload(): Record<string, unknown> {
+    return {
+      name: this.name,
+      phone: this.phone,
+      email: this.email,
+      address: this.address,
+      note: this.note,
+      paymentMethod: this.paymentMethod,
+      selectedSlotId: this.selectedSlotId,
+      voucherCode: this.voucherCode,
+    };
+  }
+
+  private persistCheckoutDraft(): void {
+    if (typeof localStorage === 'undefined') return;
+    const payload = this.buildDraftPayload();
+    const snapshot = JSON.stringify(payload);
+    if (snapshot === this.lastDraftSnapshot) return;
+    this.lastDraftSnapshot = snapshot;
+    localStorage.setItem(this.checkoutDraftKey, snapshot);
+  }
+
+  private restoreCheckoutDraft(): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(this.checkoutDraftKey);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      this.name = String(draft?.name ?? this.name);
+      this.phone = String(draft?.phone ?? this.phone);
+      this.email = String(draft?.email ?? this.email);
+      this.address = String(draft?.address ?? this.address);
+      this.note = String(draft?.note ?? this.note);
+      this.paymentMethod = ['cod', 'vnpay', 'momo'].includes(String(draft?.paymentMethod))
+        ? (draft.paymentMethod as 'cod' | 'vnpay' | 'momo')
+        : this.paymentMethod;
+      this.selectedSlotId = String(draft?.selectedSlotId ?? this.selectedSlotId);
+      this.voucherCode = String(draft?.voucherCode ?? this.voucherCode);
+      this.lastDraftSnapshot = JSON.stringify(this.buildDraftPayload());
+      this.draftRecovered.set(true);
+    } catch {
+      // Ignore malformed draft
+    }
+  }
+
+  dismissDraftNotice(): void {
+    this.draftRecovered.set(false);
+  }
+
+  clearDraftAndDismiss(): void {
+    this.clearCheckoutDraft();
+    this.draftRecovered.set(false);
+    this.toast.info('Da xoa ban nhap checkout.');
+  }
+
+  private clearCheckoutDraft(): void {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.removeItem(this.checkoutDraftKey);
+    this.lastDraftSnapshot = '';
   }
 }

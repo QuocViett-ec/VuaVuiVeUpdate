@@ -48,6 +48,27 @@ import { Order } from '../../../core/models/product.model';
           <span>Hiển thị {{ orders().length }} / {{ total() }} đơn</span>
           <span>Trang {{ page() }} / {{ totalPages() }}</span>
         </div>
+
+        <div class="bulk-tools">
+          <select
+            class="input input--xs"
+            [ngModel]="bulkStatus()"
+            (ngModelChange)="bulkStatus.set($event)"
+          >
+            <option value="">-- Bulk trạng thái --</option>
+            @for (s of statuses; track s.key) {
+              <option [value]="s.key">{{ s.label }}</option>
+            }
+          </select>
+          <button
+            class="btn btn-search"
+            [disabled]="!selectedIds().size || !bulkStatus()"
+            (click)="applyBulkStatus()"
+          >
+            Cập nhật hàng loạt
+          </button>
+          <button class="btn btn-ghost" (click)="exportCsv()">Export CSV</button>
+        </div>
       </div>
 
       @if (error()) {
@@ -62,6 +83,13 @@ import { Order } from '../../../core/models/product.model';
         <table class="data-table">
           <thead>
             <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  [checked]="isAllSelected()"
+                  (change)="toggleSelectAll($event)"
+                />
+              </th>
               <th>Mã đơn</th>
               <th>Khách hàng</th>
               <th>SĐT</th>
@@ -75,6 +103,13 @@ import { Order } from '../../../core/models/product.model';
           <tbody>
             @for (o of visibleOrders(); track o.id) {
               <tr>
+                <td>
+                  <input
+                    type="checkbox"
+                    [checked]="selectedIds().has(o.id)"
+                    (change)="toggleSelectOne(o.id, $event)"
+                  />
+                </td>
                 <td class="mono">{{ o.id }}</td>
                 <td>{{ o.customerName }}</td>
                 <td>{{ o.phone }}</td>
@@ -124,13 +159,14 @@ import { Order } from '../../../core/models/product.model';
                       </option>
                     }
                   </select>
+                  <button class="btn btn-ghost btn--xs" (click)="openDetail(o)">Chi tiết</button>
                 </td>
               </tr>
             }
 
             @if (!visibleOrders().length && !loading()) {
               <tr>
-                <td colspan="8" class="empty-row">Không có đơn hàng phù hợp bộ lọc.</td>
+                <td colspan="9" class="empty-row">Không có đơn hàng phù hợp bộ lọc.</td>
               </tr>
             }
           </tbody>
@@ -149,6 +185,52 @@ import { Order } from '../../../core/models/product.model';
           Trang sau
         </button>
       </div>
+
+      @if (showDetail() && detailOrder()) {
+        <div class="modal-overlay" (click)="closeDetail()">
+          <div class="modal-box" (click)="$event.stopPropagation()">
+            <h2>Chi tiết đơn {{ detailOrder()!.id }}</h2>
+            <p>
+              <strong>Khách:</strong> {{ detailOrder()!.customerName }} - {{ detailOrder()!.phone }}
+            </p>
+            <p><strong>Địa chỉ:</strong> {{ detailOrder()!.address }}</p>
+            <p><strong>Khung giờ:</strong> {{ detailOrder()!.deliverySlot || '-' }}</p>
+            <p><strong>Ghi chú:</strong> {{ detailOrder()!.note || '-' }}</p>
+            <p>
+              <strong>Thanh toán:</strong>
+              {{ detailOrder()!.paymentMethod }} / {{ detailOrder()!.paymentStatus }}
+            </p>
+
+            <div class="detail-items">
+              @for (item of detailOrder()!.items; track item.productId) {
+                <div class="detail-item-row">
+                  <span>{{ item.productName }} x{{ item.quantity }}</span>
+                  <strong>{{ item.subtotal | number }}đ</strong>
+                </div>
+              }
+            </div>
+
+            <div class="detail-total">
+              <div>
+                <span>Tạm tính</span><strong>{{ detailOrder()!.subtotal | number }}đ</strong>
+              </div>
+              <div>
+                <span>Phí ship</span><strong>{{ detailOrder()!.shippingFee | number }}đ</strong>
+              </div>
+              <div>
+                <span>Giảm giá</span><strong>-{{ detailOrder()!.discount | number }}đ</strong>
+              </div>
+              <div>
+                <span>Tổng cộng</span><strong>{{ detailOrder()!.totalAmount | number }}đ</strong>
+              </div>
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn btn-ghost" (click)="closeDetail()">Đóng</button>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `,
   styleUrl: './admin-orders.component.scss',
@@ -167,6 +249,10 @@ export class AdminOrdersComponent implements OnInit {
   limit = signal(20);
   total = signal(0);
   totalPages = signal(1);
+  bulkStatus = signal('');
+  selectedIds = signal<Set<string>>(new Set());
+  showDetail = signal(false);
+  detailOrder = signal<Order | null>(null);
   private updatingIds = signal(new Set<string>());
 
   readonly statuses = [
@@ -204,6 +290,39 @@ export class AdminOrdersComponent implements OnInit {
     this.loadOrders();
   }
 
+  isAllSelected(): boolean {
+    const rows = this.visibleOrders();
+    if (!rows.length) return false;
+    return rows.every((o) => this.selectedIds().has(o.id));
+  }
+
+  toggleSelectAll(event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    if (!checked) {
+      this.selectedIds.set(new Set());
+      return;
+    }
+    this.selectedIds.set(new Set(this.visibleOrders().map((o) => o.id)));
+  }
+
+  toggleSelectOne(id: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    const next = new Set(this.selectedIds());
+    if (checked) next.add(id);
+    else next.delete(id);
+    this.selectedIds.set(next);
+  }
+
+  openDetail(order: Order): void {
+    this.detailOrder.set(order);
+    this.showDetail.set(true);
+  }
+
+  closeDetail(): void {
+    this.showDetail.set(false);
+    this.detailOrder.set(null);
+  }
+
   private loadOrders(): void {
     this.loading.set(true);
     this.error.set('');
@@ -219,6 +338,7 @@ export class AdminOrdersComponent implements OnInit {
           this.orders.set(res.data);
           this.total.set(res.pagination.total);
           this.totalPages.set(Math.max(1, res.pagination.totalPages || 1));
+          this.selectedIds.set(new Set());
           this.loading.set(false);
         },
         error: (err) => {
@@ -294,5 +414,39 @@ export class AdminOrdersComponent implements OnInit {
         this.updatingIds.set(next);
       },
     });
+  }
+
+  applyBulkStatus(): void {
+    const orderIds = Array.from(this.selectedIds());
+    const status = this.bulkStatus();
+    if (!orderIds.length || !status) return;
+
+    this.orderSvc.bulkUpdateOrderStatus(orderIds, status).subscribe({
+      next: (result) => {
+        this.toast.success(`Đã cập nhật ${result.updatedCount}/${result.requested} đơn hàng.`);
+        this.bulkStatus.set('');
+        this.loadOrders();
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.message || 'Không thể cập nhật hàng loạt.');
+      },
+    });
+  }
+
+  exportCsv(): void {
+    this.orderSvc
+      .exportAdminOrdersCsv({ status: this.statusFilter(), q: this.search() })
+      .subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `orders-${Date.now()}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+          this.toast.success('Đã xuất CSV đơn hàng.');
+        },
+        error: () => this.toast.error('Không thể xuất CSV đơn hàng.'),
+      });
   }
 }

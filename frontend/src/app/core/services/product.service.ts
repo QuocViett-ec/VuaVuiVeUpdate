@@ -102,14 +102,41 @@ export class ProductService {
   }
 
   // ─── Admin: full product list ─────────────────────────────────────────────
-  getAllProducts(): Observable<Product[]> {
-    return this.http.get<any>(`${this.api}/api/products?limit=500`).pipe(
-      map((res: any) => {
-        const list = Array.isArray(res) ? res : (res?.data ?? []);
-        return list.map((p: any) => this.normalize(p));
-      }),
-      catchError(() => of([])),
-    );
+  getAllProducts(filters?: {
+    q?: string;
+    category?: string;
+    status?: 'all' | 'active' | 'inactive';
+    lowStock?: boolean;
+  }): Observable<Product[]> {
+    const qs = new URLSearchParams();
+    if (filters?.q?.trim()) qs.set('search', filters.q.trim());
+    if (filters?.category && filters.category !== 'all') qs.set('category', filters.category);
+    if (filters?.status && filters.status !== 'all') qs.set('status', filters.status);
+    if (filters?.lowStock) qs.set('lowStock', '1');
+    qs.set('limit', '500');
+
+    return this.http
+      .get<any>(`${this.api}/api/admin/products?${qs.toString()}`, { withCredentials: true })
+      .pipe(
+        map((res: any) => {
+          const list = Array.isArray(res) ? res : (res?.data ?? []);
+          return list.map((p: any) => this.normalize(p));
+        }),
+        catchError(() => of([])),
+      );
+  }
+
+  exportAdminProductsCsv(filters?: {
+    q?: string;
+    category?: string;
+    status?: 'all' | 'active' | 'inactive';
+  }): Observable<Blob> {
+    const qs = new URLSearchParams();
+    if (filters?.q?.trim()) qs.set('search', filters.q.trim());
+    if (filters?.category && filters.category !== 'all') qs.set('category', filters.category);
+    if (filters?.status && filters.status !== 'all') qs.set('status', filters.status);
+    const url = `${this.api}/api/admin/products/export${qs.toString() ? `?${qs.toString()}` : ''}`;
+    return this.http.get(url, { withCredentials: true, responseType: 'blob' });
   }
 
   createProduct(p: Partial<Product>): Observable<Product> {

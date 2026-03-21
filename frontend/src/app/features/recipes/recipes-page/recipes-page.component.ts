@@ -188,7 +188,7 @@ export class RecipesPageComponent implements OnInit {
   addAllToCart(): void {
     const recipe = this.selected();
     if (!recipe) return;
-    this.prodSvc.getAllProducts().subscribe((allProducts) => {
+    this.prodSvc.getProducts().subscribe((allProducts) => {
       let added = 0;
       let missing = 0;
       recipe.ingredients.forEach((ing) => {

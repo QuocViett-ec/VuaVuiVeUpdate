@@ -80,10 +80,36 @@ const SUBCATEGORY_OPTIONS: Record<string, CategoryOption[]> = {
         <input
           [ngModel]="search()"
           (ngModelChange)="search.set($event)"
+          (keyup.enter)="applyFilters()"
           type="search"
           placeholder="Nhập tên để tìm nhanh..."
           class="input"
         />
+        <select
+          class="input"
+          [ngModel]="categoryFilter()"
+          (ngModelChange)="categoryFilter.set($event)"
+        >
+          <option value="all">Tất cả danh mục</option>
+          @for (option of categoryOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+        <select class="input" [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
+          <option value="all">Tất cả trạng thái</option>
+          <option value="active">Đang bán</option>
+          <option value="inactive">Ngưng bán</option>
+        </select>
+        <label class="filter-check">
+          <input
+            type="checkbox"
+            [ngModel]="lowStockOnly()"
+            (ngModelChange)="lowStockOnly.set(!!$event)"
+          />
+          Sắp hết hàng (&lt; 10)
+        </label>
+        <button class="btn btn--outline" (click)="applyFilters()">Lọc</button>
+        <button class="btn btn--ghost" (click)="exportCsv()">Export CSV</button>
       </div>
 
       <div class="table-wrap">
@@ -236,6 +262,9 @@ export class AdminProductsComponent implements OnInit {
 
   products = signal<Product[]>([]);
   search = signal('');
+  categoryFilter = signal('all');
+  statusFilter = signal<'all' | 'active' | 'inactive'>('all');
+  lowStockOnly = signal(false);
   showModal = signal(false);
   editingId = signal('');
   form: Partial<Product & { status: string }> = {};
@@ -246,11 +275,43 @@ export class AdminProductsComponent implements OnInit {
   };
 
   ngOnInit(): void {
-    this.load();
+    this.applyFilters();
   }
 
   load(): void {
-    this.prodSvc.getAllProducts().subscribe((p) => this.products.set(p));
+    this.prodSvc
+      .getAllProducts({
+        q: this.search(),
+        category: this.categoryFilter(),
+        status: this.statusFilter(),
+        lowStock: this.lowStockOnly(),
+      })
+      .subscribe((p) => this.products.set(p));
+  }
+
+  applyFilters(): void {
+    this.load();
+  }
+
+  exportCsv(): void {
+    this.prodSvc
+      .exportAdminProductsCsv({
+        q: this.search(),
+        category: this.categoryFilter(),
+        status: this.statusFilter(),
+      })
+      .subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `products-${Date.now()}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+          this.toast.success('Đã xuất CSV sản phẩm.');
+        },
+        error: () => this.toast.error('Không thể xuất CSV sản phẩm.'),
+      });
   }
 
   openAdd(): void {

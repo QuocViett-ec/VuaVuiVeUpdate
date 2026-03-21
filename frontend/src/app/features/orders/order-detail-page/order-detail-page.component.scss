@@ -73,6 +73,45 @@
   }
 }
 
+.timeline-card {
+  margin-bottom: 1rem;
+}
+
+.timeline {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.timeline-step {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.timeline-step .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.timeline-step.done {
+  color: #166534;
+  font-weight: 700;
+}
+
+.timeline-step.done .dot {
+  background: #2e7d32;
+}
+
+.pay-note {
+  margin-top: 0.5rem;
+  color: #b45309;
+  font-weight: 600;
+}
+
 .card {
   background: #fff;
   border: 1px solid #e8e8e8;
@@ -189,6 +228,17 @@
     }
     &:disabled {
       background: #aaa;
+      cursor: not-allowed;
+    }
+  }
+  &--primary {
+    background: #2e7d32;
+    color: #fff;
+    &:hover:not(:disabled) {
+      background: #1b5e20;
+    }
+    &:disabled {
+      background: #a3a3a3;
       cursor: not-allowed;
     }
   }

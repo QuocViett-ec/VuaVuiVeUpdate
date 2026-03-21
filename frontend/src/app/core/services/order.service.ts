@@ -14,10 +14,10 @@ export interface AdminOrdersResult {
   };
 }
 
-const VOUCHERS: Record<string, (subtotal: number, shippingFee: number) => VoucherResult> = {
-  FREESHIP: (_, ship) => ({ ok: true, type: 'ship', value: ship, message: 'Đã áp dụng freeship.' }),
-  GIAM10: () => ({ ok: true, type: 'percent', value: 10, message: 'Giảm 10% đơn hàng.' }),
-};
+export interface BulkOrderUpdateResult {
+  updatedCount: number;
+  requested: number;
+}
 
 @Injectable({ providedIn: 'root' })
 export class OrderService {
@@ -88,12 +88,40 @@ export class OrderService {
   }
 
   // ─── Voucher ─────────────────────────────────────────────────────────────────
-  applyVoucher(code: string, subtotal: number, shippingFee: number): VoucherResult {
+  applyVoucher(code: string, subtotal: number, shippingFee: number): Observable<VoucherResult> {
     const c = (code || '').trim().toUpperCase();
-    if (!c) return { ok: false, message: 'Bạn chưa nhập mã.' };
-    const fn = VOUCHERS[c];
-    if (fn) return fn(subtotal, shippingFee);
-    return { ok: false, message: 'Mã không hợp lệ.' };
+    if (!c) return of({ ok: false, message: 'Bạn chưa nhập mã.' });
+
+    return this.http
+      .post<any>(
+        `${this.api}/api/orders/voucher/validate`,
+        { code: c, subtotal: Number(subtotal || 0), shippingFee: Number(shippingFee || 0) },
+        this.writeOptions,
+      )
+      .pipe(
+        map((res: any) => {
+          const data = res?.data ?? res;
+          return {
+            ok: !!data?.ok,
+            type: data?.type,
+            value: Number(data?.value ?? 0),
+            cap: Number(data?.cap ?? 0),
+            message: String(data?.message || res?.message || 'Áp mã thành công.'),
+            warning: String(data?.warning || ''),
+            expiresAt: data?.expiresAt ?? null,
+            daysLeft:
+              data?.daysLeft === null || data?.daysLeft === undefined
+                ? null
+                : Number(data.daysLeft),
+          } as VoucherResult;
+        }),
+        catchError((err) =>
+          of({
+            ok: false,
+            message: String(err?.error?.message || 'Mã không hợp lệ.'),
+          } as VoucherResult),
+        ),
+      );
   }
 
   // ─── Shipping fee ─────────────────────────────────────────────────────────────
@@ -223,6 +251,30 @@ export class OrderService {
     return this.http
       .patch<any>(`${this.api}/api/orders/${id}/cancel`, {}, this.writeOptions)
       .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
+  }
+
+  bulkUpdateOrderStatus(orderIds: string[], status: string): Observable<BulkOrderUpdateResult> {
+    return this.http
+      .patch<any>(
+        `${this.api}/api/admin/orders/bulk-status`,
+        { orderIds, status },
+        this.writeOptions,
+      )
+      .pipe(
+        map((res: any) => ({
+          updatedCount: Number(res?.data?.updatedCount ?? 0),
+          requested: Number(res?.data?.requested ?? 0),
+        })),
+      );
+  }
+
+  exportAdminOrdersCsv(params?: { status?: string; q?: string }): Observable<Blob> {
+    const qs = new URLSearchParams();
+    if (params?.status && params.status !== 'all') qs.set('status', params.status);
+    if (params?.q?.trim()) qs.set('q', params.q.trim());
+
+    const url = `${this.api}/api/admin/orders/export${qs.toString() ? `?${qs.toString()}` : ''}`;
+    return this.http.get(url, { withCredentials: true, responseType: 'blob' });
   }
 
   // ─── Order ID generator ───────────────────────────────────────────────────────

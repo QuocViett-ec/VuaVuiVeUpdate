@@ -178,6 +178,20 @@ app.use("/api/recommend", recommendRoutes);
 app.use("/api/recipes", recipesRoutes);
 app.use("/api/realtime", realtimeRoutes);
 
+app.get("/", (req, res) => {
+  res.json({
+    status: "ok",
+    service: "VuaVuiVe Backend API",
+    message: "Backend is running. Use /api/* endpoints.",
+    endpoints: {
+      health: "/api/health",
+      products: "/api/products",
+      auth: "/api/auth",
+    },
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",

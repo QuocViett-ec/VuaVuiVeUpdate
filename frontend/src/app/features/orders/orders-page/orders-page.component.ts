@@ -88,6 +88,14 @@ const STATUS_COLORS: Record<string, string> = {
                 }
               </div>
 
+              <div class="order-progress" [attr.data-status]="order.status">
+                @for (step of progressSteps; track step.key) {
+                  <span class="step" [class.done]="isProgressDone(order.status, step.key)">
+                    {{ step.label }}
+                  </span>
+                }
+              </div>
+
               <div class="order-foot">
                 <span class="total">{{ order.totalAmount | number }}đ</span>
                 <span class="pay-badge" [class.paid]="order.paymentStatus === 'paid'">
@@ -136,6 +144,12 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
   loading = signal(true);
   retryingOrderId = signal('');
   selectedStatus = 'all';
+  readonly progressSteps = [
+    { key: 'pending', label: 'Cho xac nhan' },
+    { key: 'confirmed', label: 'Da xac nhan' },
+    { key: 'shipping', label: 'Dang giao' },
+    { key: 'delivered', label: 'Da giao' },
+  ];
 
   readonly statusList = Object.entries(STATUS_LABELS).map(([key, label]) => ({ key, label }));
   statusLabel(s: string): string {
@@ -162,6 +176,17 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
     const isPendingPayment = String(order.paymentStatus || '') === 'pending';
     const method = String(order.paymentMethod || '');
     return isPendingPayment && (method === 'vnpay' || method === 'momo');
+  }
+
+  isProgressDone(status: string, step: string): boolean {
+    if (status === 'cancelled') return step === 'pending';
+    const rank: Record<string, number> = {
+      pending: 0,
+      confirmed: 1,
+      shipping: 2,
+      delivered: 3,
+    };
+    return (rank[step] ?? 0) <= (rank[status] ?? 0);
   }
 
   async retryPayment(order: Order): Promise<void> {

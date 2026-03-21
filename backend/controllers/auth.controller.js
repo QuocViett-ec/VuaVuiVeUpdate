@@ -167,7 +167,11 @@ exports.adminLogin = async (req, res, next) => {
         .json({ success: false, message: "Thông tin đăng nhập không đúng" });
     }
 
-    if (user.role !== "admin") {
+    if (
+      !["admin", "staff", "audit"].includes(
+        String(user.role || "").toLowerCase(),
+      )
+    ) {
       return res.status(403).json({
         success: false,
         message: "Tài khoản này không có quyền truy cập cổng quản trị",

@@ -102,6 +102,7 @@
           placeholder="Tìm sản phẩm... (có thể gõ không dấu)"
           [ngModel]="searchQuery()"
           (ngModelChange)="setSearch($event)"
+          (keydown.enter)="commitSearch()"
           autocomplete="off"
           spellcheck="false"
         />
@@ -109,6 +110,16 @@
           <button class="search-clear" (click)="setSearch('')" title="Xóa">&times;</button>
         }
       </div>
+
+      @if (searchHints().length) {
+        <div class="search-hints">
+          @for (hint of searchHints(); track hint) {
+            <button type="button" class="hint-pill" (click)="pickHint(hint)">
+              {{ hint }}
+            </button>
+          }
+        </div>
+      }
 
       <select class="input" [ngModel]="selectedCat()" (ngModelChange)="setCat($event)">
         <option value="all">Tất Cả</option>

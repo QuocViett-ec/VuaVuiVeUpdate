@@ -8,6 +8,35 @@
   margin-bottom: 2rem;
 }
 
+.draft-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  border-radius: 10px;
+  padding: 0.65rem 0.8rem;
+  margin-bottom: 1rem;
+  font-size: 0.86rem;
+}
+
+.draft-notice__action,
+.draft-notice__close {
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  font-weight: 700;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.draft-notice__close {
+  margin-left: 0;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
 .co-grid {
   display: grid;
   grid-template-columns: 1fr 380px;
@@ -160,6 +189,31 @@
     color: #2e7d32;
   }
   color: #c62828;
+}
+
+.voucher-warn {
+  margin: -0.35rem 0 0.75rem;
+  font-size: 0.78rem;
+  color: #b45309;
+  font-weight: 600;
+}
+
+.voucher-clear {
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0;
+  margin: -0.25rem 0 0.7rem;
+  cursor: pointer;
+}
+
+.stock-warn {
+  margin: -0.2rem 0 0.35rem;
+  font-size: 0.78rem;
+  color: #c62828;
+  font-weight: 600;
 }
 
 .totals {

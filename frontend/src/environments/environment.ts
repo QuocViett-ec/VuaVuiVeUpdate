@@ -3,6 +3,8 @@ const httpBase = `http://${browserHost}`;
 
 export const environment = {
   production: false,
+  chatbotEnabled: false,
+  chatbotWebhookUrl: '',
   apiBase: `${httpBase}:3000`,
   mlApi: `${httpBase}:5001`,
   paymentApi: `${httpBase}:3000/api/payment`,

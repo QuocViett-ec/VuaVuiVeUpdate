@@ -17,6 +17,7 @@ import { Product } from '../../../core/models/product.model';
 import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
 import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
 import { Subscription } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 
 const CATS = [
   { key: 'veg', label: 'Rau Củ', icon: 'eco' },
@@ -41,6 +42,7 @@ type PromoBanner = {
 };
 
 const FLASH_SALE_COUNT = 10;
+const LS_RECENT_PRODUCT_SEARCH = 'vvv_recent_product_search';
 
 /** Chuẩn hóa chuỗi tiếng Việt: bỏ dấu, lowercase, trim */
 function vn(s: string): string {
@@ -82,6 +84,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
   selectedCat = signal('all');
   sortKey = signal('default');
   maxPrice = signal(1000000);
+  recentSearches = signal<string[]>([]);
 
   // Flash sale
   flashSlot = signal<'morning' | 'afternoon'>('morning');
@@ -131,6 +134,20 @@ export class ProductListComponent implements OnInit, OnDestroy {
     }
   });
 
+  searchHints = computed(() => {
+    const query = this.searchQuery().trim();
+    if (!query) return this.recentSearches().slice(0, 6);
+
+    const q = vn(query);
+    const hints = this.allProducts()
+      .filter((p) => vn(p.name).includes(q))
+      .map((p) => p.name)
+      .filter((name, idx, arr) => arr.indexOf(name) === idx)
+      .slice(0, 6);
+
+    return hints;
+  });
+
   ngOnInit(): void {
     this.route.queryParams.subscribe((p) => {
       if (p['cat']) this.selectedCat.set(p['cat']);
@@ -150,6 +167,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
     this.tickCd();
     this._cd = setInterval(() => this.tickCd(), 1000);
     if (isPlatformBrowser(this.platformId)) {
+      this.loadRecentSearches();
       this.injectChatbot();
       document.addEventListener('visibilitychange', this.onVisibilityChange);
     }
@@ -230,7 +248,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
     this.loadingProducts = true;
     if (showLoading) this.loading.set(true);
     this.productSvc
-      .getAllProducts()
+      .getProducts({ _limit: 100 })
       .subscribe({
         next: (ps) => {
           this.allProducts.set(ps);
@@ -277,6 +295,20 @@ export class ProductListComponent implements OnInit, OnDestroy {
     });
   }
 
+  commitSearch(raw?: string): void {
+    const value = String(raw ?? this.searchQuery()).trim();
+    if (!value) {
+      this.setSearch('');
+      return;
+    }
+    this.setSearch(value);
+    this.addRecentSearch(value);
+  }
+
+  pickHint(hint: string): void {
+    this.commitSearch(hint);
+  }
+
   setCat(cat: string): void {
     this.selectedCat.set(cat);
     this.router.navigate([], {
@@ -291,6 +323,33 @@ export class ProductListComponent implements OnInit, OnDestroy {
     this.sortKey.set('default');
     this.maxPrice.set(1000000);
     this.router.navigate([], { queryParams: {} });
+  }
+
+  private loadRecentSearches(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_RECENT_PRODUCT_SEARCH) || '[]');
+      if (Array.isArray(raw)) {
+        this.recentSearches.set(
+          raw
+            .map((v) => String(v).trim())
+            .filter(Boolean)
+            .slice(0, 6),
+        );
+      }
+    } catch {
+      this.recentSearches.set([]);
+    }
+  }
+
+  private addRecentSearch(value: string): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    const normalized = value.trim();
+    if (!normalized) return;
+
+    const next = [normalized, ...this.recentSearches().filter((x) => x !== normalized)].slice(0, 6);
+    this.recentSearches.set(next);
+    localStorage.setItem(LS_RECENT_PRODUCT_SEARCH, JSON.stringify(next));
   }
 
   onSlotChange(slot: 'morning' | 'afternoon'): void {
@@ -325,6 +384,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
   }
 
   private injectChatbot(): void {
+    if (!environment.chatbotEnabled || !environment.chatbotWebhookUrl) return;
     if (document.getElementById('n8n-chat-css')) return;
     const link = document.createElement('link');
     link.id = 'n8n-chat-css';
@@ -528,7 +588,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
     script.textContent = `
       import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js';
       createChat({
-        webhookUrl: 'https://n8n.n2nai.io/webhook/428e55e8-5b47-4c16-916d-253660a31366/chat',
+        webhookUrl: '${environment.chatbotWebhookUrl}',
         defaultLanguage: 'vi',
         showWelcomeScreen: false,
         initialMessages: ['Xin chao, minh la VUIVE Bot. Minh giup gi cho ban?'],

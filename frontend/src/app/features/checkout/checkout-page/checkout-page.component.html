@@ -1,4 +1,15 @@
 <div class="co-page container">
+  @if (draftRecovered()) {
+    <div class="draft-notice">
+      <span class="material-symbols-outlined g-icon">history</span>
+      <span>Da khoi phuc thong tin checkout tu lan nhap truoc.</span>
+      <button type="button" class="draft-notice__action" (click)="clearDraftAndDismiss()">
+        Xoa ban nhap
+      </button>
+      <button type="button" class="draft-notice__close" (click)="dismissDraftNotice()">An</button>
+    </div>
+  }
+
   <h1 class="page-title">
     <span class="material-symbols-outlined g-icon">shopping_cart_checkout</span>
     Thanh toán
@@ -123,21 +134,40 @@
               </div>
               <span>{{ item.product.price * item.quantity | number }}đ</span>
             </div>
+            @if (item.product.stock <= 0 || item.quantity > item.product.stock) {
+              <p class="stock-warn">
+                {{ item.product.name }} chỉ còn {{ item.product.stock }} (đang chọn
+                {{ item.quantity }})
+              </p>
+            }
           }
         </div>
 
         <!-- Voucher -->
         <div class="voucher-row">
           <input
-            [(ngModel)]="voucherCode"
+            [ngModel]="voucherCode"
+            (ngModelChange)="onVoucherCodeChange($event)"
             type="text"
             placeholder="Mã giảm giá"
             class="input input--sm"
           />
-          <button class="btn btn--outline btn--sm" (click)="applyVoucher()">Áp dụng</button>
+          <button
+            class="btn btn--outline btn--sm"
+            [disabled]="!voucherCode.trim()"
+            (click)="applyVoucher()"
+          >
+            Áp dụng
+          </button>
         </div>
         @if (voucherResult()) {
           <p class="voucher-msg" [class.ok]="voucherResult()!.ok">{{ voucherResult()!.message }}</p>
+          @if (voucherResult()!.ok && voucherResult()!.warning) {
+            <p class="voucher-warn">{{ voucherResult()!.warning }}</p>
+          }
+          @if (voucherResult()!.ok) {
+            <button type="button" class="voucher-clear" (click)="clearVoucher()">Bo ma</button>
+          }
         }
 
         <!-- Totals -->
@@ -158,7 +188,11 @@
           </div>
         </div>
 
-        <button class="btn btn--primary btn--full" (click)="placeOrder()" [disabled]="loading()">
+        <button
+          class="btn btn--primary btn--full"
+          (click)="placeOrder()"
+          [disabled]="loading() || stockIssues().length > 0"
+        >
           @if (loading()) {
             Đang xử lý...
           } @else if (paymentMethod === 'vnpay') {

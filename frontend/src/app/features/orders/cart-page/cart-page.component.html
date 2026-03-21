@@ -53,12 +53,24 @@
               <button (click)="inc(item)" class="qty-btn" aria-label="Tăng">+</button>
             </div>
             <p class="cart-subtotal">{{ item.product.price * item.quantity | number }}đ</p>
+            <button class="cart-save" (click)="saveForLater(item.product.id)">
+              Lưu để mua sau
+            </button>
             <button class="cart-remove" (click)="remove(item.product.id)" aria-label="Xóa sản phẩm">
               <span class="material-symbols-outlined g-icon">close</span>
             </button>
           </div>
+          @if (itemStockIssue(item)) {
+            <p class="cart-stock-warn">{{ itemStockIssue(item) }}</p>
+          }
         }
       </div>
+
+      @if (selectedStockIssues().length) {
+        <div class="cart-alert">
+          Vui lòng cập nhật số lượng vì có sản phẩm vượt tồn kho hoặc đã hết hàng.
+        </div>
+      }
 
       <div class="cart-footer">
         <div class="cart-summary">
@@ -68,7 +80,7 @@
         <div class="cart-actions">
           <button
             class="btn btn--primary btn--lg"
-            [disabled]="selectedCount() === 0"
+            [disabled]="selectedCount() === 0 || selectedStockIssues().length > 0"
             (click)="checkout()"
           >
             Thanh Toán
@@ -76,6 +88,39 @@
           <button class="btn btn--outline" (click)="clearCart()">Xóa giỏ hàng</button>
         </div>
       </div>
+    }
+
+    @if (savedItems().length) {
+      <section class="saved-section">
+        <div class="saved-head">
+          <h3>Mua sau ({{ savedItems().length }})</h3>
+          <button class="btn btn--outline" (click)="clearSaved()">Xóa danh sách</button>
+        </div>
+        <div class="saved-list">
+          @for (item of savedItems(); track item.product.id) {
+            <div class="saved-row">
+              <img
+                [src]="item.product.img || (item.product.images?.[0] ?? '')"
+                [alt]="item.product.name"
+                class="saved-img"
+                onerror="this.src = 'images/brand/LogoVVV.png'"
+              />
+              <div class="saved-info">
+                <p class="saved-name">{{ item.product.name }}</p>
+                <p class="saved-meta">
+                  {{ item.product.price | number }}đ · SL lưu: {{ item.quantity }}
+                </p>
+              </div>
+              <div class="saved-actions">
+                <button class="btn btn--primary" (click)="moveSavedToCart(item.product.id)">
+                  Chuyển vào giỏ
+                </button>
+                <button class="btn btn--outline" (click)="removeSaved(item.product.id)">Xóa</button>
+              </div>
+            </div>
+          }
+        </div>
+      </section>
     }
   </div>
 </main>

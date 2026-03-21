@@ -14,6 +14,8 @@ import { ToastService } from '../../../core/services/toast.service';
 import { Order } from '../../../core/models/product.model';
 import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
 import { Subscription } from 'rxjs';
+import { PaymentService } from '../../../core/services/payment.service';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -99,8 +101,23 @@ import { Subscription } from 'rxjs';
               @if (order()!.paidAt) {
                 <p><strong>Thanh toán lúc:</strong> {{ order()!.paidAt | date: 'dd/MM HH:mm' }}</p>
               }
+              @if (canRetryPayment(order()!)) {
+                <p class="pay-note">Nếu thanh toán trước đó lỗi callback, bạn có thể thử lại.</p>
+              }
             </section>
           </div>
+
+          <section class="card timeline-card">
+            <h3>Tiến trình đơn hàng</h3>
+            <div class="timeline">
+              @for (step of timelineSteps; track step.key) {
+                <div class="timeline-step" [class.done]="isStepDone(step.key)">
+                  <span class="dot"></span>
+                  <span class="label">{{ step.label }}</span>
+                </div>
+              }
+            </div>
+          </section>
 
           <section class="card items-section">
             <h3>Sản phẩm</h3>
@@ -147,6 +164,20 @@ import { Subscription } from 'rxjs';
 
           <!-- Action buttons -->
           <div class="od-actions">
+            @if (canRetryPayment(order()!)) {
+              <button
+                class="btn btn--primary"
+                [disabled]="retryingPayment()"
+                (click)="retryPayment()"
+              >
+                @if (retryingPayment()) {
+                  Đang tạo link...
+                } @else {
+                  <span class="material-symbols-outlined g-icon">credit_card</span>
+                  Thanh toán lại
+                }
+              </button>
+            }
             @if (order()!.status === 'pending' || order()!.status === 'confirmed') {
               <button class="btn btn--danger" (click)="cancelOrder()" [disabled]="cancelling()">
                 @if (cancelling()) {
@@ -179,11 +210,20 @@ export class OrderDetailPageComponent implements OnInit, OnDestroy {
   private cartSvc = inject(CartService);
   private toast = inject(ToastService);
   private realtime = inject(RealtimeSyncService);
+  private paymentSvc = inject(PaymentService);
   private realtimeSub?: Subscription;
 
   order = signal<Order | null>(null);
   loading = signal(true);
   cancelling = signal(false);
+  retryingPayment = signal(false);
+
+  readonly timelineSteps = [
+    { key: 'pending', label: 'Chờ xác nhận' },
+    { key: 'confirmed', label: 'Đã xác nhận' },
+    { key: 'shipping', label: 'Đang giao' },
+    { key: 'delivered', label: 'Đã giao' },
+  ];
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id') || '';
@@ -234,6 +274,49 @@ export class OrderDetailPageComponent implements OnInit, OnDestroy {
         this.toast.error('Không thể hủy đơn hàng. Vui lòng thử lại.');
       },
     });
+  }
+
+  canRetryPayment(order: Order): boolean {
+    const isPendingPayment = String(order.paymentStatus || '') === 'pending';
+    const method = String(order.paymentMethod || '');
+    return isPendingPayment && (method === 'vnpay' || method === 'momo');
+  }
+
+  async retryPayment(): Promise<void> {
+    const o = this.order();
+    if (!o || !this.canRetryPayment(o)) return;
+
+    this.retryingPayment.set(true);
+    try {
+      const result = await firstValueFrom(
+        this.paymentSvc.createGatewayUrl(o.paymentMethod as 'vnpay' | 'momo', {
+          orderId: o.id,
+        }),
+      );
+
+      if (result.paymentUrl) {
+        window.location.href = result.paymentUrl;
+        return;
+      }
+
+      this.toast.warning(result.message || 'Không tạo được link thanh toán. Vui lòng thử lại.');
+    } catch {
+      this.toast.error('Không thể kết nối cổng thanh toán. Vui lòng thử lại.');
+    } finally {
+      this.retryingPayment.set(false);
+    }
+  }
+
+  isStepDone(step: string): boolean {
+    const status = this.order()?.status || 'pending';
+    if (status === 'cancelled') return step === 'pending';
+    const rank: Record<string, number> = {
+      pending: 0,
+      confirmed: 1,
+      shipping: 2,
+      delivered: 3,
+    };
+    return rank[step] <= (rank[status] ?? 0);
   }
 
   reorder(): void {
