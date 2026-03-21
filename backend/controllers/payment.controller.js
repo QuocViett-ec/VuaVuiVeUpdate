@@ -376,11 +376,9 @@ exports.vnpayIPN = async (req, res) => {
  */
 exports.createMoMoUrl = async (req, res) => {
   try {
-    // Credentials — fallback sang test nếu chưa set .env
-    const partnerCode = process.env.MOMO_PARTNER_CODE || "MOMO";
-    const accessKey = process.env.MOMO_ACCESS_KEY || "F8BBA842ECF85";
-    const secretKey =
-      process.env.MOMO_SECRET_KEY || "K951B6PE1waDMi640xX08PD3vg6EkVlz";
+    const partnerCode = process.env.MOMO_PARTNER_CODE;
+    const accessKey = process.env.MOMO_ACCESS_KEY;
+    const secretKey = process.env.MOMO_SECRET_KEY;
     const customerPortal =
       process.env.CUSTOMER_PORTAL_BASE || "http://localhost:4200";
     const redirectUrl =
@@ -388,6 +386,14 @@ exports.createMoMoUrl = async (req, res) => {
     const ipnUrl =
       process.env.MOMO_IPN_URL ||
       `${getBackendOrigin(req)}/api/payment/momo/ipn`;
+
+    if (!partnerCode || !accessKey || !secretKey) {
+      return res.status(500).json({
+        success: false,
+        message:
+          "Thiếu cấu hình MOMO_PARTNER_CODE/MOMO_ACCESS_KEY/MOMO_SECRET_KEY",
+      });
+    }
 
     const {
       orderId,
@@ -480,10 +486,20 @@ exports.createMoMoUrl = async (req, res) => {
       lang: "vi",
     });
 
+    const momoEndpoint =
+      process.env.MOMO_CREATE_ENDPOINT ||
+      process.env.MOMO_ENDPOINT ||
+      "https://test-payment.momo.vn/v2/gateway/api/create";
+    const momoUrl = new URL(momoEndpoint);
+    if (momoUrl.pathname === "/v2/gateway/pay") {
+      momoUrl.pathname = "/v2/gateway/api/create";
+      momoUrl.search = "";
+    }
+
     const options = {
-      hostname: "test-payment.momo.vn",
-      port: 443,
-      path: "/v2/gateway/api/create",
+      hostname: momoUrl.hostname,
+      port: Number(momoUrl.port) || 443,
+      path: `${momoUrl.pathname}${momoUrl.search || ""}`,
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -497,13 +513,38 @@ exports.createMoMoUrl = async (req, res) => {
       momoRes.on("end", () => {
         try {
           const parsed = JSON.parse(data);
-          if (parsed.payUrl) {
+
+          const payUrl = String(parsed.payUrl || "").trim();
+          let isValidPayUrl = false;
+          if (payUrl) {
+            try {
+              const parsedPayUrl = new URL(payUrl);
+              const allowedHosts = ["test-payment.momo.vn", "payment.momo.vn"];
+              isValidPayUrl =
+                allowedHosts.includes(parsedPayUrl.hostname) &&
+                parsedPayUrl.pathname === "/v2/gateway/pay" &&
+                Boolean(parsedPayUrl.search);
+            } catch {
+              isValidPayUrl = false;
+            }
+          }
+
+          if (isValidPayUrl) {
             return res.json({
               success: true,
-              payUrl: parsed.payUrl,
-              paymentUrl: parsed.payUrl,
+              payUrl,
+              paymentUrl: payUrl,
             });
           }
+
+          if (payUrl && !isValidPayUrl) {
+            return res.status(400).json({
+              success: false,
+              message: "MoMo trả về payUrl không hợp lệ",
+              resultCode: parsed.resultCode,
+            });
+          }
+
           // MoMo trả lỗi — vẫn trả về thông tin để frontend xử lý
           return res.status(400).json({
             success: false,
@@ -545,8 +586,12 @@ exports.momoIPN = async (req, res) => {
   console.log("[MoMo IPN] orderId:", orderId, " resultCode:", resultCode);
 
   try {
-    const secretKey =
-      process.env.MOMO_SECRET_KEY || "K951B6PE1waDMi640xX08PD3vg6EkVlz";
+    const secretKey = process.env.MOMO_SECRET_KEY;
+    if (!secretKey) {
+      return res
+        .status(500)
+        .json({ status: 1, message: "missing momo secret" });
+    }
     if (!verifyMoMoIpnSignature(req.body, secretKey)) {
       return res.status(400).json({ status: 1, message: "invalid signature" });
     }
