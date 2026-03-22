@@ -119,6 +119,22 @@
   line-height: 1.7;
 }
 
+.pd-social-proof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.pd-proof-pill {
+  background: #f4f8ef;
+  color: #355534;
+  border: 1px solid #dce7d3;
+  border-radius: 999px;
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 .pd-actions {
   display: flex;
   gap: 1rem;
@@ -231,6 +247,109 @@
   margin-top: 3rem;
   padding-top: 2rem;
   border-top: 2px solid #e8e0c8;
+}
+
+.reviews-section {
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 2px solid #edf1e5;
+}
+
+.reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.review-card {
+  background: #fffef8;
+  border: 1px solid #eee4c8;
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 8px 24px rgba(80, 70, 30, 0.06);
+}
+
+.review-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.6rem;
+}
+
+.review-rating {
+  color: #c18412;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.review-copy {
+  margin: 0;
+  color: #4e4e4e;
+  line-height: 1.6;
+  font-size: 0.92rem;
+}
+
+.review-form-card {
+  margin-top: 1rem;
+  background: #fbfcf7;
+  border: 1px solid #e3ebd8;
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+.review-form-head {
+  margin-bottom: 0.8rem;
+
+  h3 {
+    margin: 0 0 0.25rem;
+    color: #20321e;
+    font-size: 1.05rem;
+  }
+
+  p {
+    margin: 0;
+    color: #677566;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+}
+
+.review-stars {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.8rem;
+}
+
+.star-btn {
+  border: none;
+  background: transparent;
+  color: #c4c4c4;
+  font-size: 1.6rem;
+  cursor: pointer;
+  line-height: 1;
+
+  &.is-active {
+    color: #d79a22;
+  }
+}
+
+.review-textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 110px;
+  border-radius: 12px;
+  border: 1px solid #d9e4d1;
+  padding: 0.85rem 0.95rem;
+  font: inherit;
+  margin-bottom: 0.8rem;
+  background: #fff;
+}
+
+.review-form-note {
+  color: #5d6a5c;
+  font-size: 0.92rem;
+  line-height: 1.6;
 }
 .related-title {
   font-size: 1.4rem;

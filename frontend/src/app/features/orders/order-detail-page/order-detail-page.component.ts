@@ -113,6 +113,23 @@ import { Order } from '../../../core/models/product.model';
               </tbody>
             </table>
 
+            @if (canReviewProducts(order()!)) {
+              <div class="review-links">
+                <p class="review-links__title">Đơn hàng này đã giao. Bạn có thể đánh giá từng sản phẩm:</p>
+                <div class="review-links__list">
+                  @for (item of order()!.items; track item.productId) {
+                    <a
+                      class="btn btn--outline btn--sm"
+                      [routerLink]="['/products', item.productId]"
+                      [queryParams]="{ reviewOrderId: order()!.dbId }"
+                    >
+                      Đánh giá {{ item.productName }}
+                    </a>
+                  }
+                </div>
+              </div>
+            }
+
             <div class="totals">
               <div class="row">
                 <span>Tạm tính</span><span>{{ order()!.subtotal | number }}đ</span>
@@ -184,6 +201,56 @@ export class OrderDetailPageComponent implements OnInit {
     });
   }
 
+<<<<<<< Updated upstream
+=======
+  canRetryPayment(order: Order): boolean {
+    const isPendingPayment = String(order.paymentStatus || '') === 'pending';
+    const method = String(order.paymentMethod || '');
+    return isPendingPayment && (method === 'vnpay' || method === 'momo');
+  }
+
+  canReviewProducts(order: Order): boolean {
+    return String(order.status || '') === 'delivered' && !!order.dbId;
+  }
+
+  async retryPayment(): Promise<void> {
+    const o = this.order();
+    if (!o || !this.canRetryPayment(o)) return;
+
+    this.retryingPayment.set(true);
+    try {
+      const result = await firstValueFrom(
+        this.paymentSvc.createGatewayUrl(o.paymentMethod as 'vnpay' | 'momo', {
+          orderId: o.id,
+        }),
+      );
+
+      if (result.paymentUrl) {
+        window.location.href = result.paymentUrl;
+        return;
+      }
+
+      this.toast.warning(result.message || 'Không tạo được link thanh toán. Vui lòng thử lại.');
+    } catch {
+      this.toast.error('Không thể kết nối cổng thanh toán. Vui lòng thử lại.');
+    } finally {
+      this.retryingPayment.set(false);
+    }
+  }
+
+  isStepDone(step: string): boolean {
+    const status = this.order()?.status || 'pending';
+    if (status === 'cancelled') return step === 'pending';
+    const rank: Record<string, number> = {
+      pending: 0,
+      confirmed: 1,
+      shipping: 2,
+      delivered: 3,
+    };
+    return rank[step] <= (rank[status] ?? 0);
+  }
+
+>>>>>>> Stashed changes
   reorder(): void {
     const o = this.order();
     if (!o) return;

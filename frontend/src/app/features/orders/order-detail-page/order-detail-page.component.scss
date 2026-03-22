@@ -139,6 +139,26 @@
   }
 }
 
+.review-links {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: #f6fbf3;
+  border: 1px solid #dbead2;
+}
+
+.review-links__title {
+  margin: 0 0 0.75rem;
+  color: #2f4f2f;
+  font-weight: 600;
+}
+
+.review-links__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .skeleton {
   height: 400px;
   border-radius: 16px;
@@ -181,6 +201,10 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  &--sm {
+    padding: 0.45rem 0.9rem;
+    font-size: 0.82rem;
+  }
   &--danger {
     background: #c62828;
     color: #fff;

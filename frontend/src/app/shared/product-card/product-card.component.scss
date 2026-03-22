@@ -91,6 +91,22 @@
   margin: 0;
 }
 
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.meta-pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #486247;
+  background: #f2f7ec;
+  border: 1px solid #dde9d5;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+}
+
 .card-actions {
   margin-top: auto;
   display: flex;

@@ -30,6 +30,10 @@ import { inject } from '@angular/core';
             <span class="price-old">{{ product.oldPrice | number }}đ</span>
           }
         </div>
+        <div class="card-meta">
+          <span class="meta-pill">Đã bán {{ product.soldCount ?? 0 }}</span>
+          <span class="meta-pill">★ {{ ratingLabel() }} ({{ product.reviewCount ?? 0 }})</span>
+        </div>
         @if (product.unit) {
           <p class="card-unit">/ {{ product.unit }}</p>
         }
@@ -67,6 +71,9 @@ export class ProductCardComponent {
   discountPct() {
     if (!this.product.oldPrice) return 0;
     return Math.round((1 - this.product.price / this.product.oldPrice) * 100);
+  }
+  ratingLabel() {
+    return (this.product.rating ?? 0).toFixed(1);
   }
   add() {
     this.cart.addToCart(this.product);

@@ -16,6 +16,21 @@ const CATEGORIES = [
   "other",
 ];
 
+const productReviewSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    author: { type: String, required: true, trim: true },
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    comment: { type: String, required: true, trim: true, maxlength: 500 },
+  },
+  { timestamps: true },
+);
+
 function slugify(text) {
   return text
     .toLowerCase()
@@ -57,6 +72,7 @@ const productSchema = new mongoose.Schema(
     stock: { type: Number, default: 0, min: 0 },
     unit: { type: String, default: "kg", trim: true },
     tags: [{ type: String, trim: true }],
+    reviews: { type: [productReviewSchema], default: [] },
     isActive: { type: Boolean, default: true },
     externalId: { type: String, default: null, index: true }, // ID gốc từ data cũ (100, 101...)
   },

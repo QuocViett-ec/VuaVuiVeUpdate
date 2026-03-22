@@ -13,6 +13,25 @@ export interface Product {
   status?: 'active' | 'inactive';
   rating?: number;
   reviewCount?: number;
+  soldCount?: number;
+  reviews?: ProductReview[];
+  viewerReviewPermission?: ProductReviewPermission;
+}
+
+export interface ProductReview {
+  id: string;
+  userId?: string;
+  author: string;
+  rating: number;
+  comment: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ProductReviewPermission {
+  canReview: boolean;
+  hasPurchased: boolean;
+  alreadyReviewed: boolean;
 }
 
 export interface CartItem {

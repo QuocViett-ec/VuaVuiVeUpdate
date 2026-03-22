@@ -29,6 +29,7 @@ const writeLimiter = rateLimit({
 router.get("/categories", readLimiter, productCtrl.getCategories);
 router.get("/", readLimiter, productCtrl.getAll);
 router.get("/:id", readLimiter, productCtrl.getOne);
+router.post("/:id/reviews", requireAuth, writeLimiter, productCtrl.createReview);
 
 // Admin routes
 router.post("/", requireAuth, requireAdmin, writeLimiter, uploadImage, productCtrl.create);

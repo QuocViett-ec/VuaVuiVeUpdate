@@ -15,6 +15,11 @@ import { ProductService } from '../../../core/services/product.service';
 import { CartService } from '../../../core/services/cart.service';
 import { Product } from '../../../core/models/product.model';
 import { ProductCardComponent } from '../../../shared/product-card/product-card.component';
+<<<<<<< Updated upstream
+=======
+import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
+import { Subscription } from 'rxjs';
+>>>>>>> Stashed changes
 
 const CATS = [
   { key: 'veg', label: 'Rau Củ', icon: '🥬' },
@@ -114,7 +119,14 @@ export class ProductListComponent implements OnInit, OnDestroy {
     });
     this.tickCd();
     this._cd = setInterval(() => this.tickCd(), 1000);
+<<<<<<< Updated upstream
     if (isPlatformBrowser(this.platformId)) this.injectChatbot();
+=======
+    if (isPlatformBrowser(this.platformId)) {
+      this.loadRecentSearches();
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+    }
+>>>>>>> Stashed changes
   }
 
   ngOnDestroy(): void {
@@ -175,6 +187,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
     const span = img.parentElement;
     if (span) span.textContent = fallback;
   }
+<<<<<<< Updated upstream
 
   private injectChatbot(): void {
     if (document.getElementById('n8n-chat-css')) return;
@@ -395,4 +408,6 @@ export class ProductListComponent implements OnInit, OnDestroy {
     `;
     document.head.appendChild(script);
   }
+=======
+>>>>>>> Stashed changes
 }

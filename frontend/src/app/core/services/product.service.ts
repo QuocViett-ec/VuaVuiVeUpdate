@@ -19,6 +19,12 @@ const CATEGORY_MAP: Record<string, string> = {
 @Injectable({ providedIn: 'root' })
 export class ProductService {
   private readonly api = environment.apiBase;
+  private readonly writeOptions = {
+    withCredentials: true,
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+    },
+  };
 
   constructor(private http: HttpClient) {}
 
@@ -92,13 +98,28 @@ export class ProductService {
   }
 
   getProductById(id: string): Observable<Product | null> {
-    return this.http.get<any>(`${this.api}/api/products/${id}`).pipe(
+    return this.http.get<any>(`${this.api}/api/products/${id}`, { withCredentials: true }).pipe(
       map((res: any) => {
         const p = res?.data ?? res;
         return p ? this.normalize(p) : null;
       }),
       catchError(() => of(null)),
     );
+  }
+
+  addReview(
+    productId: string,
+    payload: { rating: number; comment: string; orderId: string },
+  ): Observable<Product | null> {
+    return this.http
+      .post<any>(`${this.api}/api/products/${productId}/reviews`, payload, this.writeOptions)
+      .pipe(
+        map((res: any) => {
+          const p = res?.data ?? res;
+          return p ? this.normalize(p) : null;
+        }),
+        catchError(() => of(null)),
+      );
   }
 
   // ─── Admin: full product list ─────────────────────────────────────────────

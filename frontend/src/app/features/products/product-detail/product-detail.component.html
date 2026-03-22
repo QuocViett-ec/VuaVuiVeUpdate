@@ -87,6 +87,12 @@
           {{ product()!.stock === 0 ? '⚠ Hết hàng' : '✓ Còn hàng (' + product()!.stock + ')' }}
         </p>
 
+        <div class="pd-social-proof">
+          <span class="pd-proof-pill">Đã bán {{ product()!.soldCount ?? 0 }}</span>
+          <span class="pd-proof-pill">★ {{ ratingLabel() }} / 5</span>
+          <span class="pd-proof-pill">{{ product()!.reviewCount ?? 0 }} nhận xét</span>
+        </div>
+
         @if (product()!.description) {
           <p class="pd-desc">{{ product()!.description }}</p>
         }
@@ -112,8 +118,70 @@
             🛒 Thêm vào giỏ
           </button>
         </div>
+
+        <section class="review-form-card">
+          <div class="review-form-head">
+            <h3>Viết nhận xét</h3>
+            <p>
+              {{
+                canReview()
+                  ? 'Bạn đã mua sản phẩm này, hãy chia sẻ trải nghiệm của bạn.'
+                  : reviewHint()
+              }}
+            </p>
+          </div>
+
+          @if (canReview()) {
+            <div class="review-stars">
+              @for (star of [1, 2, 3, 4, 5]; track star) {
+                <button
+                  type="button"
+                  class="star-btn"
+                  [class.is-active]="star <= reviewRating()"
+                  (click)="reviewRating.set(star)"
+                >
+                  ★
+                </button>
+              }
+            </div>
+
+            <textarea
+              class="review-textarea"
+              [ngModel]="reviewComment()"
+              (ngModelChange)="reviewComment.set($event)"
+              rows="4"
+              placeholder="Chia sẻ cảm nhận của bạn về sản phẩm này..."
+            ></textarea>
+
+            <button
+              type="button"
+              class="btn btn--primary"
+              (click)="submitReview()"
+              [disabled]="reviewSubmitting()"
+            >
+              {{ reviewSubmitting() ? 'Đang gửi...' : 'Gửi nhận xét' }}
+            </button>
+          }
+        </section>
       </div>
     </div>
+
+    @if (product()!.reviews?.length) {
+      <section class="reviews-section">
+        <h2 class="related-title">Nhận xét khách hàng</h2>
+        <div class="reviews-grid">
+          @for (review of product()!.reviews!; track review.id) {
+            <article class="review-card">
+              <div class="review-head">
+                <strong>{{ review.author }}</strong>
+                <span class="review-rating">★ {{ review.rating.toFixed(1) }}</span>
+              </div>
+              <p class="review-copy">{{ review.comment }}</p>
+            </article>
+          }
+        </div>
+      </section>
+    }
 
     <!-- Related products -->
     @if (related().length > 0) {
