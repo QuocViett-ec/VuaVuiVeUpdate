@@ -211,7 +211,7 @@ export class RecipesPageComponent implements OnInit {
       return;
     }
 
-    const totalToAdd = selectedIngs.length;
+    const totalToAdd = recipe.ingredients.length;
 
     // Build specific search requests for each ingredient to bypass pagination limits
     const requests = selectedIngs.map(ing => 

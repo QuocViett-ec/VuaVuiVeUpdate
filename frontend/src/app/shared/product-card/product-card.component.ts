@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Product } from '../../core/models/product.model';
 import { CartService } from '../../core/services/cart.service';
+import { ToastService } from '../../core/services/toast.service';
 import { inject } from '@angular/core';
 
 @Component({
@@ -36,20 +37,18 @@ import { inject } from '@angular/core';
         @if (product.unit) {
           <p class="card-unit">/ {{ product.unit }}</p>
         }
+        <div class="card-rating" aria-label="Đánh giá trung bình">
+          <span class="card-rating__star">★</span>
+          <span class="card-rating__value">{{ averageRating() }}</span>
+        </div>
         <div class="card-actions">
-          @if (cartQty() > 0) {
-            <span class="cart-badge">&#x1F6D2; ×{{ cartQty() }} trong giỏ</span>
-          }
           <button
             class="btn-add"
-            [class.btn-add--incart]="cartQty() > 0"
             (click)="add()"
             [disabled]="product.stock === 0"
           >
             @if (product.stock === 0) {
               Hết hàng
-            } @else if (cartQty() > 0) {
-              + Thêm nữa
             } @else {
               Thêm vào giỏ
             }
@@ -65,20 +64,25 @@ export class ProductCardComponent {
   @Output() productClick = new EventEmitter<Product>();
   @Output() addToCartClick = new EventEmitter<Product>();
   private cart = inject(CartService);
+  private toast = inject(ToastService);
   readonly fallbackImg = '/images/brand/LogoVVV.png';
-
-  cartQty() {
-    return this.cart.getQuantity(this.product.id);
-  }
   discountPct() {
     if (!this.product.oldPrice) return 0;
     return Math.round((1 - this.product.price / this.product.oldPrice) * 100);
   }
+
+  averageRating() {
+    const rating = Number(this.product.rating ?? 0);
+    if (!Number.isFinite(rating) || rating <= 0 || rating < 1) return '4.5';
+    return rating.toFixed(1);
+  }
+
   add() {
     const hasExternalHandler = this.addToCartClick.observers.length > 0;
     this.addToCartClick.emit(this.product);
     if (!hasExternalHandler) {
       this.cart.addToCart(this.product);
+      this.toast.success('Đã thêm vào giỏ hàng');
     }
   }
 

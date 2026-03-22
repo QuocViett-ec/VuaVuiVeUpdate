@@ -32,6 +32,8 @@ export interface OrderItem {
   quantity: number;
   price: number;
   subtotal: number;
+  imageUrl?: string;
+  productImage?: string;
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'shipping' | 'delivered' | 'cancelled';

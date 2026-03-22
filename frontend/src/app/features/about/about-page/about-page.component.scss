@@ -213,7 +213,14 @@
 .skills-head {
   h2 {
     margin: 0.55rem 0 0;
-    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    font-size: clamp(2.25rem, 4.5vw, 3.375rem); /* 1.5rem -> 2.25, 3vw -> 4.5, 2.25rem -> 3.375 */
+    font-weight: normal;
+    font-family: 'Blenda', 'Be Vietnam Pro', cursive;
+    background: linear-gradient(135deg, #1b5e20, #66bb6a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
   }
 
   .kicker {
@@ -285,7 +292,14 @@
 
   h3 {
     margin: 0;
-    font-size: 1.35rem;
+    font-size: 2.025rem; /* 1.35rem -> 2.025 */
+    font-weight: normal;
+    font-family: 'Blenda', 'Be Vietnam Pro', cursive;
+    background: linear-gradient(135deg, #1b5e20, #66bb6a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
   }
 
   p {

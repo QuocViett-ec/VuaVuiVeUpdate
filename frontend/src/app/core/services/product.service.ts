@@ -4,6 +4,22 @@ import { Observable, catchError, of, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { Product } from '../models/product.model';
 
+export interface ProductReview {
+  id: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt?: string | null;
+}
+
+export interface ProductReviewResponse {
+  productId: string;
+  productName: string;
+  averageRating: number;
+  reviewCount: number;
+  reviews: ProductReview[];
+}
+
 const CATEGORY_MAP: Record<string, string> = {
   'rau cu': 'veg',
   'trai cay': 'fruit',
@@ -98,6 +114,39 @@ export class ProductService {
         return p ? this.normalize(p) : null;
       }),
       catchError(() => of(null)),
+    );
+  }
+
+  getProductReviews(id: string): Observable<ProductReviewResponse> {
+    return this.http.get<any>(`${this.api}/api/products/${id}/reviews`).pipe(
+      map((res: any) => {
+        const data = res?.data ?? {};
+        const reviewsRaw = Array.isArray(data?.reviews) ? data.reviews : [];
+        const reviews: ProductReview[] = reviewsRaw.map((r: any) => ({
+          id: String(r?.id ?? r?._id ?? ''),
+          userName: String(r?.userName || 'Khách hàng'),
+          rating: Number(r?.rating || 0),
+          comment: String(r?.comment || ''),
+          createdAt: r?.createdAt || null,
+        }));
+
+        return {
+          productId: String(data?.productId || id),
+          productName: String(data?.productName || ''),
+          averageRating: Number(data?.averageRating || 0),
+          reviewCount: Number(data?.reviewCount || reviews.length),
+          reviews,
+        } as ProductReviewResponse;
+      }),
+      catchError(() =>
+        of({
+          productId: id,
+          productName: '',
+          averageRating: 0,
+          reviewCount: 0,
+          reviews: [],
+        }),
+      ),
     );
   }
 

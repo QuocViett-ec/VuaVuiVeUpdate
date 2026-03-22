@@ -7,9 +7,15 @@
     margin: 0 auto;
     h1 {
       font-size: 2.5rem;
-      font-weight: 800;
+      font-weight: normal;
+      font-family: 'Blenda', 'Be Vietnam Pro', cursive;
       color: #1b2a1e;
       margin-bottom: 1rem;
+      background: linear-gradient(135deg, #1b5e20, #66bb6a);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
     }
     p {
       font-size: 1.1rem;
@@ -35,8 +41,14 @@
   margin-bottom: 1.25rem;
   h2 {
     font-size: 1.5rem;
-    font-weight: 800;
+    font-weight: normal;
+    font-family: 'Blenda', 'Be Vietnam Pro', cursive;
     color: #1b2a1e;
+    background: linear-gradient(135deg, #1b5e20, #66bb6a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
   }
 }
 
@@ -281,7 +293,13 @@
   h2 {
     margin: 0 0 0.8rem;
     font-size: clamp(2rem, 3vw, 2.25rem);
-    font-weight: 800;
+    font-weight: normal;
+    font-family: 'Blenda', 'Be Vietnam Pro', cursive;
+    background: linear-gradient(135deg, #1b5e20, #66bb6a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
   }
 
   p {
@@ -358,7 +376,13 @@
   h3 {
     margin: 0 0 0.8rem;
     font-size: 2rem;
-    font-weight: 800;
+    font-weight: normal;
+    font-family: 'Blenda', 'Be Vietnam Pro', cursive;
+    background: linear-gradient(135deg, #1b5e20, #66bb6a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
   }
 
   p {
@@ -426,7 +450,13 @@
   h2 {
     margin: 0 0 1.2rem;
     font-size: clamp(2rem, 3.2vw, 2.55rem);
-    font-weight: 900;
+    font-weight: normal;
+    font-family: 'Blenda', 'Be Vietnam Pro', cursive;
+    background: linear-gradient(135deg, #1b5e20, #66bb6a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
   }
 
   p {
@@ -450,7 +480,13 @@
   h2 {
     margin: 0 0 1rem;
     font-size: clamp(2.3rem, 4vw, 3.4rem);
-    font-weight: 900;
+    font-weight: normal;
+    font-family: 'Blenda', 'Be Vietnam Pro', cursive;
+    background: linear-gradient(135deg, #1b5e20, #66bb6a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
   }
 
   p {
@@ -529,5 +565,17 @@
 @media (max-width: 640px) {
   .recipe-cards {
     grid-template-columns: 1fr;
+  }
+}
+
+// ── Override Add-to-cart Buttons ───────────────────────────────────────────────
+.recipe-aside .btn--primary,
+.recipe-detail__header .btn--primary {
+  background: linear-gradient(135deg, #1b5e20, #66bb6a) !important;
+  border: none;
+  transition: opacity 0.2s;
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+    background: linear-gradient(135deg, #1b5e20, #66bb6a) !important;
   }
 }

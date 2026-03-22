@@ -45,6 +45,8 @@ router.post(
   orderCtrl.validateVoucherForCheckout,
 );
 router.get("/me", requireAuth, readLimiter, orderCtrl.getMyOrders);
+router.get("/:id/reviews/me", requireAuth, readLimiter, orderCtrl.getMyOrderReviews);
+router.post("/:id/reviews", requireAuth, writeLimiter, orderCtrl.submitOrderReviews);
 router.get("/:id", requireAuth, readLimiter, orderCtrl.getOrderById);
 
 // Cập nhật trạng thái thanh toán (owner hoặc admin) — gọi sau VNPay/MoMo callback

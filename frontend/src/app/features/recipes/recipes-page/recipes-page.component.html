@@ -37,12 +37,6 @@
         <span class="material-symbols-outlined g-icon">search</span>
         Tìm
       </button>
-      @if (selected()) {
-        <button class="btn btn--primary" (click)="addAllToCart()">
-          <span class="material-symbols-outlined g-icon">shopping_cart</span>
-          Thêm tất cả nguyên liệu
-        </button>
-      }
     </div>
 
     <!-- Recipe detail -->
@@ -254,7 +248,7 @@
 <!-- CTA -->
 <section class="section recipes-cta">
   <div class="container cta-container">
-    <h2 class="gradient-title gradient-title--pastel">Sẵn sàng bắt đầu nấu ăn?</h2>
+    <h2 class="gradient-title gradient-title--pastel text-white-override">Sẵn sàng bắt đầu nấu ăn?</h2>
     <p>Tìm món ăn bạn muốn và để chúng tôi chuẩn bị nguyên liệu cho bạn</p>
     <div class="cta-actions">
       <button type="button" class="btn btn--light" (click)="focusRecipeSearch()">Thử ngay</button>

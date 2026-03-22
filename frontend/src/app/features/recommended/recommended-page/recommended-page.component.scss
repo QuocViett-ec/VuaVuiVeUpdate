@@ -1,39 +1,44 @@
 
 .page-hero {
+  padding: 0;
+}
+
+.page-hero__media-wrapper {
   position: relative;
-  overflow: hidden;
-  /* Đặt chiều cao lớn hơn và dùng flex căn giữa nếu muốn cover cả khung video lớn */
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 80vh;
   min-height: 500px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-bottom: none; /* Đã xoá border viền */
-  
-  .page-hero__content { 
-    position: relative;
-    z-index: 2;
-    max-width: 640px; 
-    text-align: center; /* Khuyến nghị căn giữa chữ khi banner lớn */
-  }
+  overflow: hidden;
+  background: #000;
 }
 
-.hero-bg-video {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  min-width: 100%;
-  min-height: 100%;
-  width: auto;
-  height: auto;
-  z-index: 0;
-  transform: translate(-50%, -50%);
+.page-hero__video {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  opacity: 1; /* Bỏ lớp mờ đục trên video */
+  opacity: 0.75;
 }
 
-/* Xoá gradient chèn để trả lại 100% độ rõ nguyên bản của video */
-.hero-overlay {
-  display: none;
+.page-hero__content {
+  grid-area: 1 / 1;
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  transform: translateY(-12vh);
+
+  .eyebrow { color: #a5d6a7; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8); }
+  .page-title { color: #ffffff; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8); }
+  .page-description { color: #eeeeee; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8); }
 }
 
 .eyebrow { font-size: .85rem; font-weight: 700; color: #2e7d32; letter-spacing: .05em; text-transform: uppercase; }
@@ -54,10 +59,23 @@
   .rec-link { display: block; }
   .rec-img { width: 100%; height: 150px; object-fit: cover; }
   .rec-info { padding: .75rem; display: flex; flex-direction: column; flex: 1; }
-  .rec-name { font-weight: 600; font-size: .9rem; margin-bottom: .25rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.5em; }
+  .rec-name { font-weight: 600; font-size: .9rem; margin-bottom: .25rem; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.5em; }
   .rec-price { color: #2e7d32; font-weight: 700; font-size: .95rem; }
   .rec-reason { color: #888; font-size: .78rem; margin-top: .3rem; }
-  .btn { margin-top: auto; width: 100%; justify-content: center; }
+  .btn { 
+    margin-top: auto; 
+    width: 100%; 
+    justify-content: center;
+    &--primary {
+      background: linear-gradient(135deg, #1b5e20, #66bb6a) !important;
+      border: none;
+      transition: opacity 0.2s;
+      &:hover:not(:disabled) {
+        opacity: 0.9;
+        background: linear-gradient(135deg, #1b5e20, #66bb6a) !important;
+      }
+    }
+  }
 }
 
 .skeleton-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; }

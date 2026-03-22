@@ -15,7 +15,8 @@ import {
   AbstractControl,
   ValidationErrors,
 } from '@angular/forms';
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { Router } from '@angular/router';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
@@ -24,7 +25,11 @@ import { switchMap } from 'rxjs/operators';
 import { OrderService } from '../../../core/services/order.service';
 import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
 import { Order } from '../../../core/models/product.model';
-import { Subscription } from 'rxjs';
+import { Subscription, forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import { CartService } from '../../../core/services/cart.service';
+import { ProductService } from '../../../core/services/product.service';
+import { environment } from '../../../../environments/environment';
 
 type Tab = 'profile' | 'orders' | 'security';
 
@@ -50,7 +55,7 @@ function confirmNewMatchValidator(group: AbstractControl): ValidationErrors | nu
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-account-page',
-  imports: [FormsModule, ReactiveFormsModule, RouterLink, DatePipe],
+  imports: [FormsModule, ReactiveFormsModule, RouterLink, DatePipe, DecimalPipe],
   templateUrl: './account-page.component.html',
   styleUrl: './account-page.component.scss',
 })
@@ -58,8 +63,11 @@ export class AccountPageComponent implements OnInit, OnDestroy {
   private auth = inject(AuthService);
   private toast = inject(ToastService);
   private fb = inject(FormBuilder);
+  private router = inject(Router);
   private geoSvc = inject(GeolocationService);
   private orderSvc = inject(OrderService);
+  private productSvc = inject(ProductService);
+  private cartSvc = inject(CartService);
   private realtime = inject(RealtimeSyncService);
   private realtimeSub?: Subscription;
 
@@ -67,6 +75,7 @@ export class AccountPageComponent implements OnInit, OnDestroy {
 
   tab = signal<Tab>('profile');
   ordersPreview = signal<Order[]>([]);
+  productImageMap = signal<Record<string, string>>({});
   ordersLoading = signal(false);
   saving = signal(false);
   savingPw = signal(false);
@@ -75,6 +84,7 @@ export class AccountPageComponent implements OnInit, OnDestroy {
   showNewPw = signal(false);
   isLocating = signal(false);
   locationError = signal('');
+  readonly fallbackProductImage = '/images/brand/LogoVVV.png';
 
   // ── Profile form (Template-Driven) ────────────────────────────────────────
   editName = '';
@@ -139,7 +149,13 @@ export class AccountPageComponent implements OnInit, OnDestroy {
     this.ordersLoading.set(true);
     this.orderSvc.getMyOrders().subscribe({
       next: (orders) => {
-        this.ordersPreview.set(orders.slice(0, 5));
+        const sorted = [...orders].sort((a, b) => {
+          const tA = new Date(a.createdAt || 0).getTime();
+          const tB = new Date(b.createdAt || 0).getTime();
+          return tB - tA;
+        });
+        this.ordersPreview.set(sorted);
+        this.resolveMissingOrderImages(sorted);
         this.ordersLoading.set(false);
       },
       error: () => {
@@ -168,6 +184,123 @@ export class AccountPageComponent implements OnInit, OnDestroy {
         };
       }),
     );
+  }
+
+  canReviewOrder(order: Order): boolean {
+    return String(order.status || '') === 'delivered';
+  }
+
+  canReturnOrder(_order: Order): boolean {
+    return false;
+  }
+
+  onReviewOrder(order: Order): void {
+    if (!this.canReviewOrder(order)) return;
+    this.toast.info('Tính năng đánh giá sẽ được bật ở bản cập nhật tiếp theo.');
+  }
+
+  onReturnOrder(_order: Order): void {
+    this.toast.info('Tính năng trả hàng hiện chưa khả dụng.');
+  }
+
+  reorderOrder(order: Order): void {
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (!items.length) {
+      this.toast.warning('Đơn hàng không có sản phẩm để mua lại.');
+      return;
+    }
+
+    for (const item of items) {
+      this.cartSvc.addToCart(
+        {
+          id: String(item.productId || ''),
+          name: item.productName || 'Sản phẩm',
+          price: Number(item.price || 0),
+          cat: 'all',
+          sub: 'all',
+          stock: 99,
+          img: this.getOrderItemImage(item),
+        },
+        Math.max(1, Number(item.quantity || 1)),
+      );
+    }
+
+    this.toast.success(`Đã thêm lại ${items.length} sản phẩm từ đơn ${order.id} vào giỏ.`);
+    this.router.navigate(['/cart']);
+  }
+
+  getOrderItemThumbs(order: Order, limit = 4): string[] {
+    const items = Array.isArray(order.items) ? order.items.slice(0, limit) : [];
+    return items.map((item) => this.getOrderItemImage(item));
+  }
+
+  private getOrderItemImage(item: any): string {
+    const itemImage = this.normalizeImage(
+      item?.imageUrl || item?.productImage || item?.image || item?.product?.imageUrl || '',
+    );
+    if (itemImage) return itemImage;
+
+    const productId = String(item?.productId || '');
+    const byMap = this.productImageMap()[productId];
+    return byMap || this.fallbackProductImage;
+  }
+
+  private normalizeImage(raw: string): string {
+    const value = String(raw || '').trim();
+    if (!value) return '';
+    if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/')) {
+      return value;
+    }
+    return `${environment.apiBase}/${value}`;
+  }
+
+  private resolveMissingOrderImages(orders: Order[]): void {
+    const currentMap = { ...this.productImageMap() };
+    const missingIds = new Set<string>();
+
+    for (const order of orders) {
+      for (const item of order.items || []) {
+        const id = String(item.productId || '');
+        if (!id) continue;
+
+        const direct = this.normalizeImage(
+          item.imageUrl || item.productImage || (item as any)?.image || '',
+        );
+        if (direct) {
+          currentMap[id] = direct;
+          continue;
+        }
+
+        if (!currentMap[id]) {
+          missingIds.add(id);
+        }
+      }
+    }
+
+    this.productImageMap.set(currentMap);
+
+    if (!missingIds.size) return;
+
+    const idList = [...missingIds];
+    const requests = idList.map((id) =>
+      this.productSvc
+        .getProductById(id)
+        .pipe(catchError(() => of(null))),
+    );
+
+    forkJoin(requests).subscribe((products) => {
+      this.productImageMap.update((map) => {
+        const next = { ...map };
+        products.forEach((product, idx) => {
+          const id = idList[idx];
+          const resolved = this.normalizeImage(product?.img || '');
+          if (id && resolved) {
+            next[id] = resolved;
+          }
+        });
+        return next;
+      });
+    });
   }
 
   async saveProfile(): Promise<void> {
