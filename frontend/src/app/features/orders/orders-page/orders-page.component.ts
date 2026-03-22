@@ -7,16 +7,19 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { OrderService } from '../../../core/services/order.service';
+import { OrderService, ProductReviewInput } from '../../../core/services/order.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { Order } from '../../../core/models/product.model';
 import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom, forkJoin, of } from 'rxjs';
 import { PaymentService } from '../../../core/services/payment.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { firstValueFrom } from 'rxjs';
+import { ProductService } from '../../../core/services/product.service';
+import { CartService } from '../../../core/services/cart.service';
+import { catchError } from 'rxjs/operators';
+import { environment } from '../../../../environments/environment';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'Chờ xác nhận',
@@ -74,18 +77,21 @@ const STATUS_COLORS: Record<string, string> = {
                   <strong>{{ order.id }}</strong>
                   <small>{{ order.createdAt | date: 'dd/MM/yyyy HH:mm' }}</small>
                 </div>
-                <span class="status-badge" [attr.data-status]="order.status">
-                  {{ statusLabel(order.status) }}
-                </span>
+                <div class="order-head-right">
+                  <a [routerLink]="['/orders', order.id]" class="order-detail-link">Xem chi tiết ></a>
+                  <span class="status-badge" [attr.data-status]="order.status">
+                    {{ statusLabel(order.status) }}
+                  </span>
+                </div>
               </div>
 
               <div class="order-items">
-                @for (item of order.items; track item.productId; let last = $last) {
-                  <span class="item-chip">{{ item.productName }} ×{{ item.quantity }}</span>
-                  @if (!last) {
-                    <span>·</span>
+                <div class="order-thumbs">
+                  @for (thumb of getOrderItemThumbs(order, 4); track thumb + $index) {
+                    <img [src]="thumb" alt="Sản phẩm trong đơn" class="order-thumb" loading="lazy" />
                   }
-                }
+                </div>
+                <span class="order-item-count">{{ order.items.length }} sản phẩm</span>
               </div>
 
               <div class="order-progress" [attr.data-status]="order.status">
@@ -106,27 +112,103 @@ const STATUS_COLORS: Record<string, string> = {
                     toán
                   }
                 </span>
-                <a [routerLink]="['/orders', order.id]" class="btn btn--outline btn--sm"
-                  >Chi tiết</a
-                >
-                @if (canRetryPayment(order)) {
+                <div class="order-actions">
                   <button
                     type="button"
-                    class="btn btn--primary btn--sm"
-                    [disabled]="retryingOrderId() === order.id"
-                    (click)="retryPayment(order)"
+                    class="btn btn--review btn--sm"
+                    [disabled]="!canReviewOrder(order)"
+                    (click)="onReviewOrder(order)"
                   >
-                    @if (retryingOrderId() === order.id) {
-                      Đang tạo link...
-                    } @else {
-                      Thanh toán lại
-                    }
+                    {{ hasReviewed(order) ? 'Xem đánh giá' : 'Đánh giá' }}
                   </button>
-                }
+                  <button
+                    type="button"
+                    class="btn btn--outline btn--sm"
+                    (click)="reorderOrder(order)"
+                  >
+                    Mua lại đơn
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn--danger btn--sm"
+                    [disabled]="!canReturnOrder(order)"
+                    (click)="onReturnOrder(order)"
+                  >
+                    Trả hàng
+                  </button>
+                </div>
               </div>
             </div>
           }
         </div>
+      }
+
+      @if (reviewModalOpen() && reviewOrder()) {
+        <div class="review-modal-backdrop" (click)="closeReviewModal()"></div>
+        <section class="review-modal" role="dialog" aria-modal="true" aria-label="Đánh giá sản phẩm">
+          <header class="review-modal__head">
+            <h3>Đánh giá đơn {{ reviewOrder()!.id }}</h3>
+            <button type="button" class="review-close" (click)="closeReviewModal()">Đóng</button>
+          </header>
+
+          <div class="review-modal__body">
+            @for (item of reviewItems(); track item.productId) {
+              <article class="review-item">
+                <img [src]="getOrderItemImage(item)" [alt]="item.productName" class="review-item__thumb" />
+                <div class="review-item__content">
+                  <div class="review-item__top">
+                    <div>
+                      <div class="review-item__title">{{ item.productName }}</div>
+                      <div class="review-item__qty">Số lượng: {{ item.quantity }}</div>
+                      <div class="review-item__status">{{ reviewStatusText(item.productId) }}</div>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="btn btn--review btn--sm review-item__submit"
+                      [disabled]="!canSubmitProduct(item.productId) || isSubmittingProduct(item.productId)"
+                      (click)="submitSingleReview(item)"
+                    >
+                      @if (isSubmittingProduct(item.productId)) {
+                        Đang gửi...
+                      } @else if (isReviewedProduct(item.productId)) {
+                        Đã đánh giá
+                      } @else {
+                        Đánh giá
+                      }
+                    </button>
+                  </div>
+
+                  <div class="review-stars" role="group" aria-label="Chọn số sao">
+                    @for (star of reviewStars; track star) {
+                      <button
+                        type="button"
+                        class="star-btn"
+                        [class.active]="ratingOf(item.productId) >= star"
+                        (click)="setRating(item.productId, star)"
+                        [attr.aria-label]="'Chọn ' + star + ' sao'"
+                      >
+                        ★
+                      </button>
+                    }
+                  </div>
+
+                  <textarea
+                    class="review-textarea"
+                    [value]="commentOf(item.productId)"
+                    (input)="setComment(item.productId, $any($event.target).value)"
+                    maxlength="500"
+                    placeholder="Hãy chia sẻ cảm nhận của bạn về sản phẩm này"
+                  ></textarea>
+                </div>
+              </article>
+            }
+          </div>
+
+          <footer class="review-modal__foot">
+            <button type="button" class="btn btn--outline" (click)="closeReviewModal()">Hủy</button>
+          </footer>
+        </section>
       }
     </div>
   `,
@@ -135,15 +217,28 @@ const STATUS_COLORS: Record<string, string> = {
 export class OrdersPageComponent implements OnInit, OnDestroy {
   private orderSvc = inject(OrderService);
   private auth = inject(AuthService);
+  private router = inject(Router);
+  private cartSvc = inject(CartService);
   private realtime = inject(RealtimeSyncService);
   private paymentSvc = inject(PaymentService);
   private toast = inject(ToastService);
+  private productSvc = inject(ProductService);
   private realtimeSub?: Subscription;
 
   orders = signal<Order[]>([]);
+  productImageMap = signal<Record<string, string>>({});
+  reviewedOrderIds = signal<Set<string>>(new Set());
+  reviewModalOpen = signal(false);
+  reviewOrder = signal<Order | null>(null);
+  reviewItems = signal<any[]>([]);
+  reviewDraft = signal<Record<string, { rating: number; comment: string }>>({});
+  reviewedProductIds = signal<Set<string>>(new Set());
+  submittingByProduct = signal<Record<string, boolean>>({});
   loading = signal(true);
   retryingOrderId = signal('');
   selectedStatus = 'all';
+  readonly fallbackProductImage = '/images/brand/LogoVVV.png';
+  readonly reviewStars = [1, 2, 3, 4, 5];
   readonly progressSteps = [
     { key: 'pending', label: 'Cho xac nhan' },
     { key: 'confirmed', label: 'Da xac nhan' },
@@ -176,6 +271,188 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
     const isPendingPayment = String(order.paymentStatus || '') === 'pending';
     const method = String(order.paymentMethod || '');
     return isPendingPayment && (method === 'vnpay' || method === 'momo');
+  }
+
+  canReviewOrder(order: Order): boolean {
+    return String(order.status || '') === 'delivered';
+  }
+
+  hasReviewed(order: Order): boolean {
+    return this.reviewedOrderIds().has(String(order.id));
+  }
+
+  canReturnOrder(_order: Order): boolean {
+    return false;
+  }
+
+  onReviewOrder(order: Order): void {
+    if (!this.canReviewOrder(order)) return;
+    this.openReviewModal(order);
+  }
+
+  onReturnOrder(order: Order): void {
+    this.toast.info(`Đơn ${order.id} hiện chưa đủ điều kiện trả hàng.`);
+  }
+
+  reorderOrder(order: Order): void {
+    const items = Array.isArray(order.items) ? order.items : [];
+    if (!items.length) {
+      this.toast.warning('Đơn hàng không có sản phẩm để mua lại.');
+      return;
+    }
+
+    for (const item of items) {
+      this.cartSvc.addToCart(
+        {
+          id: String(item.productId || ''),
+          name: item.productName || 'Sản phẩm',
+          price: Number(item.price || 0),
+          cat: 'all',
+          sub: 'all',
+          stock: 99,
+          img: this.getOrderItemImage(item),
+        },
+        Math.max(1, Number(item.quantity || 1)),
+      );
+    }
+
+    this.toast.success(`Đã thêm lại ${items.length} sản phẩm vào giỏ.`);
+    this.router.navigate(['/cart']);
+  }
+
+  openReviewModal(order: Order): void {
+    this.reviewOrder.set(order);
+    this.reviewModalOpen.set(true);
+    const reviewItems = this.getUniqueReviewItems(order);
+    this.reviewItems.set(reviewItems);
+    this.submittingByProduct.set({});
+    this.reviewedProductIds.set(new Set());
+    const baseDraft: Record<string, { rating: number; comment: string }> = {};
+    for (const item of reviewItems) {
+      const pid = String(item.productId || '');
+      if (!pid) continue;
+      baseDraft[pid] = { rating: 0, comment: '' };
+    }
+    this.reviewDraft.set(baseDraft);
+
+    this.orderSvc.getMyOrderReviews(order.id).subscribe((rows) => {
+      const reviewedIds = new Set<string>();
+      this.reviewDraft.update((current) => {
+        const next = { ...current };
+        for (const row of rows || []) {
+          const pid = String(row?.productId || '');
+          if (!pid || !next[pid]) continue;
+          reviewedIds.add(pid);
+          next[pid] = {
+            rating: Number(row?.rating || 0),
+            comment: String(row?.comment || ''),
+          };
+        }
+        return next;
+      });
+      this.reviewedProductIds.set(reviewedIds);
+    });
+  }
+
+  closeReviewModal(): void {
+    this.reviewModalOpen.set(false);
+    this.reviewOrder.set(null);
+    this.reviewItems.set([]);
+    this.reviewDraft.set({});
+    this.reviewedProductIds.set(new Set());
+    this.submittingByProduct.set({});
+  }
+
+  setRating(productId: string, rating: number): void {
+    const pid = String(productId || '');
+    if (!pid) return;
+    this.reviewDraft.update((draft) => ({
+      ...draft,
+      [pid]: {
+        rating,
+        comment: String(draft[pid]?.comment || ''),
+      },
+    }));
+  }
+
+  setComment(productId: string, comment: string): void {
+    const pid = String(productId || '');
+    if (!pid) return;
+    const safe = String(comment || '').slice(0, 500);
+    this.reviewDraft.update((draft) => ({
+      ...draft,
+      [pid]: {
+        rating: Number(draft[pid]?.rating || 0),
+        comment: safe,
+      },
+    }));
+  }
+
+  ratingOf(productId: string): number {
+    return Number(this.reviewDraft()[String(productId || '')]?.rating || 0);
+  }
+
+  commentOf(productId: string): string {
+    return String(this.reviewDraft()[String(productId || '')]?.comment || '');
+  }
+
+  reviewStatusText(productId: string): string {
+    if (this.isReviewedProduct(productId)) return 'Đã đánh giá';
+    const rating = this.ratingOf(productId);
+    if (rating < 1) return 'Chưa có đánh giá';
+    return `Đã chọn ${rating} sao`;
+  }
+
+  isReviewedProduct(productId: string): boolean {
+    return this.reviewedProductIds().has(String(productId || ''));
+  }
+
+  canSubmitProduct(productId: string): boolean {
+    return !this.isReviewedProduct(productId) && this.ratingOf(productId) >= 1;
+  }
+
+  isSubmittingProduct(productId: string): boolean {
+    return !!this.submittingByProduct()[String(productId || '')];
+  }
+
+  async submitSingleReview(item: any): Promise<void> {
+    const order = this.reviewOrder();
+    if (!order) return;
+    const productId = String(item?.productId || '');
+    if (!productId) return;
+
+    if (!this.canSubmitProduct(productId)) {
+      this.toast.warning('Vui lòng chọn số sao trước khi gửi đánh giá.');
+      return;
+    }
+
+    const payload: ProductReviewInput[] = [
+      {
+        productId,
+        rating: this.ratingOf(productId),
+        comment: this.commentOf(productId),
+      },
+    ];
+
+    this.submittingByProduct.update((state) => ({ ...state, [productId]: true }));
+    try {
+      await firstValueFrom(this.orderSvc.submitOrderReviews(order.id, payload));
+      this.reviewedProductIds.update((set) => {
+        const next = new Set(set);
+        next.add(productId);
+        return next;
+      });
+      this.reviewedOrderIds.update((set) => {
+        const next = new Set(set);
+        next.add(String(order.id));
+        return next;
+      });
+      this.toast.success('Gửi đánh giá sản phẩm thành công!');
+    } catch {
+      this.toast.error('Không gửi được đánh giá. Vui lòng thử lại.');
+    } finally {
+      this.submittingByProduct.update((state) => ({ ...state, [productId]: false }));
+    }
   }
 
   isProgressDone(status: string, step: string): boolean {
@@ -213,6 +490,101 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
     }
   }
 
+  getOrderItemThumbs(order: Order, limit = 4): string[] {
+    const items = Array.isArray(order.items) ? order.items.slice(0, limit) : [];
+    return items.map((item) => this.getOrderItemImage(item));
+  }
+
+  getOrderItemImage(item: any): string {
+    const direct = this.normalizeImage(
+      item?.imageUrl || item?.productImage || item?.image || item?.product?.imageUrl || '',
+    );
+    if (direct) return direct;
+
+    const productId = String(item?.productId || '');
+    return this.productImageMap()[productId] || this.fallbackProductImage;
+  }
+
+  private getUniqueReviewItems(order: Order): any[] {
+    const source = Array.isArray(order.items) ? order.items : [];
+    const map = new Map<string, any>();
+
+    for (const item of source) {
+      const productId = String(item?.productId || '');
+      if (!productId) continue;
+
+      if (!map.has(productId)) {
+        map.set(productId, { ...item, quantity: Math.max(1, Number(item?.quantity || 1)) });
+        continue;
+      }
+
+      const prev = map.get(productId);
+      map.set(productId, {
+        ...prev,
+        quantity: Number(prev?.quantity || 0) + Math.max(1, Number(item?.quantity || 1)),
+      });
+    }
+
+    return [...map.values()];
+  }
+
+  private normalizeImage(raw: string): string {
+    const value = String(raw || '').trim();
+    if (!value) return '';
+    if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('/')) {
+      return value;
+    }
+    return `${environment.apiBase}/${value}`;
+  }
+
+  private resolveMissingOrderImages(orders: Order[]): void {
+    const currentMap = { ...this.productImageMap() };
+    const missingIds = new Set<string>();
+
+    for (const order of orders) {
+      for (const item of order.items || []) {
+        const id = String(item.productId || '');
+        if (!id) continue;
+
+        const direct = this.normalizeImage(
+          item.imageUrl || item.productImage || (item as any)?.image || '',
+        );
+        if (direct) {
+          currentMap[id] = direct;
+          continue;
+        }
+
+        if (!currentMap[id]) {
+          missingIds.add(id);
+        }
+      }
+    }
+
+    this.productImageMap.set(currentMap);
+    if (!missingIds.size) return;
+
+    const idList = [...missingIds];
+    const requests = idList.map((id) =>
+      this.productSvc
+        .getProductById(id)
+        .pipe(catchError(() => of(null))),
+    );
+
+    forkJoin(requests).subscribe((products) => {
+      this.productImageMap.update((map) => {
+        const next = { ...map };
+        products.forEach((product, idx) => {
+          const id = idList[idx];
+          const resolved = this.normalizeImage(product?.img || '');
+          if (id && resolved) {
+            next[id] = resolved;
+          }
+        });
+        return next;
+      });
+    });
+  }
+
   private loadOrders(): void {
     this.loading.set(true);
     const userId = this.auth.currentUser()?.id;
@@ -220,12 +592,13 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
       next: (orders) => {
         // Filter by current user phone/email as fallback
         const user = this.auth.currentUser();
-        this.orders.set(
-          orders.filter(
+        const filtered = orders.filter(
             (o) =>
               !userId || o.userId === userId || o.phone === user?.phone || o.email === user?.email,
-          ),
-        );
+          );
+        this.orders.set(filtered);
+        this.resolveMissingOrderImages(filtered);
+        this.prefetchReviewedStatus(filtered);
         this.loading.set(false);
       },
       error: () => {
@@ -258,6 +631,28 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
         .filter((o) => this.selectedStatus === 'all' || o.status === this.selectedStatus);
 
       return next;
+    });
+  }
+
+  private prefetchReviewedStatus(orders: Order[]): void {
+    const delivered = orders.filter((o) => this.canReviewOrder(o));
+    if (!delivered.length) {
+      this.reviewedOrderIds.set(new Set());
+      return;
+    }
+
+    const tasks = delivered.map((o) =>
+      this.orderSvc.getMyOrderReviews(o.id).pipe(catchError(() => of([]))),
+    );
+
+    forkJoin(tasks).subscribe((all) => {
+      const set = new Set<string>();
+      all.forEach((rows, idx) => {
+        if (Array.isArray(rows) && rows.length > 0) {
+          set.add(String(delivered[idx].id));
+        }
+      });
+      this.reviewedOrderIds.set(set);
     });
   }
 }

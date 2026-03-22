@@ -1,18 +1,17 @@
 <!-- Page Hero -->
 <section class="page-hero">
-  <div class="container page-hero__content">
-    <span class="eyebrow"> Cá nhân hóa</span>
-    <h1 class="page-title">Gợi ý dành riêng cho bạn</h1>
-    <p class="page-description">
-      Chúng tôi chọn lọc sản phẩm dựa trên sở thích và lịch sử mua sắm của bạn
-    </p>
-    @if (interests().length > 0) {
-      <div class="chip-row">
-        @for (c of interests(); track c) {
-          <span class="chip">{{ c }}</span>
-        }
-      </div>
-    }
+  <div class="page-hero__media-wrapper">
+    <video class="page-hero__video" autoplay muted loop playsinline controls preload="metadata">
+      <source src="/vid/intro.mp4" type="video/mp4" />
+    </video>
+    
+    <div class="page-hero__content">
+      <span class="eyebrow"> Cá nhân hóa</span>
+      <h1 class="page-title text-white-override">Gợi ý dành riêng cho bạn</h1>
+      <p class="page-description">
+        Chúng tôi chọn lọc sản phẩm dựa trên sở thích và lịch sử mua sắm của bạn
+      </p>
+    </div>
   </div>
 </section>
 

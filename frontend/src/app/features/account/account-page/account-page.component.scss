@@ -138,45 +138,130 @@ textarea.input {
   justify-content: flex-end;
 }
 
-.order-preview-list {
+.order-history-list {
   margin-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
-.order-preview-item {
+.order-history-card {
   border: 1px solid #e7efe7;
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px;
+}
+
+.order-history-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
 
-.order-preview-meta {
+.order-history-code {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #1b2a1e;
+}
+
+.order-history-detail {
+  color: #1f2937;
+  text-decoration: none;
+  font-weight: 700;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.order-history-sub {
+  margin-top: 4px;
+  color: #5f6b5f;
+  font-size: 0.95rem;
+}
+
+.order-history-thumbs {
+  margin-top: 10px;
   display: flex;
-  gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.order-status,
-.order-payment {
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  background: #f1f5f9;
-  color: #475569;
+.order-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid #ebf2eb;
+  background: #f4faf4;
 }
 
-.order-payment {
-  background: #fff8e1;
-  color: #a16207;
+.order-history-bottom {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.order-payment.paid {
-  background: #e8f5e9;
-  color: #2e7d32;
+.order-history-total {
+  font-size: 1.05rem;
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.order-history-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-order {
+  border: none;
+  border-radius: 12px;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.98rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+
+  &:hover:not(:disabled) {
+    filter: brightness(0.96);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.btn-order--review {
+  background: #2e7d32;
+  color: #fff;
+}
+
+.btn-order--reorder {
+  background: #f7f7f7;
+  color: #1f2937;
+  border: 1px solid #e6e6e6;
+}
+
+.btn-order--return {
+  background: #e53935;
+  color: #fff;
+}
+
+@media (max-width: 700px) {
+  .order-history-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .order-history-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

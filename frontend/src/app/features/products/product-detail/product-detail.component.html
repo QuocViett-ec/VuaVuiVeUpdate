@@ -83,6 +83,14 @@
           }
         </div>
 
+        <div class="pd-rating-summary" aria-label="Đánh giá trung bình">
+          <span class="pd-rating-summary__star">★</span>
+          <strong>{{ (reviewStats()?.averageRating ?? product()!.rating ?? 4.5) | number: '1.1-1' }}</strong>
+          <span class="pd-rating-summary__count"
+            >({{ reviewStats()?.reviewCount ?? product()!.reviewCount ?? 0 }} đánh giá)</span
+          >
+        </div>
+
         <p class="pd-stock" [class.out]="product()!.stock === 0">
           @if (product()!.stock === 0) {
             <span class="material-symbols-outlined g-icon">warning</span> Hết hàng
@@ -120,6 +128,27 @@
         </div>
       </div>
     </div>
+
+    <section class="pd-reviews" aria-label="Đánh giá khách hàng">
+      <h2 class="pd-reviews__title">Đánh giá khách hàng</h2>
+      @if (!reviews().length) {
+        <p class="pd-reviews__empty">Chưa có đánh giá nào cho sản phẩm này.</p>
+      } @else {
+        <div class="pd-reviews__list">
+          @for (rv of reviews(); track rv.id) {
+            <article class="pd-review-item">
+              <div class="pd-review-item__head">
+                <strong>{{ rv.userName }}</strong>
+                <span class="pd-review-item__stars" [attr.aria-label]="rv.rating + ' sao'">
+                  {{ ratingStars(rv.rating) }}
+                </span>
+              </div>
+              <p class="pd-review-item__text">{{ rv.comment }}</p>
+            </article>
+          }
+        </div>
+      }
+    </section>
 
     <!-- Related products -->
     @if (related().length > 0) {

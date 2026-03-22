@@ -9,6 +9,8 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { forkJoin, of } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 import { CartService } from '../../../core/services/cart.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { ProductService } from '../../../core/services/product.service';
@@ -18,6 +20,7 @@ interface RecipeIngredient {
   name: string;
   qty: string;
   unit: string;
+  checked?: boolean;
 }
 interface Recipe {
   id: string;
@@ -33,6 +36,7 @@ interface HowToStep {
   title: string;
   desc: string;
   tone: 'green' | 'cyan' | 'orange';
+  bgImage: string;
 }
 
 interface PaginationToken {
@@ -123,6 +127,7 @@ export class RecipesPageComponent implements OnInit {
       title: 'Chọn món',
       desc: 'Gõ tên món ăn bạn muốn nấu hoặc chọn từ danh sách gợi ý.',
       tone: 'green',
+      bgImage: '/images/CONGTHUC/chonmon.png',
     },
     {
       id: 'step-2',
@@ -131,6 +136,7 @@ export class RecipesPageComponent implements OnInit {
       title: 'Thêm vào giỏ',
       desc: 'Nhấn nút để tự động thêm tất cả nguyên liệu cần thiết vào giỏ hàng.',
       tone: 'cyan',
+      bgImage: '/images/CONGTHUC/themvaogio.png',
     },
     {
       id: 'step-3',
@@ -139,6 +145,7 @@ export class RecipesPageComponent implements OnInit {
       title: 'Thanh toán',
       desc: 'Tiến hành thanh toán và nhận ngay nguyên liệu tươi ngon tại nhà.',
       tone: 'orange',
+      bgImage: '/images/CONGTHUC/thanhtoan.png',
     },
   ];
 
@@ -167,7 +174,13 @@ export class RecipesPageComponent implements OnInit {
   }
 
   select(r: Recipe): void {
-    this.selected.set(r);
+    // Clone recipe and initialize all ingredients to be checked by default
+    const clonedRecipe: Recipe = {
+      ...r,
+      ingredients: r.ingredients.map(ing => ({ ...ing, checked: true }))
+    };
+    
+    this.selected.set(clonedRecipe);
     requestAnimationFrame(() => {
       const detailEl = document.getElementById('recipeDetailCard');
       if (detailEl) {
@@ -188,26 +201,55 @@ export class RecipesPageComponent implements OnInit {
   addAllToCart(): void {
     const recipe = this.selected();
     if (!recipe) return;
-    this.prodSvc.getProducts().subscribe((allProducts) => {
+
+    // Filter checked ingredients
+    const selectedIngs = recipe.ingredients.filter(ing => ing.checked !== false);
+    
+    // Check if user selected any ingredients at all
+    if (selectedIngs.length === 0) {
+      this.toast.info('Vui lòng chọn nguyên liệu để thêm vào giỏ');
+      return;
+    }
+
+    const totalToAdd = recipe.ingredients.length;
+
+    // Build specific search requests for each ingredient to bypass pagination limits
+    const requests = selectedIngs.map(ing => 
+      this.prodSvc.getProducts({ q: ing.name, _limit: 10 }).pipe(
+        map(products => {
+          const kw = ing.name.toLowerCase();
+          // Find closest product match
+          return products.find(p => 
+            p.name.toLowerCase().includes(kw) || kw.includes(p.name.toLowerCase())
+          );
+        }),
+        catchError(() => of(undefined))
+      )
+    );
+
+    // Wait for all searches to finish
+    forkJoin(requests).subscribe((matches) => {
       let added = 0;
       let missing = 0;
-      recipe.ingredients.forEach((ing) => {
-        const kw = ing.name.toLowerCase();
-        const match = allProducts.find(
-          (p) => p.name.toLowerCase().includes(kw) || kw.includes(p.name.toLowerCase()),
-        );
+
+      matches.forEach((match) => {
         if (match) {
+          // Add to system cart service to immediately update global cart state
           this.cart.addToCart(match, 1);
           added++;
         } else {
           missing++;
         }
       });
-      if (missing === 0) {
-        this.toast.success(`Đã thêm ${added} nguyên liệu vào giỏ hàng!`);
+
+      // Show toast notifications reflecting true results
+      if (added === 0 && missing > 0) {
+        this.toast.error(`Không thể thêm vào giỏ (không tìm thấy ${missing} sản phẩm)`);
+      } else if (missing === 0) {
+        this.toast.success(`Đã thêm ${added}/${totalToAdd} nguyên liệu vào giỏ`);
       } else {
         this.toast.success(
-          `Đã thêm ${added}/${added + missing} nguyên liệu (${missing} sản phẩm không tìm thấy)`,
+          `Đã thêm ${added}/${totalToAdd} nguyên liệu vào giỏ, ${missing} sản phẩm không tìm thấy`
         );
       }
     });

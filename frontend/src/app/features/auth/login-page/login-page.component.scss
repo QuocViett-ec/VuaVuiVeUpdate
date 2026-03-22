@@ -150,8 +150,13 @@
 }
 .blenda {
   font-family: 'Blenda Script', 'Georgia', cursive;
-  font-size: 1.8rem;
+  font-size: 2.7rem;
   color: #1b2a1e;
+  background: linear-gradient(135deg, #1b5e20, #66bb6a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
 }
 .hint-caps {
   color: #f57c00;

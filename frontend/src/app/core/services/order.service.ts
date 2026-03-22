@@ -19,6 +19,12 @@ export interface BulkOrderUpdateResult {
   requested: number;
 }
 
+export interface ProductReviewInput {
+  productId: string;
+  rating: number;
+  comment?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OrderService {
   private readonly api = environment.apiBase;
@@ -43,6 +49,14 @@ export class OrderService {
           quantity: Number(item?.quantity ?? 0),
           price: Number(item?.price ?? 0),
           subtotal: Number(item?.subtotal ?? 0),
+          imageUrl:
+            item?.imageUrl ??
+            item?.image ??
+            item?.productImage ??
+            item?.product?.imageUrl ??
+            item?.product?.img ??
+            '',
+          productImage: item?.productImage ?? item?.product?.imageUrl ?? item?.product?.img ?? '',
         }))
       : [];
 
@@ -251,6 +265,35 @@ export class OrderService {
     return this.http
       .patch<any>(`${this.api}/api/orders/${id}/cancel`, {}, this.writeOptions)
       .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
+  }
+
+  getMyOrderReviews(orderId: string): Observable<any[]> {
+    return this.http
+      .get<any>(`${this.api}/api/orders/${orderId}/reviews/me`, {
+        withCredentials: true,
+      })
+      .pipe(
+        map((res: any) => {
+          const list = Array.isArray(res) ? res : (res?.data ?? []);
+          return Array.isArray(list) ? list : [];
+        }),
+        catchError(() => of([])),
+      );
+  }
+
+  submitOrderReviews(orderId: string, reviews: ProductReviewInput[]): Observable<any[]> {
+    return this.http
+      .post<any>(
+        `${this.api}/api/orders/${orderId}/reviews`,
+        { reviews },
+        this.writeOptions,
+      )
+      .pipe(
+        map((res: any) => {
+          const list = Array.isArray(res) ? res : (res?.data ?? []);
+          return Array.isArray(list) ? list : [];
+        }),
+      );
   }
 
   bulkUpdateOrderStatus(orderIds: string[], status: string): Observable<BulkOrderUpdateResult> {

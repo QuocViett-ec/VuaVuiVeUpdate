@@ -3,6 +3,7 @@
 const mongoose = require("mongoose");
 const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
+const Review = require("../models/Review.model");
 const { publishToUser } = require("../services/realtime-bus");
 const { createAuditLog } = require("./user.controller");
 const { validateVoucher, markVoucherUsed } = require("./voucher.controller");
@@ -21,6 +22,168 @@ const ALLOWED_TRANSITIONS = {
   shipping: ["delivered"],
   delivered: [],
   cancelled: [],
+};
+
+function buildOrderQuery(id) {
+  const isObjectId = /^[a-f\d]{24}$/i.test(id);
+  return isObjectId
+    ? { $or: [{ _id: id }, { orderId: id }] }
+    : { orderId: id };
+}
+
+/**
+ * GET /api/orders/:id/reviews/me
+ * Lấy các review của chính user cho đơn hàng này
+ */
+exports.getMyOrderReviews = async (req, res, next) => {
+  try {
+    const query = buildOrderQuery(req.params.id);
+    const order = await Order.findOne(query).lean();
+
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy đơn hàng" });
+    }
+
+    const isOwner = String(order.userId) === String(req.session.userId);
+    const isAdmin = String(req.session.role || "") === "admin";
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền xem đánh giá của đơn hàng này",
+      });
+    }
+
+    const reviews = await Review.find({
+      userId: req.session.userId,
+      orderId: order._id,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({ success: true, data: reviews });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/orders/:id/reviews
+ * Body: { reviews: [{ productId, rating, comment }] }
+ */
+exports.submitOrderReviews = async (req, res, next) => {
+  try {
+    const query = buildOrderQuery(req.params.id);
+    const order = await Order.findOne(query).lean();
+
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy đơn hàng" });
+    }
+
+    const isOwner = String(order.userId) === String(req.session.userId);
+    if (!isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền đánh giá đơn hàng này",
+      });
+    }
+
+    if (String(order.status || "") !== "delivered") {
+      return res.status(400).json({
+        success: false,
+        message: "Chỉ có thể đánh giá khi đơn hàng đã giao thành công",
+      });
+    }
+
+    const reviews = Array.isArray(req.body?.reviews) ? req.body.reviews : [];
+    if (!reviews.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng gửi ít nhất 1 đánh giá sản phẩm",
+      });
+    }
+
+    const orderItems = Array.isArray(order.items) ? order.items : [];
+    const orderItemByProduct = new Map(
+      orderItems.map((it) => [String(it.productId), it]),
+    );
+
+    const payload = [];
+    for (const row of reviews) {
+      const productId = String(row?.productId || "").trim();
+      const rating = Number(row?.rating || 0);
+      const comment = String(row?.comment || "").trim();
+
+      if (!productId || !orderItemByProduct.has(productId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Đánh giá có sản phẩm không thuộc đơn hàng",
+        });
+      }
+
+      if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+        return res.status(400).json({
+          success: false,
+          message: "Số sao phải trong khoảng từ 1 đến 5",
+        });
+      }
+
+      if (comment.length > 500) {
+        return res.status(400).json({
+          success: false,
+          message: "Nội dung đánh giá tối đa 500 ký tự",
+        });
+      }
+
+      const item = orderItemByProduct.get(productId);
+      payload.push({
+        productId,
+        productName: String(item?.productName || ""),
+        productImage: String(
+          item?.productImage || item?.imageUrl || item?.image || "",
+        ),
+        rating,
+        comment,
+      });
+    }
+
+    const saved = [];
+    for (const row of payload) {
+      const doc = await Review.findOneAndUpdate(
+        {
+          userId: req.session.userId,
+          orderId: order._id,
+          productId: row.productId,
+        },
+        {
+          $set: {
+            orderCode: String(order.orderId || order._id),
+            productName: row.productName,
+            productImage: row.productImage,
+            rating: row.rating,
+            comment: row.comment,
+          },
+        },
+        {
+          upsert: true,
+          new: true,
+          setDefaultsOnInsert: true,
+        },
+      ).lean();
+      saved.push(doc);
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Gửi đánh giá thành công",
+      data: saved,
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 /**

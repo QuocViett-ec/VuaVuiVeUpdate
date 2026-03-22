@@ -9,7 +9,11 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { ProductService } from '../../../core/services/product.service';
+import {
+  ProductService,
+  ProductReview,
+  ProductReviewResponse,
+} from '../../../core/services/product.service';
 import { CartService } from '../../../core/services/cart.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Product } from '../../../core/models/product.model';
@@ -48,6 +52,8 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
   related = signal<Product[]>([]);
   loading = signal(true);
   qty = signal(1);
+  reviews = signal<ProductReview[]>([]);
+  reviewStats = signal<ProductReviewResponse | null>(null);
 
   catLabel = computed(() => {
     const p = this.product();
@@ -76,7 +82,20 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
     this.prodSvc.getProductById(id).subscribe((p) => {
       this.product.set(p);
       this.loading.set(false);
-      if (p) this.loadRelated(p.cat, p.id);
+      if (p) {
+        this.loadRelated(p.cat, p.id);
+        this.loadReviews(p.id);
+      } else {
+        this.reviews.set([]);
+        this.reviewStats.set(null);
+      }
+    });
+  }
+
+  private loadReviews(productId: string): void {
+    this.prodSvc.getProductReviews(productId).subscribe((data) => {
+      this.reviewStats.set(data);
+      this.reviews.set(data.reviews);
     });
   }
 
@@ -105,5 +124,10 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
     if (!p) return;
     this.cartSvc.addToCart(p, this.qty());
     this.toast.success(`Đã thêm ${this.qty()} × ${p.name} vào giỏ!`);
+  }
+
+  ratingStars(rating: number): string {
+    const rounded = Math.max(1, Math.min(5, Math.round(Number(rating || 0))));
+    return '★'.repeat(rounded) + '☆'.repeat(5 - rounded);
   }
 }

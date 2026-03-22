@@ -22,8 +22,9 @@
   }
 
   h1 {
-    font-size: clamp(2rem, 5vw, 3.5rem);
-    font-weight: 800;
+    font-size: clamp(3rem, 7.5vw, 5.25rem); /* 2rem -> 3, 5vw -> 7.5, 3.5rem -> 5.25 */
+    font-weight: normal;
+    font-family: 'Blenda', 'Be Vietnam Pro', cursive;
     color: #1b4332;
     margin-bottom: 16px;
   }
@@ -60,6 +61,8 @@
   }
   &__title {
     font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: normal;
+    font-family: 'Blenda', 'Be Vietnam Pro', cursive;
     color: #1b4332;
     margin-bottom: 16px;
   }
@@ -90,7 +93,14 @@
   }
   .pillars-title {
     font-size: clamp(1.5rem, 3vw, 2.2rem);
+    font-weight: normal;
+    font-family: 'Blenda', 'Be Vietnam Pro', cursive;
     color: #1b4332;
+    background: linear-gradient(135deg, #1b5e20, #66bb6a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
   }
   .pillars-subtitle {
     color: #666;
@@ -136,9 +146,16 @@
 
   .title {
     text-align: center;
-    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-size: clamp(2.1rem, 4.5vw, 3rem); /* 1.4rem -> 2.1, 3vw -> 4.5, 2rem -> 3 */
+    font-weight: normal;
+    font-family: 'Blenda', 'Be Vietnam Pro', cursive;
     color: #1b4332;
     margin-bottom: 40px;
+    background: linear-gradient(135deg, #1b5e20, #66bb6a);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
   }
 
   .tech-grid {
@@ -191,8 +208,15 @@
     text-align: center;
     margin-bottom: 36px;
     h2 {
-      font-size: clamp(1.4rem, 3vw, 1.8rem);
+      font-size: clamp(2.1rem, 4.5vw, 2.7rem); /* 1.4rem -> 2.1, 3vw -> 4.5, 1.8rem -> 2.7 */
+      font-weight: normal;
+      font-family: 'Blenda', 'Be Vietnam Pro', cursive;
       color: #1b4332;
+      background: linear-gradient(135deg, #1b5e20, #66bb6a);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 10px rgba(102, 187, 106, 0.6));
     }
   }
 
