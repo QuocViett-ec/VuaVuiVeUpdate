@@ -295,15 +295,40 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1.4rem;
+  /* Thêm margin-top cho toàn khung lưới để tạo chỗ trống cho phần hình trồi lên (ngăn hình khỏi đè lên Title) */
+  margin-top: 60px; 
 }
 
 .howto-card {
+  position: relative;
+  /* Xóa bỏ overflow: hidden để cho phép tấm hình lấn ra ngoài khung card */
+  /* overflow: hidden; */ 
   border-radius: 24px;
-  padding: 2rem 1.5rem 1.7rem;
   text-align: center;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+
+  /* CSS cho hình ảnh trồi ra ngoài */
+  .popout-image {
+    position: absolute;
+    top: -50px; /* Đẩy lùi ảnh lên trên cao hơn mí card 50px */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 250px; /* Cân chỉnh kích thước ảnh cho phù hợp với card của bạn */
+    height: auto;
+    z-index: 10;
+    /* Optional: Phủ bóng dưới đáy món ăn, làm pop-out dính chặt ảo giác 3D */
+    filter: drop-shadow(0 15px 15px rgba(0,0,0,0.15));
+  }
+
+  .howto-content {
+    position: relative;
+    /* Tăng đệm phía trên (padding-top) để chữ được dồn thấp xuống, không đè lấp vào phần dưới của ảnh */
+    padding: 100px 1.5rem 1.7rem;
+    z-index: 2;
+    flex-grow: 1;
+  }
 
   &[data-tone='green'] {
     background: #eafaf0;
@@ -347,7 +372,8 @@
   font-size: 3.3rem;
   font-weight: 900;
   letter-spacing: 1px;
-  margin: 0.4rem 0 0.6rem !important;
+  /* margin bị xoá vì ta cần nén chữ ngắn hơn sau khi nhường đỉnh thẻ cho ảnh */
+  margin: 0 0 0.6rem !important;
 }
 
 .howto-icon-wrap {

@@ -1,10 +1,41 @@
 
 .page-hero {
-  background: linear-gradient(135deg, #d7fbe8 0%, #f7fff5 100%);
-  padding: 3.5rem 0 2.5rem;
-  border-bottom: 1px solid #d4edda;
-  .page-hero__content { max-width: 640px; }
+  position: relative;
+  overflow: hidden;
+  /* Đặt chiều cao lớn hơn và dùng flex căn giữa nếu muốn cover cả khung video lớn */
+  min-height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: none; /* Đã xoá border viền */
+  
+  .page-hero__content { 
+    position: relative;
+    z-index: 2;
+    max-width: 640px; 
+    text-align: center; /* Khuyến nghị căn giữa chữ khi banner lớn */
+  }
 }
+
+.hero-bg-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  z-index: 0;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  opacity: 1; /* Bỏ lớp mờ đục trên video */
+}
+
+/* Xoá gradient chèn để trả lại 100% độ rõ nguyên bản của video */
+.hero-overlay {
+  display: none;
+}
+
 .eyebrow { font-size: .85rem; font-weight: 700; color: #2e7d32; letter-spacing: .05em; text-transform: uppercase; }
 .page-title { font-size: 2rem; font-weight: 800; color: #1b2a1e; margin: .5rem 0; }
 .page-description { color: #555; margin-bottom: 1rem; }

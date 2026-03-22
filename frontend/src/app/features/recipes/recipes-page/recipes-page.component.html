@@ -73,6 +73,7 @@
               <th>Nguyên liệu</th>
               <th>Số lượng</th>
               <th>Đơn vị</th>
+              <th style="width: 80px; text-align: center;">Chọn</th>
             </tr>
           </thead>
           <tbody>
@@ -81,6 +82,9 @@
                 <td>{{ ing.name }}</td>
                 <td>{{ ing.qty }}</td>
                 <td>{{ ing.unit }}</td>
+                <td style="text-align: center;">
+                  <input type="checkbox" [(ngModel)]="ing.checked" [attr.aria-label]="'Chọn ' + ing.name" style="width: 18px; height: 18px; cursor: pointer; accent-color: #2e7d32;"/>
+                </td>
               </tr>
             }
           </tbody>
@@ -129,12 +133,14 @@
         <div class="howto-grid">
           @for (step of howToSteps; track step.id) {
             <article class="howto-card" [attr.data-tone]="step.tone">
-              <div class="howto-icon-wrap">
-                <span class="material-symbols-outlined g-icon">{{ step.icon }}</span>
+              <!-- Pop-out Image -->
+              <img [src]="step.bgImage" [alt]="step.title" class="popout-image" />
+              
+              <div class="howto-content">
+                <p class="howto-number">{{ step.number }}</p>
+                <h3>{{ step.title }}</h3>
+                <p>{{ step.desc }}</p>
               </div>
-              <p class="howto-number">{{ step.number }}</p>
-              <h3>{{ step.title }}</h3>
-              <p>{{ step.desc }}</p>
             </article>
           }
         </div>
