@@ -1,6 +1,8 @@
-﻿import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { Component, Inject, PLATFORM_ID } from '@angular/core';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { Component, Inject, PLATFORM_ID, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { timeout } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
 type ChatRole = 'bot' | 'user';
@@ -16,6 +18,13 @@ interface SuggestionItem {
   answer: string;
 }
 
+interface ChatbotResponse {
+  success?: boolean;
+  reply?: string;
+  message?: string;
+  detail?: string;
+}
+
 @Component({
   selector: 'app-chat-shell',
   standalone: true,
@@ -27,7 +36,7 @@ interface SuggestionItem {
           <div>
             <div class="vv-status">Ho tro nhanh</div>
             <h3>VuiVe Bot</h3>
-            <p>Tra loi nhanh bang cau tra loi san co.</p>
+            <p>Tra loi nhanh bang AI va cau tra loi san co.</p>
           </div>
           <button class="vv-close" type="button" (click)="isOpen = false" aria-label="Dong">x</button>
         </header>
@@ -328,8 +337,9 @@ interface SuggestionItem {
   `],
 })
 export class ChatShellComponent {
-  readonly enabled = environment.chatbotEnabled && !!environment.chatbotWebhookUrl;
-  readonly webhookTimeoutMs = 8000;
+  private readonly http = inject(HttpClient);
+  readonly enabled = environment.chatbotEnabled && !!environment.chatbotApi;
+  readonly webhookTimeoutMs = 6000;
   isOpen = true;
   isSending = false;
   draft = '';
@@ -360,7 +370,7 @@ export class ChatShellComponent {
 
   messages: ChatMessage[] = [
     { role: 'bot', text: 'Xin chao, minh la VuiVe Bot.' },
-    { role: 'bot', text: 'Ban co the bam cac goi y de nhan cau tra loi nhanh ngay lap tuc. Neu tu go cau hoi, minh se goi n8n va hien ro cau tra loi tu n8n.' },
+    { role: 'bot', text: 'Ban co the bam cac goi y de nhan cau tra loi nhanh. Neu tu go cau hoi, minh se tra loi bang AI.' },
   ];
 
   constructor(@Inject(PLATFORM_ID) platformId: object) {
@@ -376,7 +386,7 @@ export class ChatShellComponent {
     this.scrollToBottom();
   }
 
-  async sendText(): Promise<void> {
+  sendText(): void {
     const text = this.draft.trim();
     if (!text || this.isSending) return;
 
@@ -385,88 +395,67 @@ export class ChatShellComponent {
     this.isSending = true;
     this.scrollToBottom();
 
-    try {
-      const reply = await this.requestN8nReply(text);
-      this.messages = [...this.messages, { role: 'bot', text: `[n8n] ${reply}` }];
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const timeoutError =
-        (error instanceof Error && error.name === 'AbortError') ||
-        message.toLowerCase().includes('timeout');
-      this.messages = [
-        ...this.messages,
+    this.http
+      .post<ChatbotResponse>(
+        environment.chatbotApi,
         {
-          role: 'bot',
-          text: timeoutError
-            ? 'n8n phan hoi cham qua, minh da dung cho de ban khong doi lau. Ban thu hoi ngan gon hon hoac bam cau hoi goi y nha.'
-            : `Ket noi n8n dang loi: ${message}`,
+          message: text,
+          sessionId: this.sessionId,
         },
-      ];
-    } finally {
-      this.isSending = false;
-    }
+      )
+      .pipe(timeout(this.webhookTimeoutMs))
+      .subscribe({
+        next: (response) => {
+          if (!response?.success || !response.reply) {
+            throw new Error(response?.message || 'AI returned no reply');
+          }
 
-    this.scrollToBottom();
+          this.messages = [...this.messages, { role: 'bot', text: `[AI] ${response.reply.trim()}` }];
+          this.isSending = false;
+          this.scrollToBottom();
+        },
+        error: (error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          const fallback = this.resolveLocalFallback(text);
+          const timeoutError = message.toLowerCase().includes('timeout');
+          this.messages = [
+            ...this.messages,
+            {
+              role: 'bot',
+              text: timeoutError
+                ? fallback || 'AI phan hoi cham qua, minh da dung cho de ban khong doi lau. Ban thu hoi ngan gon hon hoac bam cau hoi goi y nha.'
+                : fallback || `Ket noi AI dang loi: ${message}`,
+            },
+          ];
+          this.isSending = false;
+          this.scrollToBottom();
+        },
+      });
   }
 
-  private async requestN8nReply(text: string): Promise<string> {
-    const controller = new AbortController();
-    const fetchPromise = fetch(environment.chatbotWebhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chatInput: text,
-        sessionId: this.sessionId,
-      }),
-      cache: 'no-store',
-      mode: 'cors',
-      signal: controller.signal,
-    });
+  private resolveLocalFallback(text: string): string {
+    const normalized = text
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
 
-    const timeoutPromise = new Promise<Response>((_, reject) => {
-      const timer = window.setTimeout(() => {
-        controller.abort();
-        reject(new Error(`Timeout after ${this.webhookTimeoutMs}ms`));
-      }, this.webhookTimeoutMs);
-
-      fetchPromise.finally(() => window.clearTimeout(timer));
-    });
-
-    const response = await Promise.race([fetchPromise, timeoutPromise]);
-
-    if (!response.ok) {
-      throw new Error(`Webhook failed: ${response.status}`);
+    if (normalized.includes('giao hang') || normalized.includes('ship') || normalized.includes('van chuyen')) {
+      return 'Tam thoi AI dang ban. Ve giao hang, don thuong duoc giao trong 1-3 gio tuy khu vuc va thoi diem dat.';
     }
 
-    const raw = await response.text();
-    return this.extractText(raw) || 'Minh da nhan cau hoi nhung chua lay duoc noi dung tra loi.';
-  }
+    if (normalized.includes('dat hang') || normalized.includes('mua hang') || normalized.includes('thanh toan')) {
+      return 'Tam thoi AI dang ban. Ban co the chon san pham, them vao gio, vao thanh toan, nhap dia chi va xac nhan don hang.';
+    }
 
-  private extractText(raw: string): string {
-    try {
-      return this.extractAny(JSON.parse(raw));
-    } catch {
-      return raw.trim();
+    if (normalized.includes('lien he') || normalized.includes('ho tro') || normalized.includes('hotline')) {
+      return 'Tam thoi AI dang ban. Ban vui long xem thong tin lien he o chan trang hoac gui yeu cau qua trang lien he de duoc ho tro nhanh.';
     }
-  }
 
-  private extractAny(value: unknown): string {
-    if (typeof value === 'string') return value.trim();
-    if (Array.isArray(value)) {
-      return value.map((v) => this.extractAny(v)).filter(Boolean).join('\n\n').trim();
+    if (normalized.includes('san pham') || normalized.includes('ban chay') || normalized.includes('noi bat')) {
+      return 'Tam thoi AI dang ban. Ban co the xem cac nhom rau cu tuoi, trai cay theo mua, do kho va cac mat hang ban chay ngay tren trang chu.';
     }
-    if (!value || typeof value !== 'object') return '';
 
-    const record = value as Record<string, unknown>;
-    const preferred = ['output', 'text', 'message', 'response', 'reply', 'content'];
-    for (const key of preferred) {
-      const out = this.extractAny(record[key]);
-      if (out) return out;
-    }
-    for (const nested of Object.values(record)) {
-      const out = this.extractAny(nested);
-      if (out) return out;
-    }
     return '';
   }
 
@@ -491,3 +480,4 @@ export class ChatShellComponent {
     return created;
   }
 }
+
