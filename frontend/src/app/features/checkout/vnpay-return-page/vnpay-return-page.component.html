@@ -11,24 +11,34 @@
   @if (!loading() && pending()) {
     <div class="vp-state">
       <svg class="vp-icon vp-icon--pending" viewBox="0 0 80 80">
-        <circle cx="40" cy="40" r="35" stroke="#10b981" stroke-width="5" fill="none" />
-        <path d="M40 22 V42 L52 52" stroke="#10b981" stroke-width="5" fill="none"
-          stroke-linecap="round" stroke-linejoin="round" />
+        <circle cx="40" cy="40" r="35" stroke="#ae2070" stroke-width="5" fill="none" />
+        <path
+          d="M40 22 V42 L52 52"
+          stroke="#ae2070"
+          stroke-width="5"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
       </svg>
-      <h2 class="vp-heading">Đang xác nhận thanh toán...</h2>
+      <h2 class="vp-heading">Đang xác nhận giao dịch...</h2>
       <p class="vp-sub">
-        VNPay đã xác thực giao dịch. Hệ thống đang cập nhật trạng thái đơn hàng.<br />
+        VNPay đã nhận thanh toán. Hệ thống đang xác nhận và cập nhật đơn hàng.<br />
         <small>Vui lòng không đóng trang. Đơn hàng sẽ được xác nhận trong vài giây.</small>
       </p>
 
       <table class="vp-table">
         <tr>
           <td>Mã đơn hàng</td>
-          <td><strong>{{ orderId() }}</strong></td>
+          <td>
+            <strong>{{ orderId() }}</strong>
+          </td>
         </tr>
         <tr>
           <td>Số tiền</td>
-          <td><strong>{{ amount() }}</strong></td>
+          <td>
+            <strong>{{ amount() }}</strong>
+          </td>
         </tr>
         @if (bankCode()) {
           <tr>
@@ -44,10 +54,6 @@
         }
       </table>
 
-      <div class="vp-actions">
-        <a routerLink="/orders" class="btn btn--primary">Xem đơn hàng</a>
-        <a routerLink="/" class="btn btn--outline">Về trang chủ</a>
-      </div>
       <p class="vp-redirect">Tự động chuyển về trang đơn hàng sau {{ countdown() }}s...</p>
     </div>
   }
@@ -57,7 +63,12 @@
     <div class="vp-state">
       <svg class="vp-icon vp-icon--error" viewBox="0 0 80 80">
         <circle cx="40" cy="40" r="35" stroke="#ef4444" stroke-width="5" fill="none" />
-        <path d="M28 28L52 52M52 28L28 52" stroke="#ef4444" stroke-width="5" stroke-linecap="round" />
+        <path
+          d="M28 28L52 52M52 28L28 52"
+          stroke="#ef4444"
+          stroke-width="5"
+          stroke-linecap="round"
+        />
       </svg>
       <h2 class="vp-heading">Thanh toán không thành công</h2>
       <p class="vp-sub">{{ message() }}</p>
