@@ -1,9 +1,10 @@
 export const environment = {
   production: true,
   chatbotEnabled: true,
-  apiBase: '/api',
+  apiBase: '',
   chatbotApi: '/api/chatbot',
   mlApi: '/ml',
+  paymentApi: '/api/payment',
   vnpayApi: '/vnpay',
   customerPortalBase: 'https://app.vuavuive.vn',
   adminPortalBase: 'https://admin.vuavuive.vn',
