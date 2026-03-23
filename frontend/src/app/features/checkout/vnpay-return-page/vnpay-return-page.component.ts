@@ -29,10 +29,8 @@ import { PaymentService } from '../../../core/services/payment.service';
 })
 export class VnpayReturnPageComponent implements OnInit, OnDestroy {
   loading = signal(true);
-  /** true chỉ khi verify thành công và code=00 */
+  /** true khi backend verify callback VNPay thành công */
   success = signal(false);
-  /** true khi verify thành công nhưng chờ IPN commit (pending) */
-  pending = signal(false);
   orderId = signal('');
   amount = signal('');
   bankCode = signal('');
@@ -98,7 +96,6 @@ export class VnpayReturnPageComponent implements OnInit, OnDestroy {
       };
       // KHÔNG set success(true) trong nhánh lỗi
       this.success.set(false);
-      this.pending.set(false);
       this.message.set(messages[rawCode] ?? 'Thanh toán không thành công.');
       this.loading.set(false);
       this._startCountdown();
@@ -113,11 +110,9 @@ export class VnpayReturnPageComponent implements OnInit, OnDestroy {
     this.paymentSvc.verifyVNPayReturn(p).subscribe({
       next: (verify) => {
         if (verify.success) {
-          // Verify thành công: backend đã xử lý idempotent, UI giữ trạng thái pending ngắn
-          // để người dùng có trải nghiệm nhất quán giữa return và IPN.
           this.orderId.set(orderId);
-          this.pending.set(true);
-          this.success.set(false);
+          this.success.set(true);
+          this.message.set('Thanh toán VNPay thành công. Đơn hàng đã được xác nhận.');
           this.loading.set(false);
           this._startCountdown();
           return;

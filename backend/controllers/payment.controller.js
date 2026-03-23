@@ -421,12 +421,109 @@ exports.vnpayReturn = async (req, res) => {
   const transactionId = String(vnp_Params["vnp_TransactionNo"] || "");
   const paidAmount = Math.round(Number(vnp_Params["vnp_Amount"] || 0) / 100);
 
+  const returnAlreadyPaidIfAny = async (reason) => {
+    if (!orderId) return false;
+    const existingOrder = await findOrderByOrderId(orderId);
+    if (!existingOrder) return false;
+    if (!isExpectedGateway(existingOrder, "vnpay")) return false;
+    if (String(existingOrder.payment?.status || "") !== "paid") return false;
+
+    const { updated } = await markOrderPaidWithGateway(existingOrder, {
+      gateway: "vnpay",
+      transactionId:
+        transactionId || String(existingOrder.payment?.transactionId || ""),
+      transactionTime: existingOrder.payment?.transactionTime || new Date(),
+      amount: Number(
+        existingOrder.payment?.amount || existingOrder.totalAmount || 0,
+      ),
+      gatewayResponse: req.query,
+    });
+
+    if (updated) {
+      publishOrderStatusUpdated(existingOrder, "vnpay_return");
+    }
+
+    payLog("vnpay.return.already_paid", {
+      gateway: "vnpay",
+      orderId,
+      transactionId,
+      resultCode: code,
+      reason,
+      source: "return",
+    });
+
+    return res.json({
+      success: true,
+      code: "00",
+      message: "Thanh toán thành công",
+      orderId: String(existingOrder.orderId || orderId),
+      transactionId:
+        transactionId || String(existingOrder.payment?.transactionId || ""),
+      amount: Number(
+        existingOrder.payment?.amount || existingOrder.totalAmount || 0,
+      ),
+    });
+  };
+
   if (!secureHash || secureHash !== signed) {
+    if (await returnAlreadyPaidIfAny("signature_invalid_but_order_paid"))
+      return;
+
+    const isDevSigBypassEnabled =
+      process.env.NODE_ENV !== "production" &&
+      String(process.env.VNPAY_DEV_ALLOW_RETURN_SIG_BYPASS || "true") !==
+        "false";
+
+    if (isDevSigBypassEnabled && code === "00" && orderId) {
+      const orderForBypass = await findOrderByOrderId(orderId);
+      if (
+        orderForBypass &&
+        isExpectedGateway(orderForBypass, "vnpay") &&
+        isOrderAmountMatched(orderForBypass, paidAmount)
+      ) {
+        const { updated } = await markOrderPaidWithGateway(orderForBypass, {
+          gateway: "vnpay",
+          transactionId,
+          transactionTime: new Date(),
+          amount: paidAmount,
+          gatewayResponse: req.query,
+        });
+
+        if (updated) {
+          publishOrderStatusUpdated(orderForBypass, "vnpay_return_dev_bypass");
+        }
+
+        payLog("vnpay.return.dev_sig_bypass_commit", {
+          gateway: "vnpay",
+          orderId,
+          transactionId,
+          resultCode: code,
+          signatureValid: false,
+          amountExpected: orderForBypass.totalAmount,
+          amountActual: paidAmount,
+          idempotentHit: !updated,
+          source: "return",
+          queryKeys: Object.keys(req.query || {}).sort(),
+        });
+
+        return res.json({
+          success: true,
+          code: "00",
+          message: "Thanh toán thành công",
+          orderId,
+          transactionId,
+          amount: paidAmount,
+        });
+      }
+    }
+
     payLog("vnpay.return.sig_fail", {
       gateway: "vnpay",
       orderId,
       transactionId,
       signatureValid: false,
+      amountActual: paidAmount,
+      queryKeys: Object.keys(req.query || {}).sort(),
       source: "return",
     });
     return res.json({
@@ -525,6 +622,8 @@ exports.vnpayReturn = async (req, res) => {
       amountActual: paidAmount,
       source: "return",
     });
+
+    if (await returnAlreadyPaidIfAny("result_non_zero_but_order_paid")) return;
 
     return res.json({
       success: false,
