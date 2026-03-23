@@ -7,28 +7,35 @@
     </div>
   }
 
-  <!-- Pending: MoMo xác nhận nhưng chờ IPN commit -->
-  @if (!loading() && pending()) {
+  <!-- Success -->
+  @if (!loading() && success()) {
     <div class="mp-state">
-      <svg class="mp-icon mp-icon--pending" viewBox="0 0 80 80">
-        <circle cx="40" cy="40" r="35" stroke="#ae2070" stroke-width="5" fill="none" />
-        <path d="M40 22 V42 L52 52" stroke="#ae2070" stroke-width="5" fill="none"
-          stroke-linecap="round" stroke-linejoin="round" />
+      <svg class="mp-icon mp-icon--success" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="35" stroke="#22c55e" stroke-width="5" fill="none" />
+        <path
+          d="M24 41 L35 52 L57 29"
+          stroke="#22c55e"
+          stroke-width="5"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
       </svg>
-      <h2 class="mp-heading">Đang xác nhận giao dịch...</h2>
-      <p class="mp-sub">
-        MoMo đã nhận thanh toán. Hệ thống đang xác nhận và cập nhật đơn hàng.<br />
-        <small>Vui lòng không đóng trang. Đơn hàng sẽ được cập nhật trong vài giây.</small>
-      </p>
+      <h2 class="mp-heading">Thanh toán thành công</h2>
+      <p class="mp-sub">{{ message() }}</p>
 
       <table class="mp-table">
         <tr>
           <td>Mã đơn hàng</td>
-          <td><strong>{{ orderId() }}</strong></td>
+          <td>
+            <strong>{{ orderId() }}</strong>
+          </td>
         </tr>
         <tr>
           <td>Số tiền</td>
-          <td><strong>{{ amount() }}</strong></td>
+          <td>
+            <strong>{{ amount() }}</strong>
+          </td>
         </tr>
       </table>
 
@@ -37,11 +44,16 @@
   }
 
   <!-- Error: thanh toán thất bại hoặc bị huỷ -->
-  @if (!loading() && !pending() && !success()) {
+  @if (!loading() && !success()) {
     <div class="mp-state">
       <svg class="mp-icon mp-icon--error" viewBox="0 0 80 80">
         <circle cx="40" cy="40" r="35" stroke="#ef4444" stroke-width="5" fill="none" />
-        <path d="M28 28L52 52M52 28L28 52" stroke="#ef4444" stroke-width="5" stroke-linecap="round" />
+        <path
+          d="M28 28L52 52M52 28L28 52"
+          stroke="#ef4444"
+          stroke-width="5"
+          stroke-linecap="round"
+        />
       </svg>
       <h2 class="mp-heading">Thanh toán không thành công</h2>
       <p class="mp-sub">{{ message() }}</p>

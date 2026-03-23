@@ -29,10 +29,8 @@ export class MomoReturnPageComponent implements OnInit, OnDestroy {
   private paymentSvc = inject(PaymentService);
 
   loading = signal(true);
-  /** true chỉ khi verify thành công (resultCode === 0) */
+  /** true khi backend verify callback MoMo thành công */
   success = signal(false);
-  /** true khi thanh toán thành công nhưng vẫn đang đợi IPN xác nhận */
-  pending = signal(false);
   orderId = signal('');
   amount = signal('');
   message = signal('');
@@ -70,7 +68,6 @@ export class MomoReturnPageComponent implements OnInit, OnDestroy {
         '9000': 'Giao dịch bị hủy bởi người dùng.',
       };
       this.success.set(false);
-      this.pending.set(false);
       this.message.set(momoErrors[String(rawCode)] ?? fallbackMessage ?? errMessage);
       this.loading.set(false);
       this._startCountdown('/orders');
@@ -85,8 +82,8 @@ export class MomoReturnPageComponent implements OnInit, OnDestroy {
       next: (verify) => {
         if (verify.success) {
           this.orderId.set(String(verify.orderId || orderId));
-          this.pending.set(true);
-          this.success.set(false);
+          this.success.set(true);
+          this.message.set('Thanh toán MoMo thành công. Đơn hàng đã được xác nhận.');
           this.loading.set(false);
           this._startCountdown('/orders');
           return;

@@ -26,6 +26,10 @@ exports.csrfProtection = (req, res, next) => {
   ]);
   if (publicAuthPaths.has(req.path)) return next();
 
+  // Payment provider webhooks (server-to-server) cannot attach custom browser header.
+  const publicWebhookPaths = new Set(["/api/payment/momo/ipn"]);
+  if (publicWebhookPaths.has(req.path)) return next();
+
   const header = req.headers["x-requested-with"];
   if (header !== "XMLHttpRequest") {
     return res.status(403).json({

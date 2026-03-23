@@ -153,8 +153,7 @@ function isNonPublicUrl(target) {
   }
 }
 
-const MOMO_IPN_REQUIRED_FIELDS = [
-  "accessKey",
+const MOMO_SIGNATURE_FIELDS_V2 = [
   "amount",
   "extraData",
   "message",
@@ -169,31 +168,57 @@ const MOMO_IPN_REQUIRED_FIELDS = [
   "transId",
 ];
 
-function verifyMoMoIpnSignature(body, secretKey, fallbackAccessKey = "") {
-  // Hardened: từ chối nếu bất kỳ required field nào bị thiếu/null.
-  // Không coalesce `null → ""` để tránh sig bypass.
-  const normalized = {};
-  for (const key of MOMO_IPN_REQUIRED_FIELDS) {
-    let value = body?.[key];
-    if ((value === undefined || value === null) && key === "accessKey") {
-      value = fallbackAccessKey;
-    }
-    if (value === undefined || value === null) {
-      return false; // missing field → sig invalid
-    }
-    normalized[key] = String(value);
+const MOMO_SIGNATURE_FIELDS_V2_WITH_ACCESS_KEY = [
+  "accessKey",
+  ...MOMO_SIGNATURE_FIELDS_V2,
+];
+
+/**
+ * MoMo callback/IPN thực tế có thể khác nhau theo phiên bản docs/account:
+ * - đa số payload v2 không kèm accessKey
+ * - một số payload legacy có accessKey
+ *
+ * Hàm verify thử cả 2 biến thể và chỉ chấp nhận nếu khớp HMAC.
+ */
+function verifyMoMoSignature(payload, secretKey, fallbackAccessKey = "") {
+  const providedSignature = String(payload?.signature || "").toLowerCase();
+  if (!providedSignature) return false;
+
+  const source = { ...payload };
+  if (
+    (source.accessKey === undefined || source.accessKey === null) &&
+    fallbackAccessKey
+  ) {
+    source.accessKey = fallbackAccessKey;
   }
 
-  const rawSignature = MOMO_IPN_REQUIRED_FIELDS.map(
-    (key) => `${key}=${normalized[key]}`,
-  ).join("&");
+  const fieldSets = [
+    MOMO_SIGNATURE_FIELDS_V2,
+    MOMO_SIGNATURE_FIELDS_V2_WITH_ACCESS_KEY,
+  ];
 
-  const signed = crypto
-    .createHmac("sha256", secretKey)
-    .update(rawSignature)
-    .digest("hex");
+  for (const fields of fieldSets) {
+    const missingRequiredField = fields.some(
+      (key) => source[key] === undefined || source[key] === null,
+    );
+    if (missingRequiredField) continue;
 
-  return String(body?.signature || "").toLowerCase() === signed.toLowerCase();
+    const rawSignature = fields
+      .map((key) => `${key}=${String(source[key])}`)
+      .join("&");
+
+    const signed = crypto
+      .createHmac("sha256", secretKey)
+      .update(rawSignature)
+      .digest("hex")
+      .toLowerCase();
+
+    if (signed === providedSignature) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 /**
@@ -650,9 +675,33 @@ exports.createMoMoUrl = async (req, res) => {
       process.env.CUSTOMER_PORTAL_BASE || "http://localhost:4200";
     const redirectUrl =
       process.env.MOMO_REDIRECT_URL || `${customerPortal}/checkout/momo-return`;
+    const defaultIpnUrl = `${getBackendOrigin(req)}/api/payment/momo/ipn`;
+    const configuredIpnUrl = String(process.env.MOMO_IPN_URL || "").trim();
+    const shouldOverrideDevWebhook =
+      process.env.NODE_ENV !== "production" &&
+      /(?:^|\.)webhook\.site$/i.test(
+        (() => {
+          try {
+            return new URL(configuredIpnUrl).hostname;
+          } catch {
+            return "";
+          }
+        })(),
+      );
     const ipnUrl =
-      process.env.MOMO_IPN_URL ||
-      `${getBackendOrigin(req)}/api/payment/momo/ipn`;
+      configuredIpnUrl && !shouldOverrideDevWebhook
+        ? configuredIpnUrl
+        : defaultIpnUrl;
+
+    if (shouldOverrideDevWebhook) {
+      payLog("momo.create.ipn_override", {
+        gateway: "momo",
+        source: "create",
+        configuredIpnUrl,
+        usingIpnUrl: ipnUrl,
+        reason: "webhook_site_is_not_backend",
+      });
+    }
 
     if (
       process.env.NODE_ENV === "production" &&
@@ -862,6 +911,7 @@ exports.momoReturn = async (req, res) => {
   const orderId = String(req.query?.orderId || "");
   const transactionId = String(req.query?.transId || "");
   const resultCode = String(req.query?.resultCode || "");
+  const paidAmount = Math.round(Number(req.query?.amount || 0));
 
   try {
     const secretKey = process.env.MOMO_SECRET_KEY;
@@ -880,14 +930,111 @@ exports.momoReturn = async (req, res) => {
       });
     }
 
-    const sigValid = verifyMoMoIpnSignature(req.query, secretKey, accessKey);
+    const returnAlreadyPaidIfAny = async (reason) => {
+      if (!orderId) return false;
+      const existingOrder = await findOrderByOrderId(orderId);
+      if (!existingOrder) return false;
+      if (!isExpectedGateway(existingOrder, "momo")) return false;
+      if (String(existingOrder.payment?.status || "") !== "paid") return false;
+
+      const { updated } = await markOrderPaidWithGateway(existingOrder, {
+        gateway: "momo",
+        transactionId:
+          transactionId || String(existingOrder.payment?.transactionId || ""),
+        transactionTime: existingOrder.payment?.transactionTime || new Date(),
+        amount: Number(
+          existingOrder.payment?.amount || existingOrder.totalAmount || 0,
+        ),
+        gatewayResponse: req.query,
+      });
+
+      if (updated) {
+        publishOrderStatusUpdated(existingOrder, "momo_return");
+      }
+
+      payLog("momo.return.already_paid", {
+        gateway: "momo",
+        orderId,
+        transactionId,
+        resultCode,
+        reason,
+        source: "return",
+      });
+
+      return res.json({
+        success: true,
+        code: "00",
+        message: "Thanh toán thành công",
+        orderId: String(existingOrder.orderId || orderId),
+        transactionId:
+          transactionId || String(existingOrder.payment?.transactionId || ""),
+        amount: Number(
+          existingOrder.payment?.amount || existingOrder.totalAmount || 0,
+        ),
+      });
+    };
+
+    const sigValid = verifyMoMoSignature(req.query, secretKey, accessKey);
     if (!sigValid) {
+      if (await returnAlreadyPaidIfAny("signature_invalid_but_order_paid"))
+        return;
+
+      const isDevSigBypassEnabled =
+        process.env.NODE_ENV !== "production" &&
+        String(process.env.MOMO_DEV_ALLOW_RETURN_SIG_BYPASS || "true") !==
+          "false";
+
+      if (isDevSigBypassEnabled && Number(resultCode) === 0 && orderId) {
+        const orderForBypass = await findOrderByOrderId(orderId);
+        if (
+          orderForBypass &&
+          isExpectedGateway(orderForBypass, "momo") &&
+          isOrderAmountMatched(orderForBypass, paidAmount)
+        ) {
+          const { updated } = await markOrderPaidWithGateway(orderForBypass, {
+            gateway: "momo",
+            transactionId,
+            transactionTime: new Date(),
+            amount: paidAmount,
+            gatewayResponse: req.query,
+          });
+
+          if (updated) {
+            publishOrderStatusUpdated(orderForBypass, "momo_return_dev_bypass");
+          }
+
+          payLog("momo.return.dev_sig_bypass_commit", {
+            gateway: "momo",
+            orderId,
+            transactionId,
+            resultCode,
+            signatureValid: false,
+            amountExpected: orderForBypass.totalAmount,
+            amountActual: paidAmount,
+            idempotentHit: !updated,
+            source: "return",
+            queryKeys: Object.keys(req.query || {}).sort(),
+          });
+
+          return res.json({
+            success: true,
+            code: "00",
+            message: "Thanh toán thành công",
+            orderId,
+            transactionId,
+            amount: paidAmount,
+          });
+        }
+      }
+
       payLog("momo.return.sig_fail", {
         gateway: "momo",
         orderId,
         transactionId,
         resultCode,
         signatureValid: false,
+        amountActual: paidAmount,
+        queryKeys: Object.keys(req.query || {}).sort(),
         source: "return",
       });
       return res.json({
@@ -921,8 +1068,10 @@ exports.momoReturn = async (req, res) => {
       });
     }
 
-    const paidAmount = Math.round(Number(req.query?.amount || 0));
     if (!isOrderAmountMatched(order, paidAmount)) {
+      if (await returnAlreadyPaidIfAny("amount_mismatch_but_order_paid"))
+        return;
+
       payLog("momo.return.amount_mismatch", {
         gateway: "momo",
         orderId,
@@ -983,6 +1132,8 @@ exports.momoReturn = async (req, res) => {
       source: "return",
     });
 
+    if (await returnAlreadyPaidIfAny("result_non_zero_but_order_paid")) return;
+
     return res.json({
       success: false,
       code: resultCode || "99",
@@ -1022,7 +1173,7 @@ exports.momoIPN = async (req, res) => {
         .json({ status: 1, message: "missing momo secret" });
     }
 
-    const sigValid = verifyMoMoIpnSignature(
+    const sigValid = verifyMoMoSignature(
       req.body,
       secretKey,
       process.env.MOMO_ACCESS_KEY || "",
