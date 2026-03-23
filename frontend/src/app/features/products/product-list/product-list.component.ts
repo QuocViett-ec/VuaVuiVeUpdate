@@ -8,7 +8,7 @@ import {
   OnDestroy,
   PLATFORM_ID,
 } from '@angular/core';
-import { DecimalPipe, isPlatformBrowser } from '@angular/common';
+import { DecimalPipe, Location, isPlatformBrowser } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProductService } from '../../../core/services/product.service';
@@ -71,6 +71,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
   private cartSvc = inject(CartService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private location = inject(Location);
   private platformId = inject(PLATFORM_ID);
   private realtime = inject(RealtimeSyncService);
 
@@ -104,6 +105,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
   private loadingProducts = false;
   private queuedRefresh = false;
   private pendingVisibilityRefresh = false;
+  private hasHandledInitialQueryParams = false;
   private readonly onVisibilityChange = () => {
     if (!isPlatformBrowser(this.platformId)) return;
     if (document.hidden) return;
@@ -156,16 +158,22 @@ export class ProductListComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.route.queryParams.subscribe((p) => {
       if (p['cat']) this.selectedCat.set(p['cat']);
-      if (p['q']) {
-        this.searchQuery.set(p['q']);
-        if (isPlatformBrowser(this.platformId)) {
-          setTimeout(() => {
-            document
-              .getElementById('catalog')
-              ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }, 350);
-        }
+
+      const qParam = typeof p['q'] === 'string' ? p['q'] : '';
+      if (qParam !== this.searchQuery()) {
+        this.searchQuery.set(qParam);
       }
+
+      // Only auto-scroll once when opening the page with an existing q param.
+      if (!this.hasHandledInitialQueryParams && qParam && isPlatformBrowser(this.platformId)) {
+        setTimeout(() => {
+          document
+            .getElementById('catalog')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 350);
+      }
+
+      this.hasHandledInitialQueryParams = true;
     });
     this.loadProducts();
 
@@ -302,10 +310,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
 
   setSearch(q: string): void {
     this.searchQuery.set(q);
-    this.router.navigate([], {
-      queryParams: { q: q.trim() || null },
-      queryParamsHandling: 'merge',
-    });
+    this.replaceQueryParams({ q: q.trim() || null });
   }
 
   commitSearch(raw?: string): void {
@@ -324,10 +329,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
 
   setCat(cat: string): void {
     this.selectedCat.set(cat);
-    this.router.navigate([], {
-      queryParams: { cat: cat === 'all' ? null : cat },
-      queryParamsHandling: 'merge',
-    });
+    this.replaceQueryParams({ cat: cat === 'all' ? null : cat });
   }
 
   resetFilters(): void {
@@ -335,7 +337,24 @@ export class ProductListComponent implements OnInit, OnDestroy {
     this.searchQuery.set('');
     this.sortKey.set('default');
     this.maxPrice.set(1000000);
-    this.router.navigate([], { queryParams: {} });
+    this.replaceQueryParams({ q: null, cat: null });
+  }
+
+  private replaceQueryParams(next: Record<string, string | null>): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+
+    const params = new URLSearchParams(window.location.search);
+    Object.entries(next).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    });
+
+    const query = params.toString();
+    const url = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+    this.location.replaceState(url);
   }
 
   private loadRecentSearches(): void {
