@@ -119,6 +119,8 @@ const STATUS_COLORS: Record<string, string> = {
                 <span class="pay-badge" [class.paid]="order.paymentStatus === 'paid'">
                   @if (order.paymentStatus === 'paid') {
                     <span class="material-symbols-outlined g-icon">credit_card</span> Đã thanh toán
+                  } @else if (order.paymentStatus === 'refunded') {
+                    <span class="material-symbols-outlined g-icon">payments</span> Đã hoàn tiền
                   } @else {
                     <span class="material-symbols-outlined g-icon">hourglass_top</span> Chờ thanh
                     toán
@@ -145,8 +147,9 @@ const STATUS_COLORS: Record<string, string> = {
                     class="btn btn--danger btn--sm"
                     [disabled]="!canReturnOrder(order)"
                     (click)="onReturnOrder(order)"
+                    [title]="!canReturnOrder(order) ? returnButtonLabel(order) : ''"
                   >
-                    Trả hàng
+                    {{ returnButtonLabel(order) }}
                   </button>
                 </div>
               </div>
@@ -263,10 +266,10 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
   readonly fallbackProductImage = '/images/brand/LogoVVV.png';
   readonly reviewStars = [1, 2, 3, 4, 5];
   readonly progressSteps = [
-    { key: 'pending', label: 'Cho xac nhan' },
-    { key: 'confirmed', label: 'Da xac nhan' },
-    { key: 'shipping', label: 'Dang giao' },
-    { key: 'delivered', label: 'Da giao' },
+    { key: 'pending', label: 'Chờ xác nhận' },
+    { key: 'confirmed', label: 'Đã xác nhận' },
+    { key: 'shipping', label: 'Đang giao' },
+    { key: 'delivered', label: 'Đã giao' },
   ];
 
   readonly statusList = Object.entries(STATUS_LABELS).map(([key, label]) => ({ key, label }));
@@ -311,6 +314,17 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
     if (!Number.isFinite(deliveredAt)) return false;
     const returnWindowMs = 7 * 24 * 60 * 60 * 1000;
     return Date.now() - deliveredAt <= returnWindowMs;
+  }
+
+  returnButtonLabel(order: Order): string {
+    const status = String(order.status || '');
+    if (status === 'delivered') return 'Trả hàng';
+    if (status === 'return_requested') return 'Đang chờ duyệt trả';
+    if (status === 'return_approved') return 'Đã duyệt trả hàng';
+    if (status === 'returned') return 'Đã nhận hàng trả';
+    if (status === 'refunded') return 'Đã hoàn tiền';
+    if (status === 'return_rejected') return 'Đã từ chối trả';
+    return 'Trả hàng';
   }
 
   onReviewOrder(order: Order): void {

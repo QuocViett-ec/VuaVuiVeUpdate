@@ -61,6 +61,26 @@
     background: #ffebee;
     color: #c62828;
   }
+  &[data-status='return_requested'] {
+    background: #fff8e1;
+    color: #8d6e00;
+  }
+  &[data-status='return_approved'] {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+  &[data-status='return_rejected'] {
+    background: #fdecea;
+    color: #b71c1c;
+  }
+  &[data-status='returned'] {
+    background: #e0f2fe;
+    color: #0c4a6e;
+  }
+  &[data-status='refunded'] {
+    background: #ede9fe;
+    color: #5b21b6;
+  }
 }
 
 .od-grid {
@@ -75,6 +95,13 @@
 
 .timeline-card {
   margin-bottom: 1rem;
+}
+
+.return-card {
+  margin-bottom: 1rem;
+  border-style: dashed;
+  border-color: #d4c7f6;
+  background: linear-gradient(180deg, #fff 0%, #faf7ff 100%);
 }
 
 .timeline {

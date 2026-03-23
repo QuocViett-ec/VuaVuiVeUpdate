@@ -76,6 +76,18 @@ import { Order } from '../../../core/models/product.model';
             <span>Trang {{ page() }} / {{ totalPages() }}</span>
           </div>
         </div>
+
+        <div class="return-quick-filters">
+          <button class="btn btn-ghost btn--xs" (click)="onFilter('all')">Tất cả</button>
+          <button class="btn btn-ghost btn--xs" (click)="onFilter('return_requested')">
+            Chờ duyệt trả
+          </button>
+          <button class="btn btn-ghost btn--xs" (click)="onFilter('return_approved')">
+            Đã duyệt trả
+          </button>
+          <button class="btn btn-ghost btn--xs" (click)="onFilter('returned')">Đã nhận trả</button>
+          <button class="btn btn-ghost btn--xs" (click)="onFilter('refunded')">Đã hoàn tiền</button>
+        </div>
       </div>
 
       @if (error()) {
@@ -103,6 +115,7 @@ import { Order } from '../../../core/models/product.model';
               <th>Tổng tiền</th>
               <th>TT đơn</th>
               <th>TT thanh toán</th>
+              <th>Yêu cầu trả hàng</th>
               <th>Ngày</th>
               <th>Thao tác</th>
             </tr>
@@ -141,6 +154,22 @@ import { Order } from '../../../core/models/product.model';
                       @case ('cancelled') {
                         <span class="material-symbols-outlined g-icon">cancel</span> Đã hủy
                       }
+                      @case ('return_requested') {
+                        <span class="material-symbols-outlined g-icon">assignment_return</span>
+                        Chờ duyệt trả
+                      }
+                      @case ('return_approved') {
+                        <span class="material-symbols-outlined g-icon">task_alt</span> Đã duyệt trả
+                      }
+                      @case ('return_rejected') {
+                        <span class="material-symbols-outlined g-icon">block</span> Từ chối trả
+                      }
+                      @case ('returned') {
+                        <span class="material-symbols-outlined g-icon">undo</span> Đã nhận hàng trả
+                      }
+                      @case ('refunded') {
+                        <span class="material-symbols-outlined g-icon">payments</span> Đã hoàn tiền
+                      }
                       @default {
                         {{ o.status }}
                       }
@@ -148,32 +177,73 @@ import { Order } from '../../../core/models/product.model';
                   </span>
                 </td>
                 <td>
-                  <span class="pay-badge" [class.paid]="o.paymentStatus === 'paid'">{{
-                    o.paymentStatus === 'paid' ? 'paid' : 'pending'
-                  }}</span>
+                  <span
+                    class="pay-badge"
+                    [class.paid]="o.paymentStatus === 'paid'"
+                    [class.refunded]="o.paymentStatus === 'refunded'"
+                  >
+                    @if (o.paymentStatus === 'paid') {
+                      paid
+                    } @else if (o.paymentStatus === 'refunded') {
+                      refunded
+                    } @else {
+                      pending
+                    }
+                  </span>
+                </td>
+                <td>
+                  <div class="return-note" [title]="returnTooltip(o)">
+                    {{ returnSummary(o) }}
+                  </div>
                 </td>
                 <td>{{ o.createdAt | date: 'dd/MM HH:mm' }}</td>
                 <td>
-                  <select
-                    [ngModel]="o.status"
-                    (ngModelChange)="updateStatus(o, $event)"
-                    class="input input--xs"
-                    [disabled]="isRowUpdating(o.id)"
-                  >
-                    @for (s of statuses; track s.key) {
-                      <option [value]="s.key" [disabled]="!canTransition(o.status, s.key)">
-                        {{ s.label }}
-                      </option>
+                  <div class="row-actions">
+                    <select
+                      [ngModel]="o.status"
+                      (ngModelChange)="updateStatus(o, $event)"
+                      class="input input--xs"
+                      [disabled]="isRowUpdating(o.id)"
+                    >
+                      @for (s of statuses; track s.key) {
+                        <option [value]="s.key" [disabled]="!canTransition(o.status, s.key)">
+                          {{ s.label }}
+                        </option>
+                      }
+                    </select>
+                    <button class="btn btn-ghost btn--xs" (click)="openDetail(o)">Chi tiết</button>
+
+                    @if (o.status === 'return_requested') {
+                      <button class="btn btn--xs btn--outline" (click)="approveReturn(o)">
+                        Duyệt trả
+                      </button>
+                      <button class="btn btn--xs btn--danger" (click)="rejectReturn(o)">
+                        Từ chối
+                      </button>
                     }
-                  </select>
-                  <button class="btn btn-ghost btn--xs" (click)="openDetail(o)">Chi tiết</button>
+
+                    @if (o.status === 'return_approved') {
+                      <button class="btn btn--xs btn--outline" (click)="markReturned(o)">
+                        Đã nhận trả
+                      </button>
+                      <button class="btn btn--xs btn-search" (click)="markRefunded(o)">
+                        Hoàn tiền
+                      </button>
+                    }
+
+                    @if (o.status === 'returned') {
+                      <button class="btn btn--xs btn-search" (click)="markRefunded(o)">
+                        Hoàn tiền
+                      </button>
+                    }
+                  </div>
                 </td>
               </tr>
             }
 
             @if (!visibleOrders().length && !loading()) {
               <tr>
-                <td colspan="9" class="empty-row">Không có đơn hàng phù hợp bộ lọc.</td>
+                <td colspan="10" class="empty-row">Không có đơn hàng phù hợp bộ lọc.</td>
               </tr>
             }
           </tbody>
@@ -207,7 +277,13 @@ import { Order } from '../../../core/models/product.model';
                 </span>
                 <span class="pay-badge" [class.paid]="detailOrder()!.paymentStatus === 'paid'">
                   {{ detailOrder()!.paymentMethod | uppercase }} /
-                  {{ detailOrder()!.paymentStatus }}
+                  @if (detailOrder()!.paymentStatus === 'paid') {
+                    paid
+                  } @else if (detailOrder()!.paymentStatus === 'refunded') {
+                    refunded
+                  } @else {
+                    pending
+                  }
                 </span>
               </div>
             </div>
@@ -232,6 +308,27 @@ import { Order } from '../../../core/models/product.model';
             </div>
 
             <div class="detail-items-title">Sản phẩm ({{ detailOrder()!.items.length }})</div>
+
+            @if (hasReturnDetails(detailOrder()!)) {
+              <div class="detail-return">
+                <div class="detail-return__title">Chi tiết trả hàng</div>
+                <div class="meta-row">
+                  <span class="meta-label">Lý do trả hàng</span>
+                  <strong>{{
+                    detailOrder()!.returnRequest?.reason || 'Không có thông tin'
+                  }}</strong>
+                </div>
+                <div class="meta-row">
+                  <span class="meta-label">Ghi chú khách</span>
+                  <strong>{{ detailOrder()!.returnRequest?.note || '-' }}</strong>
+                </div>
+                <div class="meta-row">
+                  <span class="meta-label">Ghi chú duyệt</span>
+                  <strong>{{ detailOrder()!.returnRequest?.reviewNote || '-' }}</strong>
+                </div>
+              </div>
+            }
+
             <div class="detail-items">
               @for (item of detailOrder()!.items; track item.productId) {
                 <div class="detail-item-row">
@@ -256,6 +353,36 @@ import { Order } from '../../../core/models/product.model';
                 <span>Tổng cộng</span><strong>{{ detailOrder()!.totalAmount | number }}đ</strong>
               </div>
             </div>
+
+            @if (detailOrder()!.status === 'return_requested') {
+              <div class="return-actions">
+                <button class="btn btn--outline" (click)="approveReturn(detailOrder()!)">
+                  Duyệt trả hàng
+                </button>
+                <button class="btn btn--danger" (click)="rejectReturn(detailOrder()!)">
+                  Từ chối trả hàng
+                </button>
+              </div>
+            }
+
+            @if (detailOrder()!.status === 'return_approved') {
+              <div class="return-actions">
+                <button class="btn btn--outline" (click)="markReturned(detailOrder()!)">
+                  Đã nhận hàng trả
+                </button>
+                <button class="btn btn-search" (click)="markRefunded(detailOrder()!)">
+                  Hoàn tiền ngay
+                </button>
+              </div>
+            }
+
+            @if (detailOrder()!.status === 'returned') {
+              <div class="return-actions">
+                <button class="btn btn-search" (click)="markRefunded(detailOrder()!)">
+                  Hoàn tiền
+                </button>
+              </div>
+            }
 
             <div class="modal-actions">
               <button class="btn btn-ghost" (click)="closeDetail()">Đóng</button>
@@ -292,6 +419,11 @@ export class AdminOrdersComponent implements OnInit {
     { key: 'confirmed', label: 'Đã xác nhận' },
     { key: 'shipping', label: 'Đang giao' },
     { key: 'delivered', label: 'Đã giao' },
+    { key: 'return_requested', label: 'Chờ duyệt trả hàng' },
+    { key: 'return_approved', label: 'Đã duyệt trả hàng' },
+    { key: 'return_rejected', label: 'Từ chối trả hàng' },
+    { key: 'returned', label: 'Đã nhận hàng trả' },
+    { key: 'refunded', label: 'Đã hoàn tiền' },
     { key: 'cancelled', label: 'Đã hủy' },
   ];
 
@@ -299,7 +431,12 @@ export class AdminOrdersComponent implements OnInit {
     pending: ['confirmed', 'cancelled'],
     confirmed: ['shipping', 'cancelled'],
     shipping: ['delivered'],
-    delivered: [],
+    delivered: ['return_requested'],
+    return_requested: ['return_approved', 'return_rejected'],
+    return_approved: ['returned', 'refunded'],
+    return_rejected: [],
+    returned: ['refunded'],
+    refunded: [],
     cancelled: [],
   };
 
@@ -307,6 +444,49 @@ export class AdminOrdersComponent implements OnInit {
 
   statusLabel(status: string): string {
     return this.statuses.find((s) => s.key === status)?.label ?? status;
+  }
+
+  returnSummary(order: Order): string {
+    const rr = order.returnRequest;
+    const reason = String(rr?.reason || '').trim();
+    const reviewNote = String(rr?.reviewNote || '').trim();
+
+    if (order.status === 'return_requested') {
+      return reason ? `Lý do: ${reason}` : 'Đang chờ khách bổ sung lý do';
+    }
+    if (order.status === 'return_rejected') {
+      return reviewNote ? `Từ chối: ${reviewNote}` : 'Đã từ chối yêu cầu';
+    }
+    if (order.status === 'return_approved') {
+      return reviewNote ? `Đã duyệt: ${reviewNote}` : 'Đã duyệt trả hàng';
+    }
+    if (order.status === 'returned') {
+      return 'Đã nhận hàng trả về kho';
+    }
+    if (order.status === 'refunded') {
+      return 'Đã hoàn tiền cho khách';
+    }
+    return '-';
+  }
+
+  returnTooltip(order: Order): string {
+    const rr = order.returnRequest;
+    const reason = String(rr?.reason || '').trim();
+    const note = String(rr?.note || '').trim();
+    const reviewNote = String(rr?.reviewNote || '').trim();
+    const lines = [
+      reason ? `Lý do: ${reason}` : '',
+      note ? `Ghi chú khách: ${note}` : '',
+      reviewNote ? `Ghi chú duyệt: ${reviewNote}` : '',
+    ].filter(Boolean);
+
+    return lines.length ? lines.join('\n') : this.returnSummary(order);
+  }
+
+  hasReturnDetails(order: Order): boolean {
+    const status = String(order.status || '');
+    if (status.startsWith('return_') || status === 'returned' || status === 'refunded') return true;
+    return Boolean(order.returnRequest?.reason);
   }
 
   isRowUpdating(orderId: string): boolean {
@@ -446,6 +626,72 @@ export class AdminOrdersComponent implements OnInit {
         this.updatingIds.set(next);
       },
     });
+  }
+
+  approveReturn(order: Order): void {
+    const reviewNote = String(
+      window.prompt('Ghi chú duyệt trả hàng (không bắt buộc):', '') || '',
+    ).trim();
+    this.orderSvc.reviewReturnRequest(order.id, { decision: 'approve', reviewNote }).subscribe({
+      next: (updated) => {
+        this.applyOrderUpdate(updated);
+        this.toast.success('Đã duyệt yêu cầu trả hàng.');
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.message || 'Không thể duyệt yêu cầu trả hàng.');
+      },
+    });
+  }
+
+  rejectReturn(order: Order): void {
+    const reviewNote = String(window.prompt('Lý do từ chối trả hàng:', '') || '').trim();
+    if (!reviewNote) {
+      this.toast.warning('Vui lòng nhập lý do từ chối.');
+      return;
+    }
+    this.orderSvc.reviewReturnRequest(order.id, { decision: 'reject', reviewNote }).subscribe({
+      next: (updated) => {
+        this.applyOrderUpdate(updated);
+        this.toast.success('Đã từ chối yêu cầu trả hàng.');
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.message || 'Không thể từ chối yêu cầu trả hàng.');
+      },
+    });
+  }
+
+  markReturned(order: Order): void {
+    this.orderSvc.updateOrderStatus(order.id, 'returned').subscribe({
+      next: (updated) => {
+        this.applyOrderUpdate(updated);
+        this.toast.success('Đã cập nhật trạng thái: Đã nhận hàng trả.');
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.message || 'Không thể cập nhật trạng thái trả hàng.');
+      },
+    });
+  }
+
+  markRefunded(order: Order): void {
+    const confirmed = window.confirm(`Xác nhận hoàn tiền cho đơn ${order.id}?`);
+    if (!confirmed) return;
+
+    this.orderSvc.markRefunded(order.id).subscribe({
+      next: (updated) => {
+        this.applyOrderUpdate(updated);
+        this.toast.success('Đã hoàn tiền cho đơn hàng.');
+      },
+      error: (err) => {
+        this.toast.error(err?.error?.message || 'Không thể hoàn tiền đơn hàng.');
+      },
+    });
+  }
+
+  private applyOrderUpdate(updated: Order): void {
+    this.orders.update((list) => list.map((o) => (o.id === updated.id ? { ...o, ...updated } : o)));
+    if (this.detailOrder() && this.detailOrder()!.id === updated.id) {
+      this.detailOrder.set({ ...this.detailOrder()!, ...updated });
+    }
   }
 
   applyBulkStatus(): void {

@@ -289,6 +289,16 @@ $panel-height: 560px;
   flex-shrink: 0;
 }
 
+.msg-avatar-icon {
+  font-size: 15px;
+  line-height: 1;
+  font-variation-settings:
+    'FILL' 1,
+    'wght' 500,
+    'GRAD' 0,
+    'opsz' 20;
+}
+
 .msg-bubble {
   max-width: 85%;
   padding: 0.65rem 0.85rem;

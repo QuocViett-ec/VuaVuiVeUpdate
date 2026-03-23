@@ -28,6 +28,7 @@ const QUICK_REPLIES = [
 ];
 
 const ICON_TOKEN_MAP: Array<{ token: string; icon: string }> = [
+  { token: '🤖', icon: 'smart_toy' },
   { token: '📦', icon: 'inventory_2' },
   { token: '👤', icon: 'person' },
   { token: '📞', icon: 'call' },
@@ -36,6 +37,14 @@ const ICON_TOKEN_MAP: Array<{ token: string; icon: string }> = [
   { token: '💰', icon: 'payments' },
   { token: '💳', icon: 'credit_card' },
   { token: '📊', icon: 'analytics' },
+  { token: '📅', icon: 'calendar_month' },
+  { token: '📆', icon: 'date_range' },
+  { token: '🚚', icon: 'local_shipping' },
+  { token: '📉', icon: 'trending_down' },
+  { token: '🚨', icon: 'priority_high' },
+  { token: '🟢', icon: 'radio_button_checked' },
+  { token: '🟡', icon: 'radio_button_checked' },
+  { token: '🟠', icon: 'radio_button_checked' },
   { token: '🕐', icon: 'schedule' },
   { token: '⏳', icon: 'hourglass_top' },
   { token: '✅', icon: 'check_circle' },

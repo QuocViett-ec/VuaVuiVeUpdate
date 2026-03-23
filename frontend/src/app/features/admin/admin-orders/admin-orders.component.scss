@@ -43,6 +43,13 @@
   border: 1px solid #e2e8f0;
 }
 
+.return-quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: -0.2rem;
+}
+
 .table-meta {
   display: flex;
   gap: 0.75rem;
@@ -156,6 +163,26 @@
     background: #ffebee;
     color: #c62828;
   }
+  &[data-status='return_requested'] {
+    background: #fff8e1;
+    color: #8d6e00;
+  }
+  &[data-status='return_approved'] {
+    background: #e8f5e9;
+    color: #1b5e20;
+  }
+  &[data-status='return_rejected'] {
+    background: #fdecea;
+    color: #b71c1c;
+  }
+  &[data-status='returned'] {
+    background: #e0f2fe;
+    color: #0c4a6e;
+  }
+  &[data-status='refunded'] {
+    background: #ede9fe;
+    color: #5b21b6;
+  }
 }
 
 .pay-badge {
@@ -167,6 +194,11 @@
   &.paid {
     background: #e8f5e9;
     color: #2e7d32;
+    font-weight: 600;
+  }
+  &.refunded {
+    background: #ede9fe;
+    color: #5b21b6;
     font-weight: 600;
   }
 }
@@ -190,6 +222,22 @@
   text-align: center;
   color: #7a8698;
   padding: 1rem;
+}
+
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.return-note {
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #49566a;
+  font-size: 0.76rem;
 }
 
 .pager {
@@ -282,6 +330,25 @@
   letter-spacing: 0.03em;
 }
 
+.detail-return {
+  margin-top: 0.8rem;
+  background: #faf7ff;
+  border: 1px dashed #d8ccf5;
+  border-radius: 10px;
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.detail-return__title {
+  font-size: 0.82rem;
+  color: #5b21b6;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 700;
+  margin-bottom: 0.15rem;
+}
+
 .detail-items {
   margin-top: 0.4rem;
   border-top: 1px solid #e4ebf4;
@@ -337,6 +404,13 @@
   }
 }
 
+.return-actions {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
 .modal-actions {
   margin-top: 1rem;
   display: flex;
@@ -368,5 +442,9 @@
       font-size: 0.78rem;
       margin-top: -0.45rem;
     }
+  }
+
+  .row-actions {
+    min-width: 260px;
   }
 }

@@ -440,11 +440,16 @@ export class AdminProductsComponent implements OnInit, OnDestroy {
   }
 
   deleteProduct(id: string): void {
+    if (!id?.trim()) {
+      this.toast.error('Không tìm thấy mã sản phẩm để xóa.');
+      return;
+    }
     if (!confirm('Xác nhận xóa sản phẩm này?')) return;
     this.prodSvc.deleteProduct(id).subscribe({
       next: () => {
-        this.toast.success('Đã xóa!');
-        this.load();
+        this.toast.success('Đã ẩn sản phẩm.');
+        this.statusFilter.set('active');
+        this.applyFilters();
       },
       error: () => this.toast.error('Lỗi khi xóa.'),
     });

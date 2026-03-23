@@ -55,6 +55,22 @@ import { firstValueFrom } from 'rxjs';
                 @case ('cancelled') {
                   <span class="material-symbols-outlined g-icon">cancel</span> Đã hủy
                 }
+                @case ('return_requested') {
+                  <span class="material-symbols-outlined g-icon">assignment_return</span> Chờ duyệt
+                  trả
+                }
+                @case ('return_approved') {
+                  <span class="material-symbols-outlined g-icon">task_alt</span> Đã duyệt trả hàng
+                }
+                @case ('return_rejected') {
+                  <span class="material-symbols-outlined g-icon">block</span> Từ chối trả hàng
+                }
+                @case ('returned') {
+                  <span class="material-symbols-outlined g-icon">undo</span> Đã nhận hàng trả
+                }
+                @case ('refunded') {
+                  <span class="material-symbols-outlined g-icon">payments</span> Đã hoàn tiền
+                }
                 @default {
                   {{ order()!.status }}
                 }
@@ -94,6 +110,8 @@ import { firstValueFrom } from 'rxjs';
                 <strong>Trạng thái:</strong>
                 @if (order()!.paymentStatus === 'paid') {
                   <span class="material-symbols-outlined g-icon">check_circle</span> Đã thanh toán
+                } @else if (order()!.paymentStatus === 'refunded') {
+                  <span class="material-symbols-outlined g-icon">payments</span> Đã hoàn tiền
                 } @else {
                   <span class="material-symbols-outlined g-icon">hourglass_top</span> Chờ thanh toán
                 }
@@ -106,6 +124,32 @@ import { firstValueFrom } from 'rxjs';
               }
             </section>
           </div>
+
+          @if (hasReturnInfo(order()!)) {
+            <section class="card return-card">
+              <h3>Chi tiết trả hàng</h3>
+              <p><strong>Trạng thái trả hàng:</strong> {{ returnStatusLabel(order()!) }}</p>
+              <p><strong>Lý do:</strong> {{ order()!.returnRequest?.reason || '-' }}</p>
+              <p><strong>Ghi chú khách:</strong> {{ order()!.returnRequest?.note || '-' }}</p>
+              <p><strong>Ghi chú duyệt:</strong> {{ order()!.returnRequest?.reviewNote || '-' }}</p>
+              <p>
+                <strong>Thời gian yêu cầu:</strong>
+                @if (order()!.returnRequest?.requestedAt) {
+                  {{ order()!.returnRequest?.requestedAt | date: 'dd/MM/yyyy HH:mm' }}
+                } @else {
+                  -
+                }
+              </p>
+              <p>
+                <strong>Thời gian xử lý:</strong>
+                @if (order()!.returnRequest?.reviewedAt) {
+                  {{ order()!.returnRequest?.reviewedAt | date: 'dd/MM/yyyy HH:mm' }}
+                } @else {
+                  -
+                }
+              </p>
+            </section>
+          }
 
           <section class="card timeline-card">
             <h3>Tiến trình đơn hàng</h3>
@@ -310,6 +354,15 @@ export class OrderDetailPageComponent implements OnInit, OnDestroy {
   isStepDone(step: string): boolean {
     const status = this.order()?.status || 'pending';
     if (status === 'cancelled') return step === 'pending';
+    if (
+      status === 'return_requested' ||
+      status === 'return_approved' ||
+      status === 'return_rejected' ||
+      status === 'returned' ||
+      status === 'refunded'
+    ) {
+      return true;
+    }
     const rank: Record<string, number> = {
       pending: 0,
       confirmed: 1,
@@ -317,6 +370,29 @@ export class OrderDetailPageComponent implements OnInit, OnDestroy {
       delivered: 3,
     };
     return rank[step] <= (rank[status] ?? 0);
+  }
+
+  hasReturnInfo(order: Order): boolean {
+    const status = String(order.status || '');
+    if (status.startsWith('return_') || status === 'returned' || status === 'refunded') return true;
+    const rr = order.returnRequest;
+    return Boolean(rr?.reason || rr?.note || rr?.reviewNote || rr?.requestedAt || rr?.reviewedAt);
+  }
+
+  returnStatusLabel(order: Order): string {
+    const status = String(order.status || '');
+    if (status === 'return_requested') return 'Đang chờ duyệt trả hàng';
+    if (status === 'return_approved') return 'Đã duyệt trả hàng';
+    if (status === 'return_rejected') return 'Đã từ chối trả hàng';
+    if (status === 'returned') return 'Đã nhận hàng trả';
+    if (status === 'refunded') return 'Đã hoàn tiền';
+
+    const rrStatus = String(order.returnRequest?.status || '');
+    if (rrStatus === 'pending') return 'Đang chờ duyệt trả hàng';
+    if (rrStatus === 'approved') return 'Đã duyệt trả hàng';
+    if (rrStatus === 'rejected') return 'Đã từ chối trả hàng';
+    if (rrStatus === 'refunded') return 'Đã hoàn tiền';
+    return '-';
   }
 
   reorder(): void {

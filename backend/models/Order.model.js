@@ -83,6 +83,7 @@ const orderSchema = new mongoose.Schema(
         enum: ["none", "pending", "approved", "rejected", "refunded"],
         default: "none",
       },
+      stockRestocked: { type: Boolean, default: false },
       requestedAt: { type: Date, default: null },
       reason: { type: String, default: "" },
       images: { type: [String], default: [] },

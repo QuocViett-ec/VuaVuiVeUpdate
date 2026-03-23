@@ -43,7 +43,9 @@
     @for (msg of messages(); track msg.timestamp) {
       <div class="message" [class.message--user]="msg.role === 'user'" [class.message--bot]="msg.role === 'bot'">
         @if (msg.role === 'bot') {
-          <div class="msg-avatar">VVV</div>
+          <div class="msg-avatar">
+            <span class="material-symbols-outlined msg-avatar-icon" aria-hidden="true">smart_toy</span>
+          </div>
         }
         <div class="msg-bubble">
           @if (msg.loading) {

@@ -72,6 +72,15 @@ export interface Order {
   note?: string;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
+  returnRequest?: {
+    status?: 'none' | 'pending' | 'approved' | 'rejected' | 'refunded';
+    stockRestocked?: boolean;
+    reason?: string;
+    note?: string;
+    reviewNote?: string;
+    requestedAt?: string | null;
+    reviewedAt?: string | null;
+  };
   status: OrderStatus;
   createdAt: string;
   updatedAt?: string;

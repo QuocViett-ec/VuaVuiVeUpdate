@@ -85,6 +85,25 @@ function isWithinReturnWindow(order) {
   return elapsed >= 0 && elapsed <= RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 }
 
+async function restockOrderItemsIdempotent(order) {
+  order.returnRequest = order.returnRequest || {};
+  if (order.returnRequest.stockRestocked) {
+    return false;
+  }
+
+  const items = Array.isArray(order.items) ? order.items : [];
+  await Promise.all(
+    items.map((item) =>
+      Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: Math.max(0, Number(item.quantity || 0)) },
+      }),
+    ),
+  );
+
+  order.returnRequest.stockRestocked = true;
+  return true;
+}
+
 /**
  * GET /api/orders/:id/reviews/me
  * Lấy các review của chính user cho đơn hàng này
@@ -622,6 +641,20 @@ exports.updateStatus = async (req, res, next) => {
       order.payment.status = "paid";
       order.deliveredAt = order.deliveredAt || new Date();
     }
+    if (status === "returned") {
+      await restockOrderItemsIdempotent(order);
+    }
+    if (status === "refunded") {
+      await restockOrderItemsIdempotent(order);
+      order.payment = order.payment || {};
+      order.payment.status = "refunded";
+      order.returnRequest = order.returnRequest || {};
+      order.returnRequest.status = "refunded";
+      order.returnRequest.reviewedAt =
+        order.returnRequest.reviewedAt || new Date();
+      order.returnRequest.reviewedBy =
+        order.returnRequest.reviewedBy || req.session.userId;
+    }
     await order.save();
 
     const paymentStatus = String(order.payment?.status || "pending");
@@ -881,6 +914,7 @@ exports.requestReturn = async (req, res, next) => {
     order.status = "return_requested";
     order.returnRequest = {
       status: "pending",
+      stockRestocked: false,
       requestedAt: new Date(),
       reason,
       note,
@@ -1008,6 +1042,7 @@ exports.markOrderRefunded = async (req, res, next) => {
     order.payment = order.payment || {};
     order.payment.status = "refunded";
     order.returnRequest = order.returnRequest || {};
+    await restockOrderItemsIdempotent(order);
     order.returnRequest.status = "refunded";
     order.returnRequest.reviewedAt =
       order.returnRequest.reviewedAt || new Date();

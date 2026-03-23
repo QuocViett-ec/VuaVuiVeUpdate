@@ -105,6 +105,26 @@
     background: #ffebee;
     color: #c62828;
   }
+  &[data-status='return_requested'] {
+    background: #fff8e1;
+    color: #8d6e00;
+  }
+  &[data-status='return_approved'] {
+    background: #e3f2fd;
+    color: #1565c0;
+  }
+  &[data-status='return_rejected'] {
+    background: #fdecea;
+    color: #b71c1c;
+  }
+  &[data-status='returned'] {
+    background: #e0f2fe;
+    color: #0c4a6e;
+  }
+  &[data-status='refunded'] {
+    background: #ede9fe;
+    color: #5b21b6;
+  }
 }
 
 .order-items {
@@ -234,6 +254,13 @@
     background: #e53935;
     color: #fff;
     border-color: #e53935;
+
+    &:disabled {
+      background: #f3f4f6;
+      border-color: #d1d5db;
+      color: #6b7280;
+      opacity: 1;
+    }
   }
 
   &:disabled {

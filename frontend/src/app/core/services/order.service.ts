@@ -69,6 +69,17 @@ export class OrderService {
           productImage: item?.productImage ?? item?.product?.imageUrl ?? item?.product?.img ?? '',
         }))
       : [];
+    const returnRequest = raw?.returnRequest
+      ? {
+          status: raw.returnRequest?.status,
+          stockRestocked: Boolean(raw.returnRequest?.stockRestocked),
+          reason: String(raw.returnRequest?.reason || ''),
+          note: String(raw.returnRequest?.note || ''),
+          reviewNote: String(raw.returnRequest?.reviewNote || ''),
+          requestedAt: raw.returnRequest?.requestedAt || null,
+          reviewedAt: raw.returnRequest?.reviewedAt || null,
+        }
+      : undefined;
 
     return {
       ...raw,
@@ -90,6 +101,7 @@ export class OrderService {
       note: raw?.note ?? '',
       paymentMethod: payment?.method ?? raw?.paymentMethod ?? 'cod',
       paymentStatus: payment?.status ?? raw?.paymentStatus ?? 'pending',
+      returnRequest,
       status: raw?.status ?? 'pending',
       createdAt: raw?.createdAt ?? new Date().toISOString(),
       updatedAt: raw?.updatedAt,

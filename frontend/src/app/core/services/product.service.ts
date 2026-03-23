@@ -43,6 +43,13 @@ export class ProductService {
     const id = String(p.id ?? p._id ?? p.slug ?? '');
     const catRaw = p.cat ?? p.category ?? '';
     const subRaw = p.sub ?? p.subCategory ?? p.subcategory ?? '';
+    const statusRaw = p.status;
+    const status: Product['status'] =
+      statusRaw === 'active' || statusRaw === 'inactive'
+        ? statusRaw
+        : p.isActive === false
+          ? 'inactive'
+          : 'active';
     const slug = this._slugify(catRaw);
     const cat = (CATEGORY_MAP[slug] ?? slug) || 'all';
     const oldPrice = p.oldPrice ?? p.originalPrice;
@@ -60,6 +67,7 @@ export class ProductService {
       soldCount: Number.isFinite(soldCount) && soldCount > 0 ? soldCount : undefined,
       cat,
       sub: subRaw || 'all',
+      status,
       img: resolvedImg,
     };
   }
