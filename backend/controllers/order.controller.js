@@ -145,10 +145,11 @@ exports.submitOrderReviews = async (req, res, next) => {
       });
     }
 
-    if (String(order.status || "") !== "delivered") {
+    const status = String(order.status || "");
+    if (status !== "delivered" && status !== "confirmed") {
       return res.status(400).json({
         success: false,
-        message: "Chỉ có thể đánh giá khi đơn hàng đã giao thành công",
+        message: "Chỉ có thể đánh giá khi đơn hàng đã xác nhận hoặc đã giao",
       });
     }
 
@@ -739,7 +740,8 @@ exports.markOrderPaid = async (req, res, next) => {
     if (!isAdmin) {
       return res.status(403).json({
         success: false,
-        message: "Chỉ admin/staff mới có thể cập nhật trạng thái thanh toán thủ công",
+        message:
+          "Chỉ admin/staff mới có thể cập nhật trạng thái thanh toán thủ công",
       });
     }
 
@@ -755,7 +757,8 @@ exports.markOrderPaid = async (req, res, next) => {
     if (!transactionId) {
       return res.status(400).json({
         success: false,
-        message: "Thiếu transactionId — không thể đánh dấu paid không có mã giao dịch",
+        message:
+          "Thiếu transactionId — không thể đánh dấu paid không có mã giao dịch",
       });
     }
 

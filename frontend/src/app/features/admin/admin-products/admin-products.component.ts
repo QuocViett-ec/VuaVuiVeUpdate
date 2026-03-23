@@ -1,4 +1,11 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  inject,
+  signal,
+  OnInit,
+  OnDestroy,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProductService } from '../../../core/services/product.service';
@@ -79,7 +86,7 @@ const SUBCATEGORY_OPTIONS: Record<string, CategoryOption[]> = {
       <div class="search-bar">
         <input
           [ngModel]="search()"
-          (ngModelChange)="search.set($event)"
+          (ngModelChange)="onSearchChange($event)"
           (keyup.enter)="applyFilters()"
           type="search"
           placeholder="Nhập tên để tìm nhanh..."
@@ -88,14 +95,18 @@ const SUBCATEGORY_OPTIONS: Record<string, CategoryOption[]> = {
         <select
           class="input"
           [ngModel]="categoryFilter()"
-          (ngModelChange)="categoryFilter.set($event)"
+          (ngModelChange)="onCategoryFilterChange($event)"
         >
           <option value="all">Tất cả danh mục</option>
           @for (option of categoryOptions; track option.value) {
             <option [value]="option.value">{{ option.label }}</option>
           }
         </select>
-        <select class="input" [ngModel]="statusFilter()" (ngModelChange)="statusFilter.set($event)">
+        <select
+          class="input"
+          [ngModel]="statusFilter()"
+          (ngModelChange)="onStatusFilterChange($event)"
+        >
           <option value="all">Tất cả trạng thái</option>
           <option value="active">Đang bán</option>
           <option value="inactive">Ngưng bán</option>
@@ -104,11 +115,10 @@ const SUBCATEGORY_OPTIONS: Record<string, CategoryOption[]> = {
           <input
             type="checkbox"
             [ngModel]="lowStockOnly()"
-            (ngModelChange)="lowStockOnly.set(!!$event)"
+            (ngModelChange)="onLowStockFilterChange($event)"
           />
           Sắp hết hàng (&lt; 10)
         </label>
-        <button class="btn btn--outline" (click)="applyFilters()">Lọc</button>
         <button class="btn btn--ghost" (click)="exportCsv()">Export CSV</button>
       </div>
 
@@ -254,9 +264,10 @@ const SUBCATEGORY_OPTIONS: Record<string, CategoryOption[]> = {
   `,
   styleUrl: './admin-products.component.scss',
 })
-export class AdminProductsComponent implements OnInit {
+export class AdminProductsComponent implements OnInit, OnDestroy {
   private prodSvc = inject(ProductService);
   private toast = inject(ToastService);
+  private filterDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly categoryOptions = CATEGORY_OPTIONS;
 
@@ -278,6 +289,13 @@ export class AdminProductsComponent implements OnInit {
     this.applyFilters();
   }
 
+  ngOnDestroy(): void {
+    if (this.filterDebounceTimer) {
+      clearTimeout(this.filterDebounceTimer);
+      this.filterDebounceTimer = null;
+    }
+  }
+
   load(): void {
     this.prodSvc
       .getAllProducts({
@@ -290,7 +308,37 @@ export class AdminProductsComponent implements OnInit {
   }
 
   applyFilters(): void {
+    if (this.filterDebounceTimer) {
+      clearTimeout(this.filterDebounceTimer);
+      this.filterDebounceTimer = null;
+    }
     this.load();
+  }
+
+  onSearchChange(value: string): void {
+    this.search.set(value);
+    if (this.filterDebounceTimer) {
+      clearTimeout(this.filterDebounceTimer);
+    }
+    this.filterDebounceTimer = setTimeout(() => {
+      this.filterDebounceTimer = null;
+      this.load();
+    }, 250);
+  }
+
+  onCategoryFilterChange(value: string): void {
+    this.categoryFilter.set(value);
+    this.applyFilters();
+  }
+
+  onStatusFilterChange(value: 'all' | 'active' | 'inactive'): void {
+    this.statusFilter.set(value);
+    this.applyFilters();
+  }
+
+  onLowStockFilterChange(value: unknown): void {
+    this.lowStockOnly.set(Boolean(value));
+    this.applyFilters();
   }
 
   exportCsv(): void {

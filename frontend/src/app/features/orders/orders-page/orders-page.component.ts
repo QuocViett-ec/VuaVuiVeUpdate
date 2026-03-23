@@ -297,7 +297,8 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
   }
 
   canReviewOrder(order: Order): boolean {
-    return String(order.status || '') === 'delivered';
+    const status = String(order.status || '');
+    return status === 'confirmed' || status === 'delivered';
   }
 
   hasReviewed(order: Order): boolean {

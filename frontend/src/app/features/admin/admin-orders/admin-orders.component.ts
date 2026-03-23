@@ -62,7 +62,9 @@ import { Order } from '../../../core/models/product.model';
               class="btn btn-search"
               [disabled]="selectedIds().size === 0 || !bulkStatus()"
               (click)="applyBulkStatus()"
-              [title]="selectedIds().size === 0 ? 'Vui lòng chọn ít nhất 1 đơn hàng ở cột checkbox' : ''"
+              [title]="
+                selectedIds().size === 0 ? 'Vui lòng chọn ít nhất 1 đơn hàng ở cột checkbox' : ''
+              "
             >
               Cập nhật hàng loạt
             </button>
@@ -194,22 +196,47 @@ import { Order } from '../../../core/models/product.model';
       @if (showDetail() && detailOrder()) {
         <div class="modal-overlay" (click)="closeDetail()">
           <div class="modal-box" (click)="$event.stopPropagation()">
-            <h2>Chi tiết đơn {{ detailOrder()!.id }}</h2>
-            <p>
-              <strong>Khách:</strong> {{ detailOrder()!.customerName }} - {{ detailOrder()!.phone }}
-            </p>
-            <p><strong>Địa chỉ:</strong> {{ detailOrder()!.address }}</p>
-            <p><strong>Khung giờ:</strong> {{ detailOrder()!.deliverySlot || '-' }}</p>
-            <p><strong>Ghi chú:</strong> {{ detailOrder()!.note || '-' }}</p>
-            <p>
-              <strong>Thanh toán:</strong>
-              {{ detailOrder()!.paymentMethod }} / {{ detailOrder()!.paymentStatus }}
-            </p>
+            <div class="detail-head">
+              <h2>
+                Chi tiết đơn
+                <span class="mono">{{ detailOrder()!.id }}</span>
+              </h2>
+              <div class="detail-head-badges">
+                <span class="badge" [attr.data-status]="detailOrder()!.status">
+                  {{ statusLabel(detailOrder()!.status) }}
+                </span>
+                <span class="pay-badge" [class.paid]="detailOrder()!.paymentStatus === 'paid'">
+                  {{ detailOrder()!.paymentMethod | uppercase }} /
+                  {{ detailOrder()!.paymentStatus }}
+                </span>
+              </div>
+            </div>
 
+            <div class="detail-meta">
+              <div class="meta-row">
+                <span class="meta-label">Khách hàng</span>
+                <strong>{{ detailOrder()!.customerName }} - {{ detailOrder()!.phone }}</strong>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Địa chỉ</span>
+                <strong>{{ detailOrder()!.address }}</strong>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Khung giờ</span>
+                <strong>{{ detailOrder()!.deliverySlot || '-' }}</strong>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Ghi chú</span>
+                <strong>{{ detailOrder()!.note || '-' }}</strong>
+              </div>
+            </div>
+
+            <div class="detail-items-title">Sản phẩm ({{ detailOrder()!.items.length }})</div>
             <div class="detail-items">
               @for (item of detailOrder()!.items; track item.productId) {
                 <div class="detail-item-row">
-                  <span>{{ item.productName }} x{{ item.quantity }}</span>
+                  <span class="item-name">{{ item.productName }}</span>
+                  <span class="item-qty">x{{ item.quantity }}</span>
                   <strong>{{ item.subtotal | number }}đ</strong>
                 </div>
               }
