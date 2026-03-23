@@ -18,6 +18,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/auth.routes");
 const productRoutes = require("./routes/product.routes");
 const orderRoutes = require("./routes/order.routes");
+const cartRoutes = require("./routes/cart.routes");
 const paymentRoutes = require("./routes/payment.routes");
 const userRoutes = require("./routes/user.routes");
 const adminRoutes = require("./routes/admin.routes");
@@ -35,6 +36,16 @@ const SESSION_SECRET = process.env.SESSION_SECRET;
 
 if (process.env.NODE_ENV === "production" && !SESSION_SECRET) {
   throw new Error("SESSION_SECRET is required in production");
+}
+
+if (
+  process.env.NODE_ENV === "production" &&
+  !process.env.CLIENT_ORIGINS &&
+  !process.env.CLIENT_ORIGIN
+) {
+  throw new Error(
+    "CLIENT_ORIGINS or CLIENT_ORIGIN must be configured in production",
+  );
 }
 
 const SESSION_TTL_MS = parseInt(process.env.SESSION_MAX_AGE_MS || "604800000");
@@ -120,6 +131,10 @@ function isAllowedOrigin(origin) {
 
   if (configuredOrigins.includes(origin)) return true;
 
+  if (process.env.NODE_ENV === "production") {
+    return false;
+  }
+
   try {
     const { hostname, protocol } = new URL(origin);
     const isHttp = protocol === "http:" || protocol === "https:";
@@ -136,6 +151,15 @@ function isAllowedOrigin(origin) {
 }
 
 connectDB();
+
+if (process.env.TRUST_PROXY) {
+  app.set(
+    "trust proxy",
+    process.env.TRUST_PROXY === "true" ? 1 : process.env.TRUST_PROXY,
+  );
+} else if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
@@ -172,6 +196,7 @@ app.use(csrfProtection);
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/cart", cartRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);

@@ -8,7 +8,7 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   ProductService,
   ProductReview,
@@ -18,7 +18,9 @@ import { CartService } from '../../../core/services/cart.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Product } from '../../../core/models/product.model';
 import { RealtimeSyncService } from '../../../core/services/realtime-sync.service';
+import { RecommenderService } from '../../../core/services/recommender.service';
 import { Subscription } from 'rxjs';
+import { Location } from '@angular/common';
 
 const CAT_LABELS: Record<string, string> = {
   veg: 'Rau củ',
@@ -43,13 +45,18 @@ const CAT_LABELS: Record<string, string> = {
 export class ProductDetailComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private prodSvc = inject(ProductService);
+  private router = inject(Router);
   private cartSvc = inject(CartService);
   private toast = inject(ToastService);
   private realtime = inject(RealtimeSyncService);
+  private recommender = inject(RecommenderService);
+  private location = inject(Location);
   private realtimeSub?: Subscription;
 
   product = signal<Product | null>(null);
   related = signal<Product[]>([]);
+  mlRelated = signal<Product[]>([]);
+  mlLoading = signal(false);
   loading = signal(true);
   qty = signal(1);
   reviews = signal<ProductReview[]>([]);
@@ -94,11 +101,25 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
       this.loading.set(false);
       if (p) {
         this.loadRelated(p.cat, p.id);
+        this.loadMlRelated(p.id);
         this.loadReviews(p.id);
       } else {
         this.reviews.set([]);
         this.reviewStats.set(null);
+        this.mlRelated.set([]);
       }
+    });
+  }
+
+  private loadMlRelated(productId: string): void {
+    this.mlLoading.set(true);
+    this.recommender.getSimilarProducts(productId, 6).subscribe((rows) => {
+      const mapped = rows
+        .map((row) => this.recommender.toProduct(row))
+        .filter((p) => p.id !== productId)
+        .slice(0, 6);
+      this.mlRelated.set(mapped);
+      this.mlLoading.set(false);
     });
   }
 
@@ -134,6 +155,14 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
     if (!p) return;
     this.cartSvc.addToCart(p, this.qty());
     this.toast.success(`Đã thêm ${this.qty()} × ${p.name} vào giỏ!`);
+  }
+
+  goBack(): void {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      this.location.back();
+      return;
+    }
+    void this.router.navigate(['/products']);
   }
 
   ratingStars(rating: number): string {

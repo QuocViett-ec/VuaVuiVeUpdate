@@ -11,6 +11,7 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
   skip: () => process.env.NODE_ENV === "development",
+  keyGenerator: (req) => req.session?.userId || req.ip,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -25,6 +26,7 @@ const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   skip: () => process.env.NODE_ENV === "development",
+  keyGenerator: (req) => req.session?.userId || req.ip,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -47,6 +49,14 @@ router.put(
   authLimiter,
   authController.changePassword,
 );
+router.post(
+  "/set-local-password",
+  requireAuth,
+  authLimiter,
+  authController.setLocalPassword,
+);
 router.post("/forgot-password", authLimiter, authController.forgotPassword);
+router.post("/verify-otp", authLimiter, authController.verifyResetOtp);
+router.post("/reset-password", authLimiter, authController.resetPassword);
 
 module.exports = router;

@@ -27,6 +27,11 @@ const STATUS_LABELS: Record<string, string> = {
   shipping: 'Đang giao',
   delivered: 'Đã giao',
   cancelled: 'Đã hủy',
+  return_requested: 'Đang chờ duyệt trả hàng',
+  return_approved: 'Đã duyệt trả hàng',
+  return_rejected: 'Từ chối trả hàng',
+  returned: 'Đã nhận hàng trả',
+  refunded: 'Đã hoàn tiền',
 };
 const STATUS_COLORS: Record<string, string> = {
   pending: 'orange',
@@ -78,7 +83,9 @@ const STATUS_COLORS: Record<string, string> = {
                   <small>{{ order.createdAt | date: 'dd/MM/yyyy HH:mm' }}</small>
                 </div>
                 <div class="order-head-right">
-                  <a [routerLink]="['/orders', order.id]" class="order-detail-link">Xem chi tiết ></a>
+                  <a [routerLink]="['/orders', order.id]" class="order-detail-link"
+                    >Xem chi tiết ></a
+                  >
                   <span class="status-badge" [attr.data-status]="order.status">
                     {{ statusLabel(order.status) }}
                   </span>
@@ -88,7 +95,12 @@ const STATUS_COLORS: Record<string, string> = {
               <div class="order-items">
                 <div class="order-thumbs">
                   @for (thumb of getOrderItemThumbs(order, 4); track thumb + $index) {
-                    <img [src]="thumb" alt="Sản phẩm trong đơn" class="order-thumb" loading="lazy" />
+                    <img
+                      [src]="thumb"
+                      alt="Sản phẩm trong đơn"
+                      class="order-thumb"
+                      loading="lazy"
+                    />
                   }
                 </div>
                 <span class="order-item-count">{{ order.items.length }} sản phẩm</span>
@@ -145,7 +157,12 @@ const STATUS_COLORS: Record<string, string> = {
 
       @if (reviewModalOpen() && reviewOrder()) {
         <div class="review-modal-backdrop" (click)="closeReviewModal()"></div>
-        <section class="review-modal" role="dialog" aria-modal="true" aria-label="Đánh giá sản phẩm">
+        <section
+          class="review-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Đánh giá sản phẩm"
+        >
           <header class="review-modal__head">
             <h3>Đánh giá đơn {{ reviewOrder()!.id }}</h3>
             <button type="button" class="review-close" (click)="closeReviewModal()">Đóng</button>
@@ -154,7 +171,11 @@ const STATUS_COLORS: Record<string, string> = {
           <div class="review-modal__body">
             @for (item of reviewItems(); track item.productId) {
               <article class="review-item">
-                <img [src]="getOrderItemImage(item)" [alt]="item.productName" class="review-item__thumb" />
+                <img
+                  [src]="getOrderItemImage(item)"
+                  [alt]="item.productName"
+                  class="review-item__thumb"
+                />
                 <div class="review-item__content">
                   <div class="review-item__top">
                     <div>
@@ -166,7 +187,9 @@ const STATUS_COLORS: Record<string, string> = {
                     <button
                       type="button"
                       class="btn btn--review btn--sm review-item__submit"
-                      [disabled]="!canSubmitProduct(item.productId) || isSubmittingProduct(item.productId)"
+                      [disabled]="
+                        !canSubmitProduct(item.productId) || isSubmittingProduct(item.productId)
+                      "
                       (click)="submitSingleReview(item)"
                     >
                       @if (isSubmittingProduct(item.productId)) {
@@ -281,8 +304,12 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
     return this.reviewedOrderIds().has(String(order.id));
   }
 
-  canReturnOrder(_order: Order): boolean {
-    return false;
+  canReturnOrder(order: Order): boolean {
+    if (String(order.status || '') !== 'delivered') return false;
+    const deliveredAt = new Date(order.updatedAt || order.createdAt || '').getTime();
+    if (!Number.isFinite(deliveredAt)) return false;
+    const returnWindowMs = 7 * 24 * 60 * 60 * 1000;
+    return Date.now() - deliveredAt <= returnWindowMs;
   }
 
   onReviewOrder(order: Order): void {
@@ -290,8 +317,27 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
     this.openReviewModal(order);
   }
 
-  onReturnOrder(order: Order): void {
-    this.toast.info(`Đơn ${order.id} hiện chưa đủ điều kiện trả hàng.`);
+  async onReturnOrder(order: Order): Promise<void> {
+    if (!this.canReturnOrder(order)) {
+      this.toast.info(`Đơn ${order.id} hiện chưa đủ điều kiện trả hàng.`);
+      return;
+    }
+
+    const reason = String(
+      window.prompt('Nhập lý do trả hàng (ít nhất 5 ký tự):', 'Sản phẩm không đúng mô tả') || '',
+    ).trim();
+    if (reason.length < 5) {
+      this.toast.warning('Lý do trả hàng không hợp lệ.');
+      return;
+    }
+
+    try {
+      const updated = await firstValueFrom(this.orderSvc.requestReturn(order.id, { reason }));
+      this.orders.update((list) => list.map((item) => (item.id === order.id ? updated : item)));
+      this.toast.success(`Đã gửi yêu cầu trả hàng cho đơn ${order.id}.`);
+    } catch {
+      this.toast.error('Không gửi được yêu cầu trả hàng. Vui lòng thử lại.');
+    }
   }
 
   reorderOrder(order: Order): void {
@@ -565,9 +611,7 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
 
     const idList = [...missingIds];
     const requests = idList.map((id) =>
-      this.productSvc
-        .getProductById(id)
-        .pipe(catchError(() => of(null))),
+      this.productSvc.getProductById(id).pipe(catchError(() => of(null))),
     );
 
     forkJoin(requests).subscribe((products) => {
@@ -593,9 +637,9 @@ export class OrdersPageComponent implements OnInit, OnDestroy {
         // Filter by current user phone/email as fallback
         const user = this.auth.currentUser();
         const filtered = orders.filter(
-            (o) =>
-              !userId || o.userId === userId || o.phone === user?.phone || o.email === user?.email,
-          );
+          (o) =>
+            !userId || o.userId === userId || o.phone === user?.phone || o.email === user?.email,
+        );
         this.orders.set(filtered);
         this.resolveMissingOrderImages(filtered);
         this.prefetchReviewedStatus(filtered);

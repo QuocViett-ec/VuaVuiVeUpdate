@@ -1,15 +1,33 @@
-import { Injectable, signal, computed, effect, inject, PLATFORM_ID } from '@angular/core';
+import {
+  Injectable,
+  signal,
+  computed,
+  effect,
+  inject,
+  PLATFORM_ID,
+  untracked,
+} from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { Product, CartItem, Cart } from '../models/product.model';
+import { AuthService } from './auth.service';
+import { environment } from '../../../environments/environment';
 
 const LS_CART = 'vvv_cart';
 const LS_SAVE_LATER = 'vvv_save_later';
+const API_BASE = environment.apiBase;
 
 @Injectable({ providedIn: 'root' })
 export class CartService {
   private platformId = inject(PLATFORM_ID);
+  private http = inject(HttpClient);
+  private auth = inject(AuthService);
   private _items = signal<CartItem[]>(this._load());
   private _savedForLater = signal<CartItem[]>(this._loadSavedForLater());
+  private syncTimer: ReturnType<typeof setTimeout> | null = null;
+  private skipNextServerSync = false;
+  private hasMergedAfterLogin = false;
 
   private resolveProductId(product: Product | (Product & { _id?: string; slug?: string })): string {
     const raw = (product as any)?.id ?? (product as any)?._id ?? (product as any)?.slug;
@@ -34,7 +52,127 @@ export class CartService {
         // Lưu toàn bộ CartItem[] (bao gồm product đầy đủ) vào localStorage
         localStorage.setItem(LS_CART, JSON.stringify(this._items()));
         localStorage.setItem(LS_SAVE_LATER, JSON.stringify(this._savedForLater()));
+
+        if (!this.auth.isLoggedIn()) return;
+        if (this.skipNextServerSync) {
+          this.skipNextServerSync = false;
+          return;
+        }
+
+        if (this.auth.isLoggedIn()) {
+          this.scheduleServerSync();
+        }
       });
+
+      effect(() => {
+        if (!this.auth.isLoggedIn()) {
+          this.hasMergedAfterLogin = false;
+          return;
+        }
+
+        if (!this.hasMergedAfterLogin) {
+          this.hasMergedAfterLogin = true;
+          // Avoid tracking cart signals here to prevent effect re-trigger loops.
+          untracked(() => {
+            void this.mergeLocalIntoServer();
+          });
+        }
+      });
+    }
+  }
+
+  private mapServerItems(raw: any[]): CartItem[] {
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((row) => {
+        const product = row?.product;
+        const productId = String(row?.productId || product?.id || product?._id || '').trim();
+        const quantity = Math.max(1, Number(row?.quantity || 1));
+        if (!productId) return null;
+
+        return {
+          quantity,
+          product: {
+            id: productId,
+            name: String(product?.name || 'Sản phẩm'),
+            price: Number(product?.price || 0),
+            stock: Number(product?.stock || 0),
+            cat: String(product?.cat || product?.category || 'all'),
+            sub: String(product?.sub || product?.subCategory || 'all'),
+            img: String(product?.img || product?.imageUrl || ''),
+          },
+        } as CartItem;
+      })
+      .filter(Boolean) as CartItem[];
+  }
+
+  private applyServerCart(data: any): void {
+    this.skipNextServerSync = true;
+    this._items.set(this.mapServerItems(data?.items || []));
+    this._savedForLater.set(this.mapServerItems(data?.savedForLater || []));
+  }
+
+  private toSyncPayload(items: CartItem[]): Array<{ productId: string; quantity: number }> {
+    return items
+      .map((item) => ({
+        productId: this.resolveProductId(item.product),
+        quantity: Math.max(0, Number(item.quantity || 0)),
+      }))
+      .filter((item) => !!item.productId && item.quantity > 0);
+  }
+
+  private scheduleServerSync(): void {
+    if (!isPlatformBrowser(this.platformId)) return;
+    if (!this.auth.isLoggedIn()) return;
+    if (this.syncTimer) {
+      clearTimeout(this.syncTimer);
+    }
+
+    this.syncTimer = setTimeout(() => {
+      this.syncTimer = null;
+      void this.syncServerState();
+    }, 400);
+  }
+
+  private async syncServerState(): Promise<void> {
+    if (!this.auth.isLoggedIn()) return;
+    try {
+      const res = await firstValueFrom(
+        this.http.put<any>(
+          `${API_BASE}/api/cart/me`,
+          {
+            items: this.toSyncPayload(this._items()),
+            savedForLater: this.toSyncPayload(this._savedForLater()),
+          },
+          { withCredentials: true },
+        ),
+      );
+      if (res?.success && res?.data) {
+        this.applyServerCart(res.data);
+      }
+    } catch {
+      // Ignore transient sync errors; local cart remains available.
+    }
+  }
+
+  async mergeLocalIntoServer(): Promise<void> {
+    if (!this.auth.isLoggedIn()) return;
+    try {
+      const res = await firstValueFrom(
+        this.http.post<any>(
+          `${API_BASE}/api/cart/me/merge`,
+          {
+            items: this.toSyncPayload(this._items()),
+            savedForLater: this.toSyncPayload(this._savedForLater()),
+          },
+          { withCredentials: true },
+        ),
+      );
+      if (res?.success && res?.data) {
+        this.applyServerCart(res.data);
+      }
+    } catch {
+      // Keep local cart if merge fails.
     }
   }
 

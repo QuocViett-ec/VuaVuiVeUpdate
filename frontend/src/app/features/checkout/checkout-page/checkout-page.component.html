@@ -1,15 +1,4 @@
 <div class="co-page container">
-  @if (draftRecovered()) {
-    <div class="draft-notice">
-      <span class="material-symbols-outlined g-icon">history</span>
-      <span>Da khoi phuc thong tin checkout tu lan nhap truoc.</span>
-      <button type="button" class="draft-notice__action" (click)="clearDraftAndDismiss()">
-        Xoa ban nhap
-      </button>
-      <button type="button" class="draft-notice__close" (click)="dismissDraftNotice()">An</button>
-    </div>
-  }
-
   <h1 class="page-title">
     <span class="material-symbols-outlined g-icon">shopping_cart_checkout</span>
     Thanh toán
@@ -75,13 +64,18 @@
           </div>
         </div>
         <div class="field">
-          <label>Khung giờ giao hàng</label>
+          <label>Khung giờ giao hàng *</label>
           <select [(ngModel)]="selectedSlotId" (ngModelChange)="slotError.set('')" class="input">
             <option value="">-- Chọn khung giờ --</option>
             @for (slot of slots(); track slot.id) {
               <option [value]="slot.id">{{ slot.date }} | {{ slot.window }}</option>
             }
           </select>
+          @if (!slots().length) {
+            <span class="field-error" role="alert">
+              Hiện không còn khung giờ phù hợp trong hôm nay. Vui lòng thử lại sau.
+            </span>
+          }
           @if (slotError()) {
             <span class="field-error" role="alert">{{ slotError() }}</span>
           }

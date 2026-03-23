@@ -4,6 +4,20 @@ const crypto = require("crypto");
 const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User.model");
 const { createAuditLog } = require("./user.controller");
+const { sendPasswordResetOtpEmail } = require("../services/mail.service");
+
+const OTP_MAX_ATTEMPTS = 5;
+
+function hashValue(value) {
+  return crypto
+    .createHash("sha256")
+    .update(String(value || ""))
+    .digest("hex");
+}
+
+function generateOtpCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
 
 /**
  * POST /api/auth/register
@@ -338,10 +352,10 @@ exports.changePassword = async (req, res, next) => {
   try {
     const currentPassword = req.body?.currentPassword || req.body?.oldPassword;
     const newPassword = req.body?.newPassword;
-    if (!currentPassword || !newPassword) {
+    if (!newPassword) {
       return res.status(400).json({
         success: false,
-        message: "Vui lòng cung cấp mật khẩu hiện tại và mật khẩu mới",
+        message: "Vui lòng cung cấp mật khẩu mới",
       });
     }
     if (newPassword.length < 6) {
@@ -358,6 +372,22 @@ exports.changePassword = async (req, res, next) => {
         .json({ success: false, message: "Người dùng không tồn tại" });
     }
 
+    if (!user.password) {
+      return res.status(400).json({
+        success: false,
+        code: "NEED_SET_LOCAL_PASSWORD",
+        message:
+          "Tài khoản của bạn chưa có mật khẩu local. Vui lòng dùng chức năng quên mật khẩu để tạo mật khẩu mới.",
+      });
+    }
+
+    if (!currentPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng cung cấp mật khẩu hiện tại",
+      });
+    }
+
     const isMatch = await user.comparePassword(currentPassword);
     if (!isMatch) {
       return res
@@ -369,6 +399,45 @@ exports.changePassword = async (req, res, next) => {
     await user.save();
 
     return res.json({ success: true, message: "Đổi mật khẩu thành công" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/auth/set-local-password
+ */
+exports.setLocalPassword = async (req, res, next) => {
+  try {
+    const newPassword = (req.body?.newPassword || "").toString();
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Mật khẩu mới phải có ít nhất 6 ký tự",
+      });
+    }
+
+    const user = await User.findById(req.session.userId).select("+password");
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Người dùng không tồn tại" });
+    }
+
+    if (user.password) {
+      return res.status(400).json({
+        success: false,
+        message: "Tài khoản đã có mật khẩu local. Vui lòng dùng đổi mật khẩu.",
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    return res.json({
+      success: true,
+      message: "Đặt mật khẩu local thành công",
+    });
   } catch (err) {
     next(err);
   }
@@ -395,20 +464,186 @@ exports.forgotPassword = async (req, res, next) => {
       // Trả 200 để không leak thông tin
       return res.json({
         success: true,
-        message: "Nếu tài khoản tồn tại, token đặt lại mật khẩu đã được tạo",
+        message: "Nếu tài khoản tồn tại, mã OTP đã được gửi",
       });
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
-    user.resetPasswordToken = token;
-    user.resetPasswordExpires = new Date(Date.now() + 60 * 60 * 1000); // 1h
+    const deliveryEmail = String(user.email || "")
+      .toLowerCase()
+      .trim();
+    if (!deliveryEmail) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Tài khoản chưa có email để nhận OTP. Vui lòng liên hệ hỗ trợ để cập nhật email.",
+      });
+    }
+
+    const otp = generateOtpCode();
+    const otpTtlMinutes = Number(
+      process.env.PASSWORD_RESET_OTP_TTL_MINUTES || 10,
+    );
+
+    user.passwordResetOtpHash = hashValue(otp);
+    user.passwordResetOtpExpires = new Date(
+      Date.now() + otpTtlMinutes * 60 * 1000,
+    );
+    user.passwordResetOtpAttempts = 0;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
     await user.save({ validateBeforeSave: false });
 
-    // Trong thực tế sẽ gửi email/SMS. Không trả token qua API để tránh rờ rỉ bảo mật.
+    try {
+      await sendPasswordResetOtpEmail({
+        to: deliveryEmail,
+        name: user.name,
+        otp,
+        ttlMinutes: otpTtlMinutes,
+      });
+    } catch (mailErr) {
+      user.passwordResetOtpHash = undefined;
+      user.passwordResetOtpExpires = undefined;
+      user.passwordResetOtpAttempts = 0;
+      await user.save({ validateBeforeSave: false });
+      return res.status(500).json({
+        success: false,
+        message: "Không thể gửi OTP lúc này. Vui lòng thử lại sau.",
+      });
+    }
+
     return res.json({
       success: true,
-      message:
-        "Nếu tài khoản tồn tại, hướng dẫn đặt lại mật khẩu sẽ được gửi tới bạn",
+      message: "Nếu tài khoản tồn tại, mã OTP đã được gửi tới email đăng ký",
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/auth/verify-otp
+ */
+exports.verifyResetOtp = async (req, res, next) => {
+  try {
+    const phone = (req.body?.phone || "").toString().trim();
+    const rawEmail = (req.body?.email || "").toString().trim();
+    const email = rawEmail ? rawEmail.toLowerCase() : "";
+    const otp = (req.body?.otp || "").toString().trim();
+
+    if ((!phone && !email) || otp.length !== 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Thông tin xác thực OTP không hợp lệ",
+      });
+    }
+
+    const query = phone ? { phone } : { email };
+    const user = await User.findOne(query).select(
+      "+passwordResetOtpHash +passwordResetOtpExpires +passwordResetOtpAttempts +resetPasswordToken +resetPasswordExpires",
+    );
+
+    if (!user || !user.passwordResetOtpHash || !user.passwordResetOtpExpires) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP không hợp lệ hoặc đã hết hạn",
+      });
+    }
+
+    if (user.passwordResetOtpAttempts >= OTP_MAX_ATTEMPTS) {
+      return res.status(429).json({
+        success: false,
+        message:
+          "Bạn đã nhập sai OTP quá số lần cho phép. Vui lòng yêu cầu mã mới.",
+      });
+    }
+
+    if (new Date(user.passwordResetOtpExpires).getTime() < Date.now()) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP đã hết hạn. Vui lòng yêu cầu mã mới.",
+      });
+    }
+
+    if (user.passwordResetOtpHash !== hashValue(otp)) {
+      user.passwordResetOtpAttempts =
+        Number(user.passwordResetOtpAttempts || 0) + 1;
+      await user.save({ validateBeforeSave: false });
+      return res.status(400).json({
+        success: false,
+        message: "OTP không đúng",
+      });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenTtlMinutes = Number(
+      process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES || 15,
+    );
+
+    user.resetPasswordToken = hashValue(resetToken);
+    user.resetPasswordExpires = new Date(
+      Date.now() + resetTokenTtlMinutes * 60 * 1000,
+    );
+    user.passwordResetOtpHash = undefined;
+    user.passwordResetOtpExpires = undefined;
+    user.passwordResetOtpAttempts = 0;
+    await user.save({ validateBeforeSave: false });
+
+    return res.json({
+      success: true,
+      message: "Xác thực OTP thành công",
+      data: { resetToken },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/auth/reset-password
+ */
+exports.resetPassword = async (req, res, next) => {
+  try {
+    const resetToken = (req.body?.resetToken || "").toString().trim();
+    const newPassword = (req.body?.newPassword || "").toString();
+
+    if (!resetToken || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu thông tin đặt lại mật khẩu",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Mật khẩu mới phải có ít nhất 6 ký tự",
+      });
+    }
+
+    const resetHash = hashValue(resetToken);
+    const user = await User.findOne({
+      resetPasswordToken: resetHash,
+      resetPasswordExpires: { $gt: new Date() },
+    }).select("+resetPasswordToken +resetPasswordExpires +password");
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "Phiên đặt lại mật khẩu không hợp lệ hoặc đã hết hạn",
+      });
+    }
+
+    user.password = newPassword;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    user.passwordResetOtpHash = undefined;
+    user.passwordResetOtpExpires = undefined;
+    user.passwordResetOtpAttempts = 0;
+    await user.save({ validateBeforeSave: false });
+
+    return res.json({
+      success: true,
+      message: "Đặt lại mật khẩu thành công",
     });
   } catch (err) {
     next(err);
@@ -443,10 +678,15 @@ exports.googleLogin = async (req, res, next) => {
         audience: clientId,
       });
       payload = ticket.getPayload();
-    } catch {
+    } catch (verifyErr) {
+      const rawMessage = String(verifyErr?.message || "");
+      const isExpired = /expired|too late|used too late/i.test(rawMessage);
       return res.status(401).json({
         success: false,
-        message: "Google token không hợp lệ hoặc đã hết hạn",
+        code: isExpired ? "GOOGLE_TOKEN_EXPIRED" : "GOOGLE_TOKEN_INVALID",
+        message: isExpired
+          ? "Google token đã hết hạn, vui lòng đăng nhập lại"
+          : "Google token không hợp lệ",
       });
     }
 

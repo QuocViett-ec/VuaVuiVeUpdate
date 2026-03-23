@@ -32,7 +32,7 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
     googleId: { type: String, unique: true, sparse: true },
-    avatar:   { type: String, default: "" },
+    avatar: { type: String, default: "" },
     provider: { type: String, enum: ["local", "google"], default: "local" },
     address: { type: String, trim: true, default: "" },
     role: {
@@ -43,6 +43,9 @@ const userSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     resetPasswordToken: { type: String, select: false },
     resetPasswordExpires: { type: Date, select: false },
+    passwordResetOtpHash: { type: String, select: false },
+    passwordResetOtpExpires: { type: Date, select: false },
+    passwordResetOtpAttempts: { type: Number, default: 0, select: false },
   },
   { timestamps: true },
 );

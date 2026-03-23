@@ -1,7 +1,7 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { IMAGE_CONFIG } from '@angular/common';
 import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from '@angular/router';
 import { provideHttpClient, withInterceptors, withFetch } from '@angular/common/http';
-import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 
 import { routes } from './app.routes';
 import { credentialsInterceptor } from './core/interceptors/credentials.interceptor';
@@ -20,6 +20,11 @@ export const appConfig: ApplicationConfig = {
       withFetch(),
       withInterceptors([credentialsInterceptor, loadingInterceptor, customerAuthErrorInterceptor]),
     ),
-    provideClientHydration(withEventReplay()),
+    {
+      provide: IMAGE_CONFIG,
+      useValue: {
+        disableImageSizeWarning: true,
+      },
+    },
   ],
 };

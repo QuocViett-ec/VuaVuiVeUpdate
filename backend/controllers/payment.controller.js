@@ -82,6 +82,22 @@ function getBackendOrigin(req) {
   return `${proto}://${host}`;
 }
 
+function isNonPublicUrl(target) {
+  try {
+    const parsed = new URL(String(target || ""));
+    const hostname = String(parsed.hostname || "").toLowerCase();
+    return (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      /^10\./.test(hostname) ||
+      /^192\.168\./.test(hostname) ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname)
+    );
+  } catch {
+    return true;
+  }
+}
+
 function verifyMoMoIpnSignature(body, secretKey) {
   const fields = [
     "accessKey",
@@ -147,6 +163,13 @@ exports.createVNPayUrl = async (req, res) => {
     const returnUrl =
       process.env.VNP_RETURN_URL ||
       `${process.env.CUSTOMER_PORTAL_BASE || "http://localhost:4200"}/checkout/return`;
+
+    if (process.env.NODE_ENV === "production" && isNonPublicUrl(returnUrl)) {
+      return res.status(500).json({
+        success: false,
+        message: "VNP_RETURN_URL không hợp lệ cho production",
+      });
+    }
 
     const { orderId, amount, bankCode, language = "vn" } = req.body;
 
@@ -386,6 +409,16 @@ exports.createMoMoUrl = async (req, res) => {
     const ipnUrl =
       process.env.MOMO_IPN_URL ||
       `${getBackendOrigin(req)}/api/payment/momo/ipn`;
+
+    if (
+      process.env.NODE_ENV === "production" &&
+      (isNonPublicUrl(redirectUrl) || isNonPublicUrl(ipnUrl))
+    ) {
+      return res.status(500).json({
+        success: false,
+        message: "MOMO_REDIRECT_URL/MOMO_IPN_URL không hợp lệ cho production",
+      });
+    }
 
     if (!partnerCode || !accessKey || !secretKey) {
       return res.status(500).json({

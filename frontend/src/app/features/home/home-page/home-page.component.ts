@@ -76,13 +76,22 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
     this.startSlider();
     this.startCountdown();
 
-    this.productSvc.getProducts({ _limit: 24 }).subscribe((ps) => {
-      this.allProducts = ps;
-      this.cart.hydrateFromProducts(ps);
-      this.featured.set(ps.slice(0, 8));
-      this.deals.set(ps.filter((p) => p.oldPrice && p.oldPrice > p.price).slice(0, 4));
-      this.updateFlash();
-      this.loading.set(false);
+    this.productSvc.getProducts({ _limit: 24 }).subscribe({
+      next: (ps) => {
+        this.allProducts = ps;
+        this.cart.hydrateFromProducts(ps);
+        this.featured.set(ps.slice(0, 8));
+        this.deals.set(ps.filter((p) => p.oldPrice && p.oldPrice > p.price).slice(0, 4));
+        this.updateFlash();
+        this.loading.set(false);
+      },
+      error: () => {
+        this.allProducts = [];
+        this.featured.set([]);
+        this.deals.set([]);
+        this.flashProducts.set([]);
+        this.loading.set(false);
+      },
     });
 
     const user = this.auth.currentUser();
@@ -96,7 +105,10 @@ export class HomePageComponent implements OnInit, AfterViewInit, OnDestroy {
           n: 4,
           filter_purchased: true,
         })
-        .subscribe((r) => this.recommended.set(r));
+        .subscribe({
+          next: (r) => this.recommended.set(r),
+          error: () => this.recommended.set([]),
+        });
     }
   }
 

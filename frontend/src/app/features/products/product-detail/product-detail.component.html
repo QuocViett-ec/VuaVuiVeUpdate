@@ -1,4 +1,11 @@
 <div class="container pd-page">
+  <div class="pd-toolbar">
+    <button type="button" class="btn-back" (click)="goBack()">
+      <span class="material-symbols-outlined g-icon">arrow_back</span>
+      Quay lại
+    </button>
+  </div>
+
   <!-- Breadcrumb -->
   <nav class="breadcrumb" aria-label="Đường dẫn">
     <a routerLink="/">Trang chủ</a>
@@ -85,7 +92,9 @@
 
         <div class="pd-rating-summary" aria-label="Đánh giá trung bình">
           <span class="pd-rating-summary__star">★</span>
-          <strong>{{ (reviewStats()?.averageRating ?? product()!.rating ?? 4.5) | number: '1.1-1' }}</strong>
+          <strong>{{
+            reviewStats()?.averageRating ?? product()!.rating ?? 4.5 | number: '1.1-1'
+          }}</strong>
           <span class="pd-rating-summary__count"
             >({{ reviewStats()?.reviewCount ?? product()!.reviewCount ?? 0 }} đánh giá)</span
           >
@@ -156,6 +165,32 @@
             </article>
           }
         </div>
+      }
+    </section>
+
+    <section class="related-section related-section--ml">
+      <h2 class="related-title">Gợi ý Machine Learning</h2>
+      @if (mlLoading()) {
+        <p class="pd-reviews__empty">Đang tải gợi ý phù hợp cho sản phẩm này...</p>
+      } @else if (mlRelated().length > 0) {
+        <div class="related-grid">
+          @for (p of mlRelated(); track p.id) {
+            <a [routerLink]="['/products', p.id]" class="related-card">
+              <img
+                [src]="p.img || 'images/brand/LogoVVV.png'"
+                [alt]="p.name"
+                class="related-img"
+                onerror="this.src = 'images/brand/LogoVVV.png'"
+              />
+              <p class="related-name">{{ p.name }}</p>
+              <p class="related-price">{{ p.price | number }}đ</p>
+            </a>
+          }
+        </div>
+      } @else {
+        <p class="pd-reviews__empty">
+          Chưa có đủ dữ liệu ML để gợi ý. Đang hiển thị danh sách sản phẩm tương tự bên dưới.
+        </p>
       }
     </section>
 

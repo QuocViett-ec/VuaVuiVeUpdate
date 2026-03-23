@@ -201,7 +201,65 @@ export class AuthService {
       if (err?.status === 0) {
         return { ok: false, message: 'Không thể kết nối đến server. Vui lòng thử lại.' };
       }
-      return { ok: false, message: err.error?.message ?? 'Gửi yêu cầu thất bại.' };
+      return {
+        ok: false,
+        message: err.error?.message ?? 'Gửi yêu cầu thất bại.',
+        code: err.error?.code,
+      };
+    }
+  }
+
+  async verifyResetOtp(payload: {
+    phone?: string;
+    email?: string;
+    otp: string;
+  }): Promise<AuthResponse & { resetToken?: string }> {
+    try {
+      const res = await firstValueFrom(
+        this.http.post<any>(`${API_BASE}/api/auth/verify-otp`, payload, {
+          withCredentials: true,
+        }),
+      );
+      if (res?.success) {
+        return {
+          ok: true,
+          message: res.message,
+          resetToken: String(res?.data?.resetToken || ''),
+        };
+      }
+      return { ok: false, message: res?.message ?? 'Xác thực OTP thất bại.' };
+    } catch (err: any) {
+      if (err?.status === 0) {
+        return { ok: false, message: 'Không thể kết nối đến server. Vui lòng thử lại.' };
+      }
+      return {
+        ok: false,
+        message: err.error?.message ?? 'Xác thực OTP thất bại.',
+        code: err.error?.code,
+      };
+    }
+  }
+
+  async resetPassword(payload: { resetToken: string; newPassword: string }): Promise<AuthResponse> {
+    try {
+      const res = await firstValueFrom(
+        this.http.post<any>(`${API_BASE}/api/auth/reset-password`, payload, {
+          withCredentials: true,
+        }),
+      );
+      if (res?.success) {
+        return { ok: true, message: res.message };
+      }
+      return { ok: false, message: res?.message ?? 'Đặt lại mật khẩu thất bại.' };
+    } catch (err: any) {
+      if (err?.status === 0) {
+        return { ok: false, message: 'Không thể kết nối đến server. Vui lòng thử lại.' };
+      }
+      return {
+        ok: false,
+        message: err.error?.message ?? 'Đặt lại mật khẩu thất bại.',
+        code: err.error?.code,
+      };
     }
   }
 
@@ -302,10 +360,12 @@ export class AuthService {
         this.http.put<any>(`${API_BASE}/api/auth/profile`, req, { withCredentials: true }),
       );
       if (res?.data || res?.success) {
+        const serverData = res?.data ?? {};
         this._saveSession({
           ...sess,
-          name: req.name || sess.name,
-          address: req.address || sess.address,
+          name: serverData?.name ?? req.name ?? sess.name,
+          phone: serverData?.phone ?? req.phone ?? sess.phone,
+          address: serverData?.address ?? req.address ?? sess.address,
         });
         return { ok: true, user: res.data ?? sess };
       }
@@ -332,7 +392,36 @@ export class AuthService {
       if (err?.status === 0) {
         return { ok: false, message: 'Không thể kết nối đến server.' };
       }
-      return { ok: false, message: err.error?.message ?? 'Đổi mật khẩu thất bại.' };
+      return {
+        ok: false,
+        message: err.error?.message ?? 'Đổi mật khẩu thất bại.',
+        code: err.error?.code,
+      };
+    }
+  }
+
+  async setLocalPassword(newPassword: string): Promise<AuthResponse> {
+    const sess = this._session();
+    if (!sess) return { ok: false, message: 'Chưa đăng nhập.' };
+    try {
+      const res = await firstValueFrom(
+        this.http.post<any>(
+          `${API_BASE}/api/auth/set-local-password`,
+          { newPassword },
+          { withCredentials: true },
+        ),
+      );
+      if (res?.success) return { ok: true, message: res?.message ?? 'Đặt mật khẩu thành công.' };
+      return { ok: false, message: res?.message ?? 'Đặt mật khẩu thất bại.' };
+    } catch (err: any) {
+      if (err?.status === 0) {
+        return { ok: false, message: 'Không thể kết nối đến server.' };
+      }
+      return {
+        ok: false,
+        message: err.error?.message ?? 'Đặt mật khẩu thất bại.',
+        code: err.error?.code,
+      };
     }
   }
 
@@ -359,7 +448,11 @@ export class AuthService {
       }
       return { ok: false, message: 'Đăng nhập Google thất bại.' };
     } catch (err: any) {
-      return { ok: false, message: err.error?.message ?? 'Đăng nhập Google thất bại.' };
+      return {
+        ok: false,
+        message: err.error?.message ?? 'Đăng nhập Google thất bại.',
+        code: err.error?.code,
+      };
     }
   }
 }

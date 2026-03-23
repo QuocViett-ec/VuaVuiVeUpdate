@@ -2,15 +2,15 @@
   <section class="hero-card">
     <div>
       <p class="eyebrow">Machine Learning</p>
-      <h1>Hieu qua goi y san pham</h1>
+      <h1>Hiệu quả gợi ý sản phẩm</h1>
       <p class="headline">
-        Theo doi CTR, Add-to-cart va do chenh cold-start giua tai khoan moi va tai khoan co lich su.
+        Theo dõi CTR, Add-to-cart và độ chênh cold-start giữa tài khoản mới và tài khoản có lịch sử.
       </p>
     </div>
   </section>
 
   <p class="state state--error" *ngIf="error()">{{ error() }}</p>
-  <p class="state" *ngIf="loading()">Dang tai thong ke machine learning...</p>
+  <p class="state" *ngIf="loading()">Đang tải thống kê machine learning...</p>
 
   <section class="panel" *ngIf="!loading() && !error()">
     <div class="panel-head">
@@ -19,14 +19,14 @@
         <h3>CTR va Add-to-cart theo section</h3>
       </div>
       <div class="telemetry-toolbar">
-        <div class="telemetry-window-buttons" role="group" aria-label="Chon khoang ngay telemetry">
+        <div class="telemetry-window-buttons" role="group" aria-label="Chọn khoảng ngày telemetry">
           <button
             type="button"
             class="window-btn"
             [class.window-btn--active]="telemetryDays() === 7"
             (click)="setTelemetryWindow(7)"
           >
-            7 ngay
+            7 ngày
           </button>
           <button
             type="button"
@@ -34,7 +34,7 @@
             [class.window-btn--active]="telemetryDays() === 14"
             (click)="setTelemetryWindow(14)"
           >
-            14 ngay
+            14 ngày
           </button>
           <button
             type="button"
@@ -42,10 +42,10 @@
             [class.window-btn--active]="telemetryDays() === 30"
             (click)="setTelemetryWindow(30)"
           >
-            30 ngay
+            30 ngày
           </button>
         </div>
-        <p class="muted">{{ telemetryDays() }} ngay gan day</p>
+        <p class="muted">{{ telemetryDays() }} ngày gần đây</p>
       </div>
     </div>
 
@@ -76,7 +76,7 @@
     <div class="panel-subgrid">
       <article class="sub-panel">
         <div class="sub-panel-head">
-          <p class="panel-kicker">Funnel</p>
+          <p class="panel-kicker">Phễu chuyển đổi</p>
           <h4>Impression -> Click -> Add-to-cart theo section</h4>
         </div>
         <canvas id="funnelSectionChart"></canvas>
@@ -84,20 +84,20 @@
 
       <article class="sub-panel">
         <div class="sub-panel-head">
-          <p class="panel-kicker">Delta</p>
-          <h4>Chenhlech with_history - new_account</h4>
+          <p class="panel-kicker">Chênh lệch</p>
+          <h4>Chênh lệch with_history - new_account</h4>
         </div>
         <div class="delta-grid">
           <div class="delta-card" *ngFor="let d of deltaCards()">
             <p class="delta-label">{{ d.label }}</p>
             <p class="delta-item">
-              CTR delta:
+              Chênh CTR:
               <strong [class.pos]="d.ctrDelta >= 0" [class.neg]="d.ctrDelta < 0"
                 >{{ d.ctrDelta | number: '1.1-2' }}%</strong
               >
             </p>
             <p class="delta-item">
-              Add delta:
+              Chênh Add-to-cart:
               <strong [class.pos]="d.addDelta >= 0" [class.neg]="d.addDelta < 0"
                 >{{ d.addDelta | number: '1.1-2' }}%</strong
               >
@@ -110,7 +110,7 @@
     <article class="sub-panel">
       <div class="sub-panel-head">
         <p class="panel-kicker">Sparkline</p>
-        <h4>Xu huong theo ngay cho CTR va Add-to-cart ({{ telemetryDays() }} ngay)</h4>
+        <h4>Xu hướng theo ngày cho CTR và Add-to-cart ({{ telemetryDays() }} ngày)</h4>
       </div>
       <div class="sparkline-grid">
         <div class="sparkline-card" *ngFor="let card of recommendationCards()">
@@ -125,10 +125,10 @@
         <thead>
           <tr>
             <th>Section</th>
-            <th>CTR (Tai khoan moi)</th>
-            <th>CTR (Co lich su)</th>
-            <th>Add-to-cart (Tai khoan moi)</th>
-            <th>Add-to-cart (Co lich su)</th>
+            <th>CTR (Tài khoản mới)</th>
+            <th>CTR (Có lịch sử)</th>
+            <th>Add-to-cart (Tài khoản mới)</th>
+            <th>Add-to-cart (Có lịch sử)</th>
           </tr>
         </thead>
         <tbody>
@@ -146,12 +146,12 @@
     <article class="sub-panel heatmap-panel">
       <div class="sub-panel-head">
         <p class="panel-kicker">Heatmap</p>
-        <h4>Section x Segment (CTR va Add-to-cart)</h4>
+        <h4>Section x Segment (CTR và Add-to-cart)</h4>
       </div>
       <div class="heatmap-grid">
         <div class="heatmap-header"></div>
-        <div class="heatmap-header">Tai khoan moi</div>
-        <div class="heatmap-header">Co lich su</div>
+        <div class="heatmap-header">Tài khoản mới</div>
+        <div class="heatmap-header">Có lịch sử</div>
 
         <ng-container *ngFor="let row of recommendationBreakdown()">
           <div class="heatmap-row-label">{{ row.label }}</div>
@@ -176,8 +176,8 @@
     <div class="coldstart-chart-wrap">
       <p class="panel-kicker">Cold-start gap</p>
       <div class="coldstart-chart-head">
-        <h4>So sanh chenh lech giua tai khoan moi voi co lich su</h4>
-        <div class="telemetry-window-buttons" role="group" aria-label="Chon metric gap">
+        <h4>So sánh chênh lệch giữa tài khoản mới với có lịch sử</h4>
+        <div class="telemetry-window-buttons" role="group" aria-label="Chọn metric gap">
           <button
             type="button"
             class="window-btn"
@@ -199,11 +199,11 @@
 
       <div class="gap-alert" *ngIf="gapAlerts().length > 0">
         <p class="gap-alert-title">
-          Canh bao: gap vuot {{ gapAlertThreshold() | number: '1.0-1' }}%
+          Cảnh báo: gap vượt {{ gapAlertThreshold() | number: '1.0-1' }}%
         </p>
         <p class="gap-alert-text">
-          {{ gapAlerts()[0].label }} dang lech {{ gapAlerts()[0].gap | number: '1.1-2' }}% (co lich
-          su - tai khoan moi).
+          {{ gapAlerts()[0].label }} đang lệch {{ gapAlerts()[0].gap | number: '1.1-2' }}% (có lịch
+          sử - tài khoản mới).
         </p>
       </div>
 

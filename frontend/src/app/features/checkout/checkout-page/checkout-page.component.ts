@@ -5,7 +5,6 @@ import {
   signal,
   computed,
   OnInit,
-  DoCheck,
 } from '@angular/core';
 import { RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -27,7 +26,7 @@ import { PaymentService } from '../../../core/services/payment.service';
   templateUrl: './checkout-page.component.html',
   styleUrl: './checkout-page.component.scss',
 })
-export class CheckoutPageComponent implements OnInit, DoCheck {
+export class CheckoutPageComponent implements OnInit {
   protected cart = inject(CartService);
   private orderSvc = inject(OrderService);
   private auth = inject(AuthService);
@@ -35,8 +34,6 @@ export class CheckoutPageComponent implements OnInit, DoCheck {
   private router = inject(Router);
   private geoSvc = inject(GeolocationService);
   private paymentSvc = inject(PaymentService);
-  private readonly checkoutDraftKey = 'vvv_checkout_draft_v1';
-  private lastDraftSnapshot = '';
 
   // Form fields
   name = '';
@@ -55,7 +52,6 @@ export class CheckoutPageComponent implements OnInit, DoCheck {
   locationError = signal('');
   slotError = signal('');
   selectedIds = signal<Set<string> | null>(null);
-  draftRecovered = signal(false);
 
   readonly stockIssues = computed(() =>
     this.cartItems()
@@ -113,7 +109,9 @@ export class CheckoutPageComponent implements OnInit, DoCheck {
       this.selectedIds.set(new Set(navState.map((id: unknown) => String(id))));
     }
 
-    this.slots.set(this.orderSvc.getDeliverySlots());
+    const nextSlots = this.orderSvc.getDeliverySlots();
+    this.slots.set(nextSlots);
+    this.selectedSlotId = nextSlots[0]?.id || '';
     const user = this.auth.currentUser();
     if (user) {
       this.name = user.name;
@@ -121,12 +119,6 @@ export class CheckoutPageComponent implements OnInit, DoCheck {
       this.email = user.email;
       this.address = user.address ?? '';
     }
-
-    this.restoreCheckoutDraft();
-  }
-
-  ngDoCheck(): void {
-    this.persistCheckoutDraft();
   }
 
   applyVoucher(): void {
@@ -207,156 +199,103 @@ export class CheckoutPageComponent implements OnInit, DoCheck {
       return;
     }
 
-    // Kiểm tra cart đã có đầy đủ thông tin sản phẩm chưa
-    const hasInvalidItem = this.cartItems().some((i) => !i.product.name || !i.product.price);
-    if (hasInvalidItem) {
+    if (!this.slots().some((slot) => slot.id === this.selectedSlotId)) {
+      this.slotError.set('Khung giờ đã chọn không còn hợp lệ. Vui lòng chọn lại.');
+      this.toast.error('Khung giờ đã chọn không còn hợp lệ. Vui lòng chọn lại.');
+      return;
+    }
+
+    const objectIdRegex = /^[a-f\d]{24}$/i;
+    const invalidItem = this.cartItems().find(
+      (i) => !i.product.name || !i.product.price || !objectIdRegex.test(String(i.product.id || '')),
+    );
+    if (invalidItem) {
       this.toast.error(
-        'Không thể tải thông tin sản phẩm. Vui lòng quay lại trang sản phẩm và thử lại.',
+        'Giỏ hàng có sản phẩm không hợp lệ. Vui lòng cập nhật giỏ hàng rồi thử lại.',
       );
       return;
     }
 
     this.loading.set(true);
-    const items = this.cartItems().map((i) => ({
-      productId: i.product.id,
-      productName: i.product.name,
-      quantity: i.quantity,
-      price: i.product.price,
-      subtotal: i.product.price * i.quantity,
-    }));
-
-    const payload = {
-      userId: this.auth.currentUser()?.id,
-      items,
-      delivery: {
-        name: this.name,
-        phone: this.phone,
-        address: this.address,
-        slot: this.selectedSlotId || '',
-      },
-      payment: { method: this.paymentMethod, status: 'pending' },
-      note: this.note,
-      subtotal: this.subtotal(),
-      shippingFee: this.shippingFee(),
-      discount: this.discount(),
-      totalAmount: this.totalAmount(),
-      voucherCode: this.voucherCode || undefined,
-    };
-
-    this.orderSvc.createOrder(payload).subscribe({
-      next: async (order) => {
-        const orderId = order.orderId ?? order._id ?? '';
-        const selected = this.selectedIds();
-        if (selected && selected.size > 0) {
-          selected.forEach((id) => this.cart.removeFromCart(id));
-        } else {
-          this.cart.clearCart();
-        }
-        this.loading.set(false);
-
-        if (this.paymentMethod === 'vnpay') {
-          try {
-            const result = await firstValueFrom(
-              this.paymentSvc.createGatewayUrl('vnpay', { orderId }),
-            );
-            if (result.paymentUrl) {
-              window.location.href = result.paymentUrl;
-              return;
-            }
-            this.toast.warning(
-              result.message ||
-                'Không tạo được link VNPay. Đơn hàng đã lưu, vui lòng thanh toán sau.',
-            );
-          } catch {
-            this.toast.warning('Không kết nối được VNPay. Đơn hàng đã lưu với phương thức COD.');
-          }
-        } else if (this.paymentMethod === 'momo') {
-          try {
-            const result = await firstValueFrom(
-              this.paymentSvc.createGatewayUrl('momo', { orderId }),
-            );
-            if (result.paymentUrl) {
-              window.location.href = result.paymentUrl;
-              return;
-            }
-            this.toast.warning(result.message || 'Không tạo được link MoMo. Đơn hàng đã lưu.');
-          } catch {
-            this.toast.warning('Không kết nối được MoMo. Đơn hàng đã lưu.');
-          }
-        }
-
-        this.toast.success('Đặt hàng thành công! 🎉');
-        this.clearCheckoutDraft();
-        this.router.navigate(['/orders']);
-      },
-      error: (err) => {
-        this.loading.set(false);
-        const backendMessage = err?.error?.message || '';
-        this.toast.error(
-          backendMessage || 'Đặt hàng thất bại. Vui lòng đăng nhập lại hoặc thử lại sau.',
-        );
-      },
-    });
-  }
-
-  private buildDraftPayload(): Record<string, unknown> {
-    return {
-      name: this.name,
-      phone: this.phone,
-      email: this.email,
-      address: this.address,
-      note: this.note,
-      paymentMethod: this.paymentMethod,
-      selectedSlotId: this.selectedSlotId,
-      voucherCode: this.voucherCode,
-    };
-  }
-
-  private persistCheckoutDraft(): void {
-    if (typeof localStorage === 'undefined') return;
-    const payload = this.buildDraftPayload();
-    const snapshot = JSON.stringify(payload);
-    if (snapshot === this.lastDraftSnapshot) return;
-    this.lastDraftSnapshot = snapshot;
-    localStorage.setItem(this.checkoutDraftKey, snapshot);
-  }
-
-  private restoreCheckoutDraft(): void {
-    if (typeof localStorage === 'undefined') return;
     try {
-      const raw = localStorage.getItem(this.checkoutDraftKey);
-      if (!raw) return;
-      const draft = JSON.parse(raw);
-      this.name = String(draft?.name ?? this.name);
-      this.phone = String(draft?.phone ?? this.phone);
-      this.email = String(draft?.email ?? this.email);
-      this.address = String(draft?.address ?? this.address);
-      this.note = String(draft?.note ?? this.note);
-      this.paymentMethod = ['cod', 'vnpay', 'momo'].includes(String(draft?.paymentMethod))
-        ? (draft.paymentMethod as 'cod' | 'vnpay' | 'momo')
-        : this.paymentMethod;
-      this.selectedSlotId = String(draft?.selectedSlotId ?? this.selectedSlotId);
-      this.voucherCode = String(draft?.voucherCode ?? this.voucherCode);
-      this.lastDraftSnapshot = JSON.stringify(this.buildDraftPayload());
-      this.draftRecovered.set(true);
-    } catch {
-      // Ignore malformed draft
+      const items = this.cartItems().map((i) => ({
+        productId: i.product.id,
+        productName: i.product.name,
+        quantity: i.quantity,
+        price: i.product.price,
+        subtotal: i.product.price * i.quantity,
+      }));
+
+      const payload = {
+        items,
+        delivery: {
+          name: this.name,
+          phone: this.phone,
+          address: this.address,
+          slot: this.selectedSlotId || '',
+        },
+        payment: { method: this.paymentMethod, status: 'pending' },
+        note: this.note,
+        subtotal: this.subtotal(),
+        shippingFee: this.shippingFee(),
+        discount: this.discount(),
+        totalAmount: this.totalAmount(),
+        voucherCode: this.voucherCode || undefined,
+      };
+
+      const order = await firstValueFrom(this.orderSvc.createOrder(payload));
+      const orderId = String(order?.orderId ?? order?._id ?? '').trim();
+      if (!orderId) {
+        throw new Error('ORDER_ID_MISSING');
+      }
+
+      const selected = this.selectedIds();
+      if (selected && selected.size > 0) {
+        selected.forEach((id) => this.cart.removeFromCart(id));
+      } else {
+        this.cart.clearCart();
+      }
+
+      if (this.paymentMethod === 'vnpay') {
+        try {
+          const result = await firstValueFrom(
+            this.paymentSvc.createGatewayUrl('vnpay', { orderId }),
+          );
+          if (result.paymentUrl) {
+            window.location.href = result.paymentUrl;
+            return;
+          }
+          this.toast.warning(
+            result.message ||
+              'Không tạo được link VNPay. Đơn hàng đã lưu, vui lòng thanh toán sau.',
+          );
+        } catch {
+          this.toast.warning('Không kết nối được VNPay. Đơn hàng đã lưu với phương thức COD.');
+        }
+      } else if (this.paymentMethod === 'momo') {
+        try {
+          const result = await firstValueFrom(
+            this.paymentSvc.createGatewayUrl('momo', { orderId }),
+          );
+          if (result.paymentUrl) {
+            window.location.href = result.paymentUrl;
+            return;
+          }
+          this.toast.warning(result.message || 'Không tạo được link MoMo. Đơn hàng đã lưu.');
+        } catch {
+          this.toast.warning('Không kết nối được MoMo. Đơn hàng đã lưu.');
+        }
+      }
+
+      this.toast.success('Đặt hàng thành công! 🎉');
+      this.router.navigate(['/orders']);
+    } catch (err: any) {
+      const backendMessage = String(err?.error?.message || '');
+      this.toast.error(
+        backendMessage || 'Đặt hàng thất bại. Vui lòng đăng nhập lại hoặc thử lại sau.',
+      );
+    } finally {
+      this.loading.set(false);
     }
-  }
-
-  dismissDraftNotice(): void {
-    this.draftRecovered.set(false);
-  }
-
-  clearDraftAndDismiss(): void {
-    this.clearCheckoutDraft();
-    this.draftRecovered.set(false);
-    this.toast.info('Da xoa ban nhap checkout.');
-  }
-
-  private clearCheckoutDraft(): void {
-    if (typeof localStorage === 'undefined') return;
-    localStorage.removeItem(this.checkoutDraftKey);
-    this.lastDraftSnapshot = '';
   }
 }

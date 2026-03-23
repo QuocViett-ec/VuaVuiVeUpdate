@@ -112,9 +112,9 @@ export class AdminMlInsightsComponent implements OnInit, OnDestroy {
   }
 
   private sectionLabel(section: RecommendationSection): string {
-    if (section === 'personal') return 'Cho rieng ban';
-    if (section === 'similar') return 'San pham tuong tu';
-    return 'Mua nhieu tai Vua Vui Ve';
+    if (section === 'personal') return 'Cho riêng bạn';
+    if (section === 'similar') return 'Sản phẩm tương tự';
+    return 'Mua nhiều tại Vua Vui Vẻ';
   }
 
   private buildRecommendationCards(rows: SectionTelemetry[]): SectionTelemetryCard[] {
@@ -258,21 +258,21 @@ export class AdminMlInsightsComponent implements OnInit, OnDestroy {
           datasets: [
             {
               type: 'bar',
-              label: `${metricLabel} tai khoan moi`,
+              label: `${metricLabel} tài khoản mới`,
               data: newSeries,
               backgroundColor: 'rgba(59, 130, 246, 0.72)',
               borderRadius: 8,
             },
             {
               type: 'bar',
-              label: `${metricLabel} co lich su`,
+              label: `${metricLabel} có lịch sử`,
               data: historySeries,
               backgroundColor: 'rgba(16, 185, 129, 0.72)',
               borderRadius: 8,
             },
             {
               type: 'line',
-              label: `Gap ${metricLabel} (co lich su - moi)`,
+              label: `Gap ${metricLabel} (có lịch sử - mới)`,
               data: gapSeries,
               yAxisID: 'yGap',
               borderColor: '#b44d68',
@@ -434,7 +434,7 @@ export class AdminMlInsightsComponent implements OnInit, OnDestroy {
   private refreshChart(): void {
     if (!isPlatformBrowser(this.platformId)) return;
     this.tryDrawColdStartGapChart().catch(() => {
-      this.error.set('Khong tai duoc chart machine learning.');
+      this.error.set('Không tải được chart machine learning.');
     });
   }
 
@@ -466,7 +466,7 @@ export class AdminMlInsightsComponent implements OnInit, OnDestroy {
           this.refreshChart();
         },
         error: () => {
-          this.error.set('Khong tai duoc du lieu machine learning.');
+          this.error.set('Không tải được dữ liệu machine learning.');
           this.loading.set(false);
         },
       });

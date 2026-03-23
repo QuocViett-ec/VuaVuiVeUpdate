@@ -52,20 +52,28 @@ export class AdminReportsV2Component implements OnInit {
   totalRevenue = signal(0);
   totalOrders = signal(0);
   averageOrderValue = signal(0);
-  
+
   private chartsDrawn = false;
+
+  private sortByDayDesc(rows: SeriesPoint[]): SeriesPoint[] {
+    return [...rows].sort((a, b) => String(b.day || '').localeCompare(String(a.day || '')));
+  }
+
+  private sortByMonthDesc(rows: SeriesPoint[]): SeriesPoint[] {
+    return [...rows].sort((a, b) => String(b.month || '').localeCompare(String(a.month || '')));
+  }
 
   ngOnInit(): void {
     this.http
-      .get<{ success: boolean; data: DashboardAnalytics }>(
-        `${environment.apiBase}/api/users/dashboard/analytics`,
-        { withCredentials: true },
-      )
+      .get<{
+        success: boolean;
+        data: DashboardAnalytics;
+      }>(`${environment.apiBase}/api/users/dashboard/analytics`, { withCredentials: true })
       .subscribe({
         next: (res) => {
           const analytics = res.data;
-          this.byMonth.set(analytics.revenueByMonth);
-          this.byDay.set(analytics.revenueLast30Days);
+          this.byMonth.set(this.sortByMonthDesc(analytics.revenueByMonth ?? []));
+          this.byDay.set(this.sortByDayDesc(analytics.revenueLast30Days ?? []));
           this.totalRevenue.set(analytics.overview.totalRevenue);
           this.totalOrders.set(analytics.overview.totalOrders);
           this.averageOrderValue.set(analytics.overview.averageOrderValue);
@@ -76,7 +84,7 @@ export class AdminReportsV2Component implements OnInit {
           }
         },
         error: () => {
-          this.error.set('Khong tai duoc du lieu bao cao.');
+          this.error.set('Không tải được dữ liệu báo cáo.');
           this.loading.set(false);
         },
       });
@@ -118,13 +126,18 @@ export class AdminReportsV2Component implements OnInit {
       (dayCanvas as any).__chart = new Chart(dayCanvas, {
         type: 'line',
         data: {
-          labels: this.byDay().map((item) =>
-            new Date(item.day || '').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
-          ),
+          labels: [...this.byDay()]
+            .reverse()
+            .map((item) =>
+              new Date(item.day || '').toLocaleDateString('vi-VN', {
+                day: '2-digit',
+                month: '2-digit',
+              }),
+            ),
           datasets: [
             {
-              label: 'Doanh thu 30 ngay',
-              data: this.byDay().map((item) => item.revenue),
+              label: 'Doanh thu 30 ngày',
+              data: [...this.byDay()].reverse().map((item) => item.revenue),
               borderColor: '#1d4ed8',
               backgroundColor: 'rgba(59,130,246,0.14)',
               fill: true,
@@ -153,11 +166,11 @@ export class AdminReportsV2Component implements OnInit {
       (monthCanvas as any).__chart = new Chart(monthCanvas, {
         type: 'bar',
         data: {
-          labels: this.byMonth().map((item) => item.month || ''),
+          labels: [...this.byMonth()].reverse().map((item) => item.month || ''),
           datasets: [
             {
-              label: 'Doanh thu theo thang',
-              data: this.byMonth().map((item) => item.revenue),
+              label: 'Doanh thu theo tháng',
+              data: [...this.byMonth()].reverse().map((item) => item.revenue),
               backgroundColor: 'rgba(16,185,129,0.78)',
               borderRadius: 10,
             },

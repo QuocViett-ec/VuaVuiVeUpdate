@@ -14,6 +14,7 @@ const readLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   skip: () => process.env.NODE_ENV === "development",
+  keyGenerator: (req) => req.session?.userId || req.ip,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -27,6 +28,7 @@ const writeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
   skip: () => process.env.NODE_ENV === "development",
+  keyGenerator: (req) => req.session?.userId || req.ip,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -45,13 +47,29 @@ router.post(
   orderCtrl.validateVoucherForCheckout,
 );
 router.get("/me", requireAuth, readLimiter, orderCtrl.getMyOrders);
-router.get("/:id/reviews/me", requireAuth, readLimiter, orderCtrl.getMyOrderReviews);
-router.post("/:id/reviews", requireAuth, writeLimiter, orderCtrl.submitOrderReviews);
+router.get(
+  "/:id/reviews/me",
+  requireAuth,
+  readLimiter,
+  orderCtrl.getMyOrderReviews,
+);
+router.post(
+  "/:id/reviews",
+  requireAuth,
+  writeLimiter,
+  orderCtrl.submitOrderReviews,
+);
 router.get("/:id", requireAuth, readLimiter, orderCtrl.getOrderById);
 
 // Cập nhật trạng thái thanh toán (owner hoặc admin) — gọi sau VNPay/MoMo callback
 router.patch("/:id/paid", requireAuth, writeLimiter, orderCtrl.markOrderPaid);
 router.patch("/:id/cancel", requireAuth, writeLimiter, orderCtrl.cancelOrder);
+router.post(
+  "/:id/return-request",
+  requireAuth,
+  writeLimiter,
+  orderCtrl.requestReturn,
+);
 
 // Admin routes
 router.put(
@@ -61,6 +79,22 @@ router.put(
   requirePermission("orders.write"),
   writeLimiter,
   orderCtrl.updateStatus,
+);
+router.put(
+  "/:id/return-review",
+  requireAuth,
+  requireBackofficeRole("admin", "staff"),
+  requirePermission("orders.write"),
+  writeLimiter,
+  orderCtrl.reviewReturnRequest,
+);
+router.patch(
+  "/:id/refund",
+  requireAuth,
+  requireBackofficeRole("admin"),
+  requirePermission("orders.write"),
+  writeLimiter,
+  orderCtrl.markOrderRefunded,
 );
 
 module.exports = router;

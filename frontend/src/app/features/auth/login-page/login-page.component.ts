@@ -3,6 +3,7 @@ import { RouterLink, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { CartService } from '../../../core/services/cart.service';
 import { GoogleLoginButtonComponent } from '../../../shared/google-login-button/google-login-button.component';
 import { AuthSession } from '../../../core/models/user.model';
 import { environment } from '../../../../environments/environment';
@@ -18,6 +19,7 @@ import { environment } from '../../../../environments/environment';
 export class LoginPageComponent {
   private auth = inject(AuthService);
   private toast = inject(ToastService);
+  private cartSvc = inject(CartService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
@@ -58,6 +60,7 @@ export class LoginPageComponent {
 
     this.loading.set(false);
     if (result.ok) {
+      await this.cartSvc.mergeLocalIntoServer();
       this.toast.success(`Chào mừng ${result.user?.name}!`);
       const returnUrl = this.route.snapshot.queryParams['returnUrl'];
       if (this.auth.isSafeReturnUrl(returnUrl)) {
@@ -71,6 +74,7 @@ export class LoginPageComponent {
   }
 
   async onGoogleSuccess(session: AuthSession): Promise<void> {
+    await this.cartSvc.mergeLocalIntoServer();
     this.toast.success(`Chào mừng ${session.name}!`);
     const returnUrl = this.route.snapshot.queryParams['returnUrl'];
     if (this.auth.isSafeReturnUrl(returnUrl)) {

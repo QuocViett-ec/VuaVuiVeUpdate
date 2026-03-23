@@ -14,21 +14,75 @@ const VALID_STATUSES = [
   "shipping",
   "delivered",
   "cancelled",
+  "return_requested",
+  "return_approved",
+  "return_rejected",
+  "returned",
+  "refunded",
 ];
 const CANCELLABLE_STATUSES = ["pending", "confirmed"];
+const RETURN_WINDOW_DAYS = Math.max(
+  1,
+  Number.parseInt(process.env.ORDER_RETURN_WINDOW_DAYS || "7", 10) || 7,
+);
 const ALLOWED_TRANSITIONS = {
   pending: ["confirmed", "cancelled"],
   confirmed: ["shipping", "cancelled"],
   shipping: ["delivered"],
-  delivered: [],
+  delivered: ["return_requested"],
   cancelled: [],
+  return_requested: ["return_approved", "return_rejected"],
+  return_approved: ["returned", "refunded"],
+  return_rejected: [],
+  returned: ["refunded"],
+  refunded: [],
 };
 
 function buildOrderQuery(id) {
   const isObjectId = /^[a-f\d]{24}$/i.test(id);
-  return isObjectId
-    ? { $or: [{ _id: id }, { orderId: id }] }
-    : { orderId: id };
+  return isObjectId ? { $or: [{ _id: id }, { orderId: id }] } : { orderId: id };
+}
+
+function enrichOrderItemsWithProduct(order, productMap) {
+  const items = Array.isArray(order?.items) ? order.items : [];
+  const nextItems = items.map((item) => {
+    const productId = String(item?.productId || "");
+    const product = productMap.get(productId);
+    const imageUrl =
+      item?.imageUrl ||
+      item?.productImage ||
+      item?.image ||
+      product?.imageUrl ||
+      "";
+
+    return {
+      ...item,
+      productName: String(item?.productName || product?.name || "Sản phẩm"),
+      imageUrl,
+      productImage: imageUrl,
+      product: product
+        ? {
+            _id: product._id,
+            name: product.name,
+            imageUrl: product.imageUrl,
+            price: product.price,
+            stock: product.stock,
+          }
+        : undefined,
+    };
+  });
+
+  return {
+    ...order,
+    items: nextItems,
+  };
+}
+
+function isWithinReturnWindow(order) {
+  const baseDate = order?.deliveredAt || order?.updatedAt || order?.createdAt;
+  if (!baseDate) return false;
+  const elapsed = Date.now() - new Date(baseDate).getTime();
+  return elapsed >= 0 && elapsed <= RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 }
 
 /**
@@ -406,11 +460,59 @@ exports.createOrder = async (req, res, next) => {
  */
 exports.getMyOrders = async (req, res, next) => {
   try {
-    const orders = await Order.find({ userId: req.session.userId })
-      .sort({ createdAt: -1 })
-      .lean();
+    const page = Math.max(1, Number.parseInt(req.query?.page, 10) || 1);
+    const limit = Math.min(
+      100,
+      Math.max(1, Number.parseInt(req.query?.limit, 10) || 20),
+    );
+    const skip = (page - 1) * limit;
+    const status = String(req.query?.status || "")
+      .trim()
+      .toLowerCase();
 
-    return res.json({ success: true, data: orders });
+    const query = { userId: req.session.userId };
+    if (status && VALID_STATUSES.includes(status)) {
+      query.status = status;
+    }
+
+    const [total, orders] = await Promise.all([
+      Order.countDocuments(query),
+      Order.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    ]);
+
+    const productIds = [
+      ...new Set(
+        orders
+          .flatMap((order) => (Array.isArray(order?.items) ? order.items : []))
+          .map((item) => String(item?.productId || ""))
+          .filter(Boolean),
+      ),
+    ];
+
+    let productMap = new Map();
+    if (productIds.length) {
+      const products = await Product.find({ _id: { $in: productIds } })
+        .select("name imageUrl price stock")
+        .lean();
+      productMap = new Map(products.map((p) => [String(p._id), p]));
+    }
+
+    const enrichedOrders = orders.map((order) =>
+      enrichOrderItemsWithProduct(order, productMap),
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        items: enrichedOrders,
+        pagination: {
+          total,
+          page,
+          limit,
+          totalPages: Math.max(1, Math.ceil(total / limit)),
+        },
+      },
+    });
   } catch (err) {
     next(err);
   }
@@ -442,7 +544,25 @@ exports.getOrderById = async (req, res, next) => {
       });
     }
 
-    return res.json({ success: true, data: order });
+    const productIds = [
+      ...new Set(
+        (Array.isArray(order?.items) ? order.items : [])
+          .map((item) => String(item?.productId || ""))
+          .filter(Boolean),
+      ),
+    ];
+
+    let productMap = new Map();
+    if (productIds.length) {
+      const products = await Product.find({ _id: { $in: productIds } })
+        .select("name imageUrl price stock")
+        .lean();
+      productMap = new Map(products.map((p) => [String(p._id), p]));
+    }
+
+    const enrichedOrder = enrichOrderItemsWithProduct(order, productMap);
+
+    return res.json({ success: true, data: enrichedOrder });
   } catch (err) {
     next(err);
   }
@@ -499,6 +619,7 @@ exports.updateStatus = async (req, res, next) => {
     if (status === "delivered") {
       order.payment = order.payment || {};
       order.payment.status = "paid";
+      order.deliveredAt = order.deliveredAt || new Date();
     }
     await order.save();
 
@@ -661,6 +782,223 @@ exports.markOrderPaid = async (req, res, next) => {
     return res.json({
       success: true,
       message: "Cập nhật trạng thái thanh toán thành công",
+      data: order,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/orders/:id/return-request (auth: owner)
+ */
+exports.requestReturn = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const query = buildOrderQuery(id);
+    const order = await Order.findOne(query);
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy đơn hàng" });
+    }
+
+    const isOwner = String(order.userId) === String(req.session.userId);
+    if (!isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền yêu cầu trả hàng cho đơn này",
+      });
+    }
+
+    if (String(order.status) !== "delivered") {
+      return res.status(400).json({
+        success: false,
+        message: "Chỉ có thể yêu cầu trả hàng khi đơn đã giao",
+      });
+    }
+
+    if (!isWithinReturnWindow(order)) {
+      return res.status(400).json({
+        success: false,
+        message: `Đơn đã quá thời hạn trả hàng (${RETURN_WINDOW_DAYS} ngày)`,
+      });
+    }
+
+    const reason = String(req.body?.reason || "").trim();
+    const note = String(req.body?.note || "").trim();
+    const images = Array.isArray(req.body?.images)
+      ? req.body.images.map((item) => String(item || "").trim()).filter(Boolean)
+      : [];
+
+    if (reason.length < 5) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng nhập lý do trả hàng (ít nhất 5 ký tự)",
+      });
+    }
+
+    order.status = "return_requested";
+    order.returnRequest = {
+      status: "pending",
+      requestedAt: new Date(),
+      reason,
+      note,
+      images,
+      reviewedAt: null,
+      reviewedBy: null,
+      reviewNote: "",
+    };
+    await order.save();
+
+    publishToUser(order.userId, "order.status_updated", {
+      orderId: String(order.orderId || ""),
+      dbId: String(order._id),
+      userId: String(order.userId || ""),
+      status: order.status,
+      paymentStatus: String(order.payment?.status || "pending"),
+      updatedAt: order.updatedAt,
+      source: "customer_return_request",
+    });
+
+    return res.json({
+      success: true,
+      message: "Đã gửi yêu cầu trả hàng",
+      data: order,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * PUT /api/orders/:id/return-review (admin/staff)
+ */
+exports.reviewReturnRequest = async (req, res, next) => {
+  try {
+    const order = await Order.findOne(buildOrderQuery(req.params.id));
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy đơn hàng" });
+    }
+
+    if (String(order.status) !== "return_requested") {
+      return res.status(400).json({
+        success: false,
+        message: "Đơn hàng chưa ở trạng thái chờ duyệt trả hàng",
+      });
+    }
+
+    const decision = String(req.body?.decision || "")
+      .trim()
+      .toLowerCase();
+    const reviewNote = String(req.body?.reviewNote || "").trim();
+
+    if (!["approve", "reject"].includes(decision)) {
+      return res.status(400).json({
+        success: false,
+        message: "decision phải là approve hoặc reject",
+      });
+    }
+
+    const nextStatus =
+      decision === "approve" ? "return_approved" : "return_rejected";
+    order.status = nextStatus;
+    order.returnRequest = order.returnRequest || {};
+    order.returnRequest.status =
+      decision === "approve" ? "approved" : "rejected";
+    order.returnRequest.reviewedAt = new Date();
+    order.returnRequest.reviewedBy = req.session.userId;
+    order.returnRequest.reviewNote = reviewNote;
+    await order.save();
+
+    await createAuditLog({
+      adminId: req.session.userId,
+      action: "order.return_review",
+      target: `Order:${order.orderId || order._id}`,
+      details: {
+        decision,
+        previousStatus: "return_requested",
+        nextStatus,
+      },
+      ip: req.ip,
+    });
+
+    publishToUser(order.userId, "order.status_updated", {
+      orderId: String(order.orderId || ""),
+      dbId: String(order._id),
+      userId: String(order.userId || ""),
+      status: order.status,
+      paymentStatus: String(order.payment?.status || "pending"),
+      updatedAt: order.updatedAt,
+      source: "admin_return_review",
+    });
+
+    return res.json({
+      success: true,
+      message: "Đã xử lý yêu cầu trả hàng",
+      data: order,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * PATCH /api/orders/:id/refund (admin)
+ */
+exports.markOrderRefunded = async (req, res, next) => {
+  try {
+    const order = await Order.findOne(buildOrderQuery(req.params.id));
+    if (!order) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Không tìm thấy đơn hàng" });
+    }
+
+    if (!["return_approved", "returned"].includes(String(order.status))) {
+      return res.status(400).json({
+        success: false,
+        message: "Chỉ hoàn tiền cho đơn đã duyệt trả hoặc đã nhận hàng trả",
+      });
+    }
+
+    order.status = "refunded";
+    order.payment = order.payment || {};
+    order.payment.status = "refunded";
+    order.returnRequest = order.returnRequest || {};
+    order.returnRequest.status = "refunded";
+    order.returnRequest.reviewedAt =
+      order.returnRequest.reviewedAt || new Date();
+    order.returnRequest.reviewedBy =
+      order.returnRequest.reviewedBy || req.session.userId;
+    await order.save();
+
+    await createAuditLog({
+      adminId: req.session.userId,
+      action: "order.refund",
+      target: `Order:${order.orderId || order._id}`,
+      details: {
+        nextStatus: "refunded",
+        paymentStatus: "refunded",
+      },
+      ip: req.ip,
+    });
+
+    publishToUser(order.userId, "order.status_updated", {
+      orderId: String(order.orderId || ""),
+      dbId: String(order._id),
+      userId: String(order.userId || ""),
+      status: order.status,
+      paymentStatus: "refunded",
+      updatedAt: order.updatedAt,
+      source: "admin_refund",
+    });
+
+    return res.json({
+      success: true,
+      message: "Đã đánh dấu hoàn tiền",
       data: order,
     });
   } catch (err) {

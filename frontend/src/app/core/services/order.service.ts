@@ -14,6 +14,16 @@ export interface AdminOrdersResult {
   };
 }
 
+export interface CustomerOrdersResult {
+  data: Order[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
+
 export interface BulkOrderUpdateResult {
   updatedCount: number;
   requested: number;
@@ -90,15 +100,52 @@ export class OrderService {
   // ─── Delivery slots ───────────────────────────────────────────────────────────
   getDeliverySlots(): DeliverySlot[] {
     const slots: DeliverySlot[] = [];
-    const today = new Date();
-    for (let d = 0; d < 2; d++) {
-      const dt = new Date(today.getFullYear(), today.getMonth(), today.getDate() + d);
-      const dateStr = dt.toISOString().slice(0, 10);
-      for (const win of ['09:00-11:00', '13:00-15:00', '18:00-20:00']) {
-        slots.push({ id: `${dateStr}_${win}`, date: dateStr, window: win, capacity: 50, used: 0 });
+    const now = new Date();
+    const leadTimeMs = 60 * 60 * 1000; // Need at least 1 hour before slot starts.
+    const windows = [
+      { label: '09:00-11:00', startHour: 9 },
+      { label: '13:00-15:00', startHour: 13 },
+      { label: '18:00-20:00', startHour: 18 },
+    ];
+
+    // Build enough future slots so users always have selectable options.
+    for (let d = 0; d < 4; d++) {
+      const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d);
+      const dateStr = this.toLocalDateString(day);
+
+      for (const win of windows) {
+        const slotStart = new Date(
+          day.getFullYear(),
+          day.getMonth(),
+          day.getDate(),
+          win.startHour,
+          0,
+          0,
+          0,
+        );
+
+        if (slotStart.getTime() - leadTimeMs <= now.getTime()) {
+          continue;
+        }
+
+        slots.push({
+          id: `${dateStr}_${win.label}`,
+          date: dateStr,
+          window: win.label,
+          capacity: 50,
+          used: 0,
+        });
       }
     }
+
     return slots;
+  }
+
+  private toLocalDateString(value: Date): string {
+    const yyyy = value.getFullYear();
+    const mm = String(value.getMonth() + 1).padStart(2, '0');
+    const dd = String(value.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   // ─── Voucher ─────────────────────────────────────────────────────────────────
@@ -167,12 +214,13 @@ export class OrderService {
 
   // ─── List / get ───────────────────────────────────────────────────────────────
   getOrders(params?: { userId?: string; status?: string }): Observable<Order[]> {
-    // Thử /api/orders/me trước (backend mới với session)
-    const meUrl = `${this.api}/api/orders/me`;
-    return this.http.get<any>(meUrl, { withCredentials: true }).pipe(
-      map((res: any) => {
-        const list = Array.isArray(res) ? res : (res?.data ?? []);
-        const normalized = list.map((o: any) => this.normalizeOrder(o));
+    return this.getMyOrdersPaged({
+      status: params?.status,
+      page: 1,
+      limit: 100,
+    }).pipe(
+      map((result) => {
+        const normalized = result.data;
         if (params?.status && params.status !== 'all') {
           return normalized.filter((o: Order) => o.status === params.status);
         }
@@ -182,11 +230,61 @@ export class OrderService {
   }
 
   getMyOrders(): Observable<Order[]> {
-    return this.http.get<any>(`${this.api}/api/orders/me`, { withCredentials: true }).pipe(
+    return this.getMyOrdersPaged({ page: 1, limit: 100 }).pipe(map((res) => res.data));
+  }
+
+  getMyOrdersPaged(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Observable<CustomerOrdersResult> {
+    const qs = new URLSearchParams();
+    if (params?.status && params.status !== 'all') qs.set('status', params.status);
+    if (params?.page) qs.set('page', String(params.page));
+    if (params?.limit) qs.set('limit', String(params.limit));
+
+    const url = `${this.api}/api/orders/me${qs.toString() ? `?${qs.toString()}` : ''}`;
+
+    return this.http.get<any>(url, { withCredentials: true }).pipe(
       map((res: any) => {
-        const list = Array.isArray(res) ? res : (res?.data ?? []);
-        return list.map((o: any) => this.normalizeOrder(o));
+        const payload = res?.data;
+        const list = Array.isArray(payload?.items)
+          ? payload.items
+          : Array.isArray(payload)
+            ? payload
+            : Array.isArray(res)
+              ? res
+              : [];
+
+        const page = Number(payload?.pagination?.page ?? params?.page ?? 1);
+        const rawLimit = payload?.pagination?.limit ?? params?.limit ?? list.length;
+        const limit = Number(rawLimit || 0);
+        const total = Number(payload?.pagination?.total ?? list.length);
+        const totalPages = Number(
+          payload?.pagination?.totalPages ?? (limit > 0 ? Math.ceil(total / limit) : 1),
+        );
+
+        return {
+          data: list.map((o: any) => this.normalizeOrder(o)),
+          pagination: {
+            total,
+            page,
+            limit,
+            totalPages,
+          },
+        } as CustomerOrdersResult;
       }),
+      catchError(() =>
+        of({
+          data: [],
+          pagination: {
+            total: 0,
+            page: Number(params?.page ?? 1),
+            limit: Number(params?.limit ?? 20),
+            totalPages: 0,
+          },
+        }),
+      ),
     );
   }
 
@@ -267,6 +365,30 @@ export class OrderService {
       .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
   }
 
+  requestReturn(
+    id: string,
+    payload: { reason: string; note?: string; images?: string[] },
+  ): Observable<Order> {
+    return this.http
+      .post<any>(`${this.api}/api/orders/${id}/return-request`, payload, this.writeOptions)
+      .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
+  }
+
+  reviewReturnRequest(
+    id: string,
+    payload: { decision: 'approve' | 'reject'; reviewNote?: string },
+  ): Observable<Order> {
+    return this.http
+      .put<any>(`${this.api}/api/orders/${id}/return-review`, payload, this.writeOptions)
+      .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
+  }
+
+  markRefunded(id: string): Observable<Order> {
+    return this.http
+      .patch<any>(`${this.api}/api/orders/${id}/refund`, {}, this.writeOptions)
+      .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
+  }
+
   getMyOrderReviews(orderId: string): Observable<any[]> {
     return this.http
       .get<any>(`${this.api}/api/orders/${orderId}/reviews/me`, {
@@ -283,11 +405,7 @@ export class OrderService {
 
   submitOrderReviews(orderId: string, reviews: ProductReviewInput[]): Observable<any[]> {
     return this.http
-      .post<any>(
-        `${this.api}/api/orders/${orderId}/reviews`,
-        { reviews },
-        this.writeOptions,
-      )
+      .post<any>(`${this.api}/api/orders/${orderId}/reviews`, { reviews }, this.writeOptions)
       .pipe(
         map((res: any) => {
           const list = Array.isArray(res) ? res : (res?.data ?? []);

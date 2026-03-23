@@ -24,6 +24,7 @@ export class ForgotPasswordPageComponent implements OnDestroy {
   resendCountdown = signal(0);
   private _resendTimer: ReturnType<typeof setInterval> | null = null;
   private _otpValues: string[] = ['', '', '', '', '', ''];
+  private _resetToken = '';
 
   credential = '';
   newPassword = '';
@@ -74,22 +75,36 @@ export class ForgotPasswordPageComponent implements OnDestroy {
     }
   }
 
-  verifyOtp(): void {
+  async verifyOtp(): Promise<void> {
     const code = this._otpValues.join('');
     if (code.length < 6) {
       this.error.set('Vui lòng nhập đủ 6 chữ số.');
       return;
     }
+
+    const normalized = this.credential.trim();
+    const isEmail = normalized.includes('@');
+
     this.loading.set(true);
     this.error.set('');
-    // Demo: accept any 6-digit code
-    setTimeout(() => {
-      this.loading.set(false);
+
+    const result = await this.auth.verifyResetOtp({
+      email: isEmail ? normalized.toLowerCase() : undefined,
+      phone: isEmail ? undefined : normalized,
+      otp: code,
+    });
+
+    this.loading.set(false);
+    if (result.ok && result.resetToken) {
+      this._resetToken = result.resetToken;
       this.step.set(3);
-    }, 600);
+      return;
+    }
+
+    this.error.set(result.message ?? 'Xác thực OTP thất bại.');
   }
 
-  resetPassword(): void {
+  async resetPassword(): Promise<void> {
     if (!this.newPassword || this.newPassword.length < 6) {
       this.error.set('Mật khẩu ít nhất 6 ký tự.');
       return;
@@ -98,13 +113,30 @@ export class ForgotPasswordPageComponent implements OnDestroy {
       this.error.set('Mật khẩu không khớp.');
       return;
     }
+
+    if (!this._resetToken) {
+      this.error.set('Phiên xác thực đã hết hạn. Vui lòng nhập lại OTP.');
+      this.step.set(2);
+      return;
+    }
+
     this.loading.set(true);
     this.error.set('');
-    setTimeout(() => {
-      this.loading.set(false);
+
+    const result = await this.auth.resetPassword({
+      resetToken: this._resetToken,
+      newPassword: this.newPassword,
+    });
+
+    this.loading.set(false);
+    if (result.ok) {
+      this._resetToken = '';
       this.step.set(4);
       this.toast.success('Mật khẩu đã được đặt lại thành công!');
-    }, 800);
+      return;
+    }
+
+    this.error.set(result.message ?? 'Đặt lại mật khẩu thất bại.');
   }
 
   private startResendCountdown(): void {

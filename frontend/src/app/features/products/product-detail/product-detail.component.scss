@@ -4,6 +4,30 @@
   margin: 0 auto;
 }
 
+.pd-toolbar {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 0.7rem;
+}
+
+.btn-back {
+  border: 1px solid #cde3d0;
+  background: #f4fbf4;
+  color: #1b5e20;
+  border-radius: 999px;
+  padding: 0.42rem 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-back:hover {
+  background: #e8f5e9;
+}
+
 .breadcrumb {
   font-size: 0.85rem;
   color: #888;
@@ -147,7 +171,7 @@
     flex-direction: column;
     align-items: stretch;
   }
-  
+
   .btn--primary {
     background: linear-gradient(135deg, #1b5e20, #66bb6a) !important;
     border: none;
@@ -348,6 +372,10 @@
   margin-top: 3rem;
   padding-top: 2rem;
   border-top: 2px solid #e8e0c8;
+}
+
+.related-section--ml {
+  border-top-color: #d8ead8;
 }
 .related-title {
   font-size: 1.4rem;

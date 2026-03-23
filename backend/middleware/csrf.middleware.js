@@ -21,6 +21,8 @@ exports.csrfProtection = (req, res, next) => {
     "/api/auth/register",
     "/api/auth/google",
     "/api/auth/forgot-password",
+    "/api/auth/verify-otp",
+    "/api/auth/reset-password",
   ]);
   if (publicAuthPaths.has(req.path)) return next();
 

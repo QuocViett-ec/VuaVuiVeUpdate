@@ -36,7 +36,17 @@ export interface OrderItem {
   productImage?: string;
 }
 
-export type OrderStatus = 'pending' | 'confirmed' | 'shipping' | 'delivered' | 'cancelled';
+export type OrderStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'shipping'
+  | 'delivered'
+  | 'cancelled'
+  | 'return_requested'
+  | 'return_approved'
+  | 'return_rejected'
+  | 'returned'
+  | 'refunded';
 export type PaymentMethod = 'cod' | 'vnpay' | 'momo';
 export type PaymentStatus = 'pending' | 'paid' | 'refunded';
 

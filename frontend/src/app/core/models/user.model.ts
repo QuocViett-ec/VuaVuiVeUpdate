@@ -41,6 +41,7 @@ export interface AuthResponse {
   ok: boolean;
   message?: string;
   reason?: string;
+  code?: string;
   user?: User;
 }
 
