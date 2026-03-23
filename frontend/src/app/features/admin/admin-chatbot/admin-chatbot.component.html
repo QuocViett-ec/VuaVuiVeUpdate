@@ -1,0 +1,115 @@
+<!-- Floating Button -->
+<button
+  class="chat-fab"
+  [class.chat-fab--open]="isOpen()"
+  [class.chat-fab--unread]="hasUnread()"
+  (click)="toggleChat()"
+  title="Trợ lý AI Admin"
+  aria-label="Mở chatbot hỗ trợ admin"
+>
+  <svg *ngIf="!isOpen()" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 0 2 2z" />
+    <circle cx="8" cy="10" r="0.5" fill="currentColor" />
+    <circle cx="12" cy="10" r="0.5" fill="currentColor" />
+    <circle cx="16" cy="10" r="0.5" fill="currentColor" />
+  </svg>
+  <svg *ngIf="isOpen()" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+  <span class="unread-dot" *ngIf="hasUnread() && !isOpen()"></span>
+</button>
+
+<!-- Chat Panel -->
+<div class="chat-panel" [class.chat-panel--open]="isOpen()" role="dialog" aria-label="Trợ lý AI Admin">
+  <!-- Header -->
+  <div class="chat-header">
+    <div class="chat-header-info">
+      <div class="bot-avatar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+          <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+        </svg>
+      </div>
+      <div>
+        <p class="bot-name">Hỗ Trợ Nhanh</p>
+        <p class="bot-status">
+          <span class="status-dot"></span>
+          {{ isLoading() ? 'Đang xử lý...' : 'Trực tuyến' }}
+        </p>
+      </div>
+    </div>
+    <div class="chat-header-actions">
+      <button class="action-btn" (click)="clearChat()" title="Làm mới cuộc trò chuyện" aria-label="Xóa chat">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 .49-3.51" />
+        </svg>
+      </button>
+      <button class="action-btn" (click)="toggleChat()" title="Đóng" aria-label="Đóng chatbot">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div class="chat-messages" #messagesContainer>
+    @for (msg of messages(); track msg.timestamp) {
+      <div class="message" [class.message--user]="msg.role === 'user'" [class.message--bot]="msg.role === 'bot'">
+        @if (msg.role === 'bot') {
+          <div class="msg-avatar">VVV</div>
+        }
+        <div class="msg-bubble">
+          @if (msg.loading) {
+            <div class="typing-indicator">
+              <span></span><span></span><span></span>
+            </div>
+          } @else {
+            <div class="msg-content" [innerHTML]="formatMessage(msg.content)"></div>
+          }
+          <p class="msg-time">{{ formatTime(msg.timestamp) }}</p>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Quick Replies -->
+  @if (messages().length <= 2 && !isLoading()) {
+    <div class="quick-replies">
+      <p class="quick-label">Hỏi nhanh:</p>
+      <div class="quick-buttons">
+        @for (qr of quickReplies; track qr.value) {
+          <button class="quick-btn" (click)="sendQuickReply(qr)">{{ qr.label }}</button>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Input -->
+  <div class="chat-input-area">
+    <div class="input-wrap">
+      <input
+        type="text"
+        class="chat-input"
+        placeholder="Nhập câu hỏi hoặc mã đơn hàng..."
+        [value]="inputValue()"
+        (input)="inputValue.set($any($event.target).value)"
+        (keydown)="onKeydown($event)"
+        [disabled]="isLoading()"
+        aria-label="Nhập tin nhắn"
+      />
+      <button
+        class="send-btn"
+        (click)="sendMessage()"
+        [disabled]="isLoading() || !inputValue().trim()"
+        aria-label="Gửi tin nhắn"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </svg>
+      </button>
+    </div>
+    <p class="input-hint">Enter để gửi • Hỗ trợ: đơn hàng, trễ, hủy, tồn kho</p>
+  </div>
+</div>

@@ -18,56 +18,61 @@ import { Order } from '../../../core/models/product.model';
         Quản lý đơn hàng
       </h1>
 
-      <div class="filters">
-        <select
-          [ngModel]="statusFilter()"
-          (ngModelChange)="onFilter($event)"
-          class="input filter-status"
-        >
-          <option value="all">Tất cả trạng thái</option>
-          @for (s of statuses; track s.key) {
-            <option [value]="s.key">{{ s.label }}</option>
-          }
-        </select>
-
-        <div class="search-box">
-          <input
-            [ngModel]="search()"
-            (ngModelChange)="search.set($event)"
-            [ngModelOptions]="{ standalone: true }"
-            (keyup.enter)="applySearch()"
-            type="search"
-            placeholder="Tìm mã đơn / tên KH / SĐT..."
-            class="input"
-          />
-          <button class="btn btn-search" (click)="applySearch()">Tìm</button>
-          <button class="btn btn-ghost" (click)="clearSearch()">Xóa</button>
-        </div>
-
-        <div class="table-meta">
-          <span>Hiển thị {{ orders().length }} / {{ total() }} đơn</span>
-          <span>Trang {{ page() }} / {{ totalPages() }}</span>
-        </div>
-
-        <div class="bulk-tools">
+      <div class="filters-container">
+        <div class="filters">
           <select
-            class="input input--xs"
-            [ngModel]="bulkStatus()"
-            (ngModelChange)="bulkStatus.set($event)"
+            [ngModel]="statusFilter()"
+            (ngModelChange)="onFilter($event)"
+            class="input filter-status"
           >
-            <option value="">-- Bulk trạng thái --</option>
+            <option value="all">Tất cả trạng thái</option>
             @for (s of statuses; track s.key) {
               <option [value]="s.key">{{ s.label }}</option>
             }
           </select>
-          <button
-            class="btn btn-search"
-            [disabled]="!selectedIds().size || !bulkStatus()"
-            (click)="applyBulkStatus()"
-          >
-            Cập nhật hàng loạt
-          </button>
-          <button class="btn btn-ghost" (click)="exportCsv()">Export CSV</button>
+
+          <div class="search-box">
+            <input
+              [ngModel]="search()"
+              (ngModelChange)="search.set($event)"
+              [ngModelOptions]="{ standalone: true }"
+              (keyup.enter)="applySearch()"
+              type="search"
+              placeholder="Tìm mã đơn / tên KH / SĐT..."
+              class="input"
+            />
+            <button class="btn btn-search" (click)="applySearch()">Tìm</button>
+            <button class="btn btn-ghost" (click)="clearSearch()">Xóa</button>
+          </div>
+        </div>
+
+        <div class="actions-row">
+          <div class="bulk-tools">
+            <select
+              class="input input--xs"
+              [ngModel]="bulkStatus()"
+              (ngModelChange)="bulkStatus.set($event)"
+            >
+              <option value="">-- Bulk trạng thái --</option>
+              @for (s of statuses; track s.key) {
+                <option [value]="s.key">{{ s.label }}</option>
+              }
+            </select>
+            <button
+              class="btn btn-search"
+              [disabled]="selectedIds().size === 0 || !bulkStatus()"
+              (click)="applyBulkStatus()"
+              [title]="selectedIds().size === 0 ? 'Vui lòng chọn ít nhất 1 đơn hàng ở cột checkbox' : ''"
+            >
+              Cập nhật hàng loạt
+            </button>
+            <button class="btn btn-ghost" (click)="exportCsv()">Export CSV</button>
+          </div>
+
+          <div class="table-meta">
+            <span>Hiển thị {{ orders().length }} / {{ total() }} đơn</span>
+            <span>Trang {{ page() }} / {{ totalPages() }}</span>
+          </div>
         </div>
       </div>
 

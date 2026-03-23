@@ -1,18 +1,18 @@
 <div class="dashboard-shell">
   <section class="hero-card">
     <div>
-      <p class="eyebrow">Admin Dashboard</p>
-      <h1>Toan canh van hanh</h1>
+      <p class="eyebrow">Bảng Điều Khiển Admin</p>
+      <h1>Toàn cảnh vận hành</h1>
       <p class="headline">{{ headline() }}</p>
     </div>
     <div class="hero-badge" *ngIf="!loading() && !error()">
-      <span>Trang thai</span>
-      <strong>Data song</strong>
+      <span>Trạng thái</span>
+      <strong>Dữ liệu sống</strong>
     </div>
   </section>
 
   <p class="state state--error" *ngIf="error()">{{ error() }}</p>
-  <p class="state" *ngIf="loading()">Dang tai thong ke...</p>
+  <p class="state" *ngIf="loading()">Đang tải thống kê...</p>
 
   <section class="stats-grid" *ngIf="!loading() && !error()">
     <article class="stat-card" *ngFor="let stat of stats()" [attr.data-tone]="stat.tone">
@@ -27,8 +27,8 @@
     <article class="panel panel--wide">
       <div class="panel-head">
         <div>
-          <p class="panel-kicker">7 ngay gan day</p>
-          <h3>Doanh thu theo ngay</h3>
+          <p class="panel-kicker">7 ngày gần đây</p>
+          <h3>Doanh thu theo ngày</h3>
         </div>
       </div>
       <canvas id="revenueChart" #revenueChart></canvas>
@@ -37,8 +37,8 @@
     <article class="panel">
       <div class="panel-head">
         <div>
-          <p class="panel-kicker">Trang thai</p>
-          <h3>Phan bo don hang</h3>
+          <p class="panel-kicker">Trạng thái</p>
+          <h3>Phân bổ đơn hàng</h3>
         </div>
       </div>
       <canvas id="statusChart" #statusChart></canvas>
@@ -47,8 +47,8 @@
     <article class="panel panel--wide">
       <div class="panel-head">
         <div>
-          <p class="panel-kicker">6 thang gan day</p>
-          <h3>Nhip doanh thu theo thang</h3>
+          <p class="panel-kicker">6 tháng gần đây</p>
+          <h3>Nhịp doanh thu theo tháng</h3>
         </div>
       </div>
       <canvas id="monthChart" #monthChart></canvas>
@@ -58,8 +58,8 @@
   <section class="panel" *ngIf="!loading() && !error()">
     <div class="panel-head">
       <div>
-        <p class="panel-kicker">Feed moi nhat</p>
-        <h3>Don hang gan day</h3>
+        <p class="panel-kicker">Feed mới nhất</p>
+        <h3>Đơn hàng gần đây</h3>
       </div>
     </div>
 
@@ -67,18 +67,18 @@
       <table class="data-table">
         <thead>
           <tr>
-            <th>Ma don</th>
-            <th>Khach hang</th>
-            <th>Tong tien</th>
-            <th>Trang thai</th>
-            <th>Thoi gian</th>
+            <th>Mã đơn</th>
+            <th>Khách hàng</th>
+            <th>Tổng tiền</th>
+            <th>Trạng thái</th>
+            <th>Thời gian</th>
           </tr>
         </thead>
         <tbody>
           <tr *ngFor="let order of recentOrders()">
             <td class="mono">{{ order.orderId || 'N/A' }}</td>
             <td>{{ customerName(order) }}</td>
-            <td class="money">{{ order.totalAmount | number }}d</td>
+            <td class="money">{{ order.totalAmount | number }}đ</td>
             <td>
               <span class="badge" [attr.data-status]="order.status">
                 {{ statusLabel(order.status) }}

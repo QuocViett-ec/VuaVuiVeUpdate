@@ -26,6 +26,7 @@ const recommendRoutes = require("./routes/recommend.routes");
 const recipesRoutes = require("./routes/recipes.routes");
 const realtimeRoutes = require("./routes/realtime.routes");
 const chatbotRoutes = require("./routes/chatbot.routes");
+const adminChatbotRoutes = require("./routes/adminChatbot.routes");
 const errorHandler = require("./middleware/error.middleware");
 const { csrfProtection } = require("./middleware/csrf.middleware");
 
@@ -200,6 +201,7 @@ app.use("/api/cart", cartRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/admin/chatbot", adminChatbotRoutes);
 app.use("/api/recommend", recommendRoutes);
 app.use("/api/recipes", recipesRoutes);
 app.use("/api/realtime", realtimeRoutes);

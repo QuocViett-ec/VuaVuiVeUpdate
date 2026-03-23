@@ -1088,8 +1088,9 @@ exports.bulkUpdateStatus = async (req, res, next) => {
     for (const order of orders) {
       const previousStatus = String(order.status || "");
       if (previousStatus === status) continue;
-      const allowedNext = ALLOWED_TRANSITIONS[previousStatus] || [];
-      if (!allowedNext.includes(status)) continue;
+      // Admin force bulk override: bypass strict step-by-step
+      // const allowedNext = ALLOWED_TRANSITIONS[previousStatus] || [];
+      // if (!allowedNext.includes(status)) continue;
 
       const previousPaymentStatus = String(order.payment?.status || "pending");
       order.status = status;

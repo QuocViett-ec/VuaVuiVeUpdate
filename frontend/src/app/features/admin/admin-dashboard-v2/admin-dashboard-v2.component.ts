@@ -76,7 +76,7 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
   error = signal('');
   stats = signal<StatCard[]>([]);
   recentOrders = signal<RecentOrder[]>([]);
-  headline = signal('Buc tranh van hanh hom nay');
+  headline = signal('Bức tranh vận hành hôm nay');
 
   private refreshInterval: any;
   private analyticsData: DashboardAnalytics | null = null;
@@ -130,7 +130,7 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
           }
         },
         error: () => {
-          if (!isRefresh) this.error.set('Khong tai duoc du lieu dashboard.');
+          if (!isRefresh) this.error.set('Không tải được dữ liệu dashboard.');
           this.loading.set(false);
         },
       });
@@ -160,30 +160,30 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
     return [
       {
         label: 'Doanh thu',
-        value: overview.totalRevenue.toLocaleString('vi-VN') + 'd',
-        hint: `${overview.paidOrders.toLocaleString('vi-VN')} don da thanh toan`,
-        icon: 'Revenue',
+        value: overview.totalRevenue.toLocaleString('vi-VN') + 'đ',
+        hint: `${overview.paidOrders.toLocaleString('vi-VN')} đơn đã thanh toán`,
+        icon: '💰',
         tone: 'emerald',
       },
       {
-        label: 'Don hang',
+        label: 'Đơn hàng',
         value: overview.totalOrders.toLocaleString('vi-VN'),
-        hint: `${overview.pendingOrders.toLocaleString('vi-VN')} don dang cho`,
-        icon: 'Orders',
+        hint: `${overview.pendingOrders.toLocaleString('vi-VN')} đơn đang chờ`,
+        icon: '📦',
         tone: 'blue',
       },
       {
-        label: 'Nguoi dung',
+        label: 'Người dùng',
         value: overview.totalUsers.toLocaleString('vi-VN'),
-        hint: `${overview.totalProducts.toLocaleString('vi-VN')} san pham dang ban`,
-        icon: 'Users',
+        hint: `${overview.totalProducts.toLocaleString('vi-VN')} sản phẩm đang bán`,
+        icon: '👤',
         tone: 'amber',
       },
       {
-        label: 'Gia tri trung binh',
-        value: Math.round(overview.averageOrderValue).toLocaleString('vi-VN') + 'd',
-        hint: 'Tren moi don khong bi huy',
-        icon: 'AOV',
+        label: 'Giá trị trung bình',
+        value: Math.round(overview.averageOrderValue).toLocaleString('vi-VN') + 'đ',
+        hint: 'Trên mỗi đơn không bị hủy',
+        icon: '📊',
         tone: 'rose',
       },
     ];
@@ -191,12 +191,12 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
 
   private buildHeadline(overview: Overview): string {
     if (overview.pendingOrders >= 12) {
-      return 'Luong don dang cho xu ly dang tang, nen uu tien xac nhan som.';
+      return `Có ${overview.pendingOrders} đơn đang chờ xử lý - nên ưu tiên xác nhận sớm!`;
     }
     if (overview.totalRevenue >= 10000000) {
-      return 'Doanh thu giu nhip tot, co the day them combo va cross-sell.';
+      return 'Doanh thu giữ nhịp tốt - có thể đẩy thêm combo và cross-sell.';
     }
-    return 'Dashboard da co du lieu song de theo doi theo ngay va theo thang.';
+    return 'Hệ thống hoạt động ổn định - theo dõi dữ liệu theo ngày và tháng.';
   }
 
   private loadChartJs(): Promise<void> {
@@ -227,7 +227,7 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
           ),
           datasets: [
             {
-              label: 'Doanh thu 7 ngay',
+              label: 'Doanh thu 7 ngày',
               data: analytics.revenueLast7Days.map((item) => item.revenue),
               borderColor: '#0f9f6e',
               backgroundColor: 'rgba(15,159,110,0.12)',
@@ -285,7 +285,7 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
           labels: analytics.revenueByMonth.slice(-6).map((item) => item.month || ''),
           datasets: [
             {
-              label: 'Doanh thu theo thang',
+              label: 'Doanh thu theo tháng',
               data: analytics.revenueByMonth.slice(-6).map((item) => item.revenue),
               backgroundColor: ['#d1fae5', '#a7f3d0', '#6ee7b7', '#34d399', '#10b981', '#059669'],
               borderRadius: 10,
@@ -309,16 +309,16 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
 
   statusLabel(status: string): string {
     const labels: Record<string, string> = {
-      pending: 'Cho xac nhan',
-      confirmed: 'Da xac nhan',
-      shipping: 'Dang giao',
-      delivered: 'Da giao',
-      cancelled: 'Da huy',
+      pending: 'Chờ xác nhận',
+      confirmed: 'Đã xác nhận',
+      shipping: 'Đang giao',
+      delivered: 'Đã giao',
+      cancelled: 'Đã hủy',
     };
     return labels[status] || status;
   }
 
   customerName(order: RecentOrder): string {
-    return order.delivery?.name || 'Khach le';
+    return order.delivery?.name || 'Khách lẻ';
   }
 }

@@ -1521,7 +1521,27 @@ async function seed() {
       address: "45 Tran Hung Dao, Quan 1, TP.HCM",
     };
 
+    const staffSeed = {
+      name: "Nhân Viên VuaVuiVe",
+      phone: "0923456789",
+      email: "staff@vuavuive.vn",
+      password: "Staff@123",
+      role: "staff",
+      address: "12 Nguyen Hue, Quan 1, TP.HCM",
+    };
+
+    const auditSeed = {
+      name: "Kiểm Toán VuaVuiVe",
+      phone: "0934567890",
+      email: "audit@vuavuive.vn",
+      password: "Audit@123",
+      role: "audit",
+      address: "88 Le Loi, Quan 1, TP.HCM",
+    };
+
     const adminResult = await ensureLocalAccount(adminSeed);
+    const staffResult = await ensureLocalAccount(staffSeed);
+    const auditResult = await ensureLocalAccount(auditSeed);
     const userResult = await ensureLocalAccount(userSeed);
     const demoResults = await Promise.all(
       DEMO_CUSTOMERS.map((customer) => ensureLocalAccount(customer)),
@@ -1535,6 +1555,16 @@ async function seed() {
       adminResult.created
         ? " Admin tạo mới: admin@vuavuive.vn / Admin@123"
         : " Admin đã được cập nhật lại thông tin đăng nhập mẫu",
+    );
+    console.log(
+      staffResult.created
+        ? " Staff tạo mới: staff@vuavuive.vn / Staff@123"
+        : " Staff đã được cập nhật lại thông tin đăng nhập mẫu",
+    );
+    console.log(
+      auditResult.created
+        ? " Audit tạo mới: audit@vuavuive.vn / Audit@123"
+        : " Audit đã được cập nhật lại thông tin đăng nhập mẫu",
     );
     console.log(
       userResult.created
