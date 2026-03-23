@@ -725,11 +725,40 @@ exports.cancelOrder = async (req, res, next) => {
 };
 
 /**
- * PATCH /api/orders/:id/paid  (auth: owner or admin)
- * Đánh dấu đơn hàng đã thanh toán — được gọi sau khi VNPay/MoMo redirect về frontend
+ * PATCH /api/orders/:id/paid  (admin/staff only — route-level guarded)
+ * Đánh dấu đơn hàng đã thanh toán thủ công (internal/admin chỉnh sửa).
+ * Không còn dùng cho browser owner sau khi VNPay/MoMo redirect.
+ * Paid tự động được commit bởi IPN callback trong payment.controller.js.
  */
 exports.markOrderPaid = async (req, res, next) => {
   try {
+    // route đã được bảo vệ bởi requireBackofficeRole("admin","staff")
+    // nhưng vẫn kiểm tra thêm để tránh nhầm lẫn
+    const isAdmin =
+      req.session.role === "admin" || req.session.role === "staff";
+    if (!isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ admin/staff mới có thể cập nhật trạng thái thanh toán thủ công",
+      });
+    }
+
+    const gateway = String(req.body?.gateway || "").trim();
+    const transactionId = String(req.body?.transactionId || "").trim();
+
+    if (!gateway) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu gateway (momo | vnpay | cod | ...)",
+      });
+    }
+    if (!transactionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu transactionId — không thể đánh dấu paid không có mã giao dịch",
+      });
+    }
+
     const isObjectId = /^[a-f\d]{24}$/i.test(req.params.id);
     const query = isObjectId
       ? { $or: [{ _id: req.params.id }, { orderId: req.params.id }] }
@@ -742,32 +771,40 @@ exports.markOrderPaid = async (req, res, next) => {
         .json({ success: false, message: "Không tìm thấy đơn hàng" });
     }
 
-    const isOwner = order.userId.toString() === req.session.userId;
-    const isAdmin = req.session.role === "admin";
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: "Không có quyền thực hiện hành động này",
-      });
-    }
-
     if (order.payment?.status === "paid") {
       return res.json({
         success: true,
-        message: "Đơn hàng đã ở trạng thái thanh toán",
+        message: "Đơn hàng đã ở trạng thái thanh toán (idempotent)",
         data: order,
       });
     }
 
-    const gateway = String(req.body?.gateway || order.payment?.method || "");
-    const transactionId = String(req.body?.transactionId || "");
+    const expectedMethod = String(order.payment?.method || "");
+    if (expectedMethod && expectedMethod !== gateway) {
+      return res.status(400).json({
+        success: false,
+        message: `Gateway không khớp: đơn dùng ${expectedMethod}, nhưng nhận ${gateway}`,
+      });
+    }
 
+    order.payment = order.payment || {};
     order.payment.status = "paid";
-    if (gateway) order.payment.gateway = gateway;
-    if (transactionId) order.payment.transactionId = transactionId;
+    order.payment.gateway = gateway;
+    order.payment.transactionId = transactionId;
     order.payment.transactionTime = new Date();
     order.payment.amount = Number(order.totalAmount || 0);
     await order.save();
+
+    console.log(
+      JSON.stringify({
+        event: "admin.mark_paid",
+        gateway,
+        orderId: String(order.orderId || ""),
+        transactionId,
+        adminId: req.session.userId,
+        source: "admin_manual",
+      }),
+    );
 
     publishToUser(order.userId, "order.status_updated", {
       orderId: String(order.orderId || ""),
@@ -776,7 +813,7 @@ exports.markOrderPaid = async (req, res, next) => {
       status: order.status,
       paymentStatus: "paid",
       updatedAt: order.updatedAt,
-      source: "payment",
+      source: "admin_manual",
     });
 
     return res.json({

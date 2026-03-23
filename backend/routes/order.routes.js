@@ -61,8 +61,16 @@ router.post(
 );
 router.get("/:id", requireAuth, readLimiter, orderCtrl.getOrderById);
 
-// Cập nhật trạng thái thanh toán (owner hoặc admin) — gọi sau VNPay/MoMo callback
-router.patch("/:id/paid", requireAuth, writeLimiter, orderCtrl.markOrderPaid);
+// Cập nhật trạng thái thanh toán — CHỈ admin/staff (không cho browser owner gọi trực tiếp)
+// Paid status được commit qua IPN callback trong payment.controller.js
+router.patch(
+  "/:id/paid",
+  requireAuth,
+  requireBackofficeRole("admin", "staff"),
+  requirePermission("orders.write"),
+  writeLimiter,
+  orderCtrl.markOrderPaid,
+);
 router.patch("/:id/cancel", requireAuth, writeLimiter, orderCtrl.cancelOrder);
 router.post(
   "/:id/return-request",

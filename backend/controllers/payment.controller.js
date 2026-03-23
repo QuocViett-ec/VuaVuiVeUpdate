@@ -3,12 +3,26 @@
 /**
  * payment.controller.js
  * Xử lý thanh toán VNPay Sandbox + MoMo Test
- * CHỈ DÙNG MÔI TRƯỜNG TEST — không dùng cho production
+ * Backend callback đã verify là nguồn sự thật duy nhất của payment status.
+ * IPN server-to-server là nguồn commit paid chính.
+ * Return endpoint chỉ verify để hiển thị trạng thái cho người dùng.
  */
 
 const crypto = require("crypto");
 const https = require("https");
 const Order = require("../models/Order.model");
+
+// ─── Structured logging ───────────────────────────────────────────────────────
+
+/**
+ * payLog — structured JSON log cho tất cả payment events
+ * Fields chuẩn: gateway, orderId, transactionId, resultCode,
+ *               signatureValid, amountExpected, amountActual,
+ *               idempotentHit, source, event
+ */
+function payLog(event, fields = {}) {
+  console.log(JSON.stringify({ ts: new Date().toISOString(), event, ...fields }));
+}
 
 // ─── VNPay utilities ──────────────────────────────────────────────────────────
 
@@ -98,25 +112,33 @@ function isNonPublicUrl(target) {
   }
 }
 
-function verifyMoMoIpnSignature(body, secretKey) {
-  const fields = [
-    "accessKey",
-    "amount",
-    "extraData",
-    "message",
-    "orderId",
-    "orderInfo",
-    "orderType",
-    "partnerCode",
-    "payType",
-    "requestId",
-    "responseTime",
-    "resultCode",
-    "transId",
-  ];
+const MOMO_IPN_REQUIRED_FIELDS = [
+  "accessKey",
+  "amount",
+  "extraData",
+  "message",
+  "orderId",
+  "orderInfo",
+  "orderType",
+  "partnerCode",
+  "payType",
+  "requestId",
+  "responseTime",
+  "resultCode",
+  "transId",
+];
 
-  const rawSignature = fields
-    .map((key) => `${key}=${body?.[key] ?? ""}`)
+function verifyMoMoIpnSignature(body, secretKey) {
+  // Hardened: từ chối nếu bất kỳ required field nào bị thiếu/null.
+  // Không coalesce `null → ""` để tránh sig bypass.
+  for (const key of MOMO_IPN_REQUIRED_FIELDS) {
+    if (body?.[key] === undefined || body?.[key] === null) {
+      return false; // missing field → sig invalid
+    }
+  }
+
+  const rawSignature = MOMO_IPN_REQUIRED_FIELDS
+    .map((key) => `${key}=${String(body[key])}`)
     .join("&");
 
   const signed = crypto
@@ -125,6 +147,25 @@ function verifyMoMoIpnSignature(body, secretKey) {
     .digest("hex");
 
   return String(body?.signature || "").toLowerCase() === signed.toLowerCase();
+}
+
+/**
+ * requireVNPayConfig — fail-fast nếu VNPay env vars thiếu
+ * Gọi ở đầu mỗi VNPay handler để tránh chạy với configs không hợp lệ.
+ */
+function requireVNPayConfig() {
+  const tmnCode = process.env.VNP_TMN_CODE;
+  const secretKey = process.env.VNP_HASH_SECRET;
+  if (!tmnCode || !secretKey) {
+    const missing = [
+      !tmnCode && "VNP_TMN_CODE",
+      !secretKey && "VNP_HASH_SECRET",
+    ]
+      .filter(Boolean)
+      .join(", ");
+    throw new Error(`Thiếu cấu hình VNPay bắt buộc: ${missing}`);
+  }
+  return { tmnCode, secretKey };
 }
 
 // ─── VNPay ────────────────────────────────────────────────────────────────────
@@ -136,6 +177,16 @@ function verifyMoMoIpnSignature(body, secretKey) {
  */
 exports.createVNPayUrl = async (req, res) => {
   try {
+    // Fail fast nếu thiếu cấu hình VNPay
+    let vnpConfig;
+    try {
+      vnpConfig = requireVNPayConfig();
+    } catch (cfgErr) {
+      payLog("vnpay.create.config_error", { error: cfgErr.message });
+      return res.status(500).json({ success: false, message: cfgErr.message });
+    }
+    const { tmnCode, secretKey } = vnpConfig;
+
     process.env.TZ = "Asia/Ho_Chi_Minh";
 
     const date = new Date();
@@ -153,10 +204,6 @@ exports.createVNPayUrl = async (req, res) => {
       req.socket?.remoteAddress ||
       "127.0.0.1";
 
-    // Credentials — fallback sang sandbox test nếu chưa set .env
-    const tmnCode = process.env.VNP_TMN_CODE || "TFQUUGXU";
-    const secretKey =
-      process.env.VNP_HASH_SECRET || "6CWJ6YCV87XZR9J3L6VUYRLZ93UHXEXK";
     const vnpUrl =
       process.env.VNP_URL ||
       "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
@@ -204,11 +251,25 @@ exports.createVNPayUrl = async (req, res) => {
 
     const paymentAmount = Math.round(Number(order.totalAmount || amount || 0));
     if (!isOrderAmountMatched(order, paymentAmount)) {
+      payLog("vnpay.create.amount_mismatch", {
+        gateway: "vnpay",
+        orderId,
+        amountExpected: order.totalAmount,
+        amountActual: paymentAmount,
+        source: "create",
+      });
       return res.status(400).json({
         success: false,
         message: "Số tiền thanh toán không hợp lệ",
       });
     }
+
+    payLog("vnpay.create", {
+      gateway: "vnpay",
+      orderId,
+      amountExpected: paymentAmount,
+      source: "create",
+    });
 
     let vnp_Params = {
       vnp_Version: "2.1.0",
@@ -255,14 +316,27 @@ exports.createVNPayUrl = async (req, res) => {
  * GET /api/payment/vnpay/return
  * VNPay redirect sau giao dịch → verify HMAC → trả JSON (frontend đã xử lý params trực tiếp)
  */
+/**
+ * GET /api/payment/vnpay/return
+ * VNPay redirect sau giao dịch → verify HMAC → trả JSON cho frontend.
+ * KHÔNG cập nhật DB paid ở đây — chỉ verify chữ ký để hiển thị UI.
+ * Paid được commit bởi VNPay IPN (server-to-server) dưới đây.
+ */
 exports.vnpayReturn = async (req, res) => {
+  // Fail fast nếu thiếu config
+  let secretKey;
+  try {
+    ({ secretKey } = requireVNPayConfig());
+  } catch (cfgErr) {
+    payLog("vnpay.return.config_error", { error: cfgErr.message });
+    return res.status(500).json({ success: false, message: cfgErr.message });
+  }
+
   const vnp_Params = { ...req.query };
   const secureHash = vnp_Params["vnp_SecureHash"];
   delete vnp_Params["vnp_SecureHash"];
   delete vnp_Params["vnp_SecureHashType"];
 
-  const secretKey =
-    process.env.VNP_HASH_SECRET || "6CWJ6YCV87XZR9J3L6VUYRLZ93UHXEXK";
   const sorted = vnpSortObject(vnp_Params);
   const signData = vnpStringify(sorted);
   const signed = crypto
@@ -270,7 +344,19 @@ exports.vnpayReturn = async (req, res) => {
     .update(Buffer.from(signData, "utf-8"))
     .digest("hex");
 
+  const code = vnp_Params["vnp_ResponseCode"];
+  const orderId = String(vnp_Params["vnp_TxnRef"] || "");
+  const transactionId = String(vnp_Params["vnp_TransactionNo"] || "");
+  const paidAmount = Math.round(Number(vnp_Params["vnp_Amount"] || 0) / 100);
+
   if (!secureHash || secureHash !== signed) {
+    payLog("vnpay.return.sig_fail", {
+      gateway: "vnpay",
+      orderId,
+      transactionId,
+      signatureValid: false,
+      source: "return",
+    });
     return res.json({
       success: false,
       code: "97",
@@ -278,20 +364,16 @@ exports.vnpayReturn = async (req, res) => {
     });
   }
 
-  const code = vnp_Params["vnp_ResponseCode"];
-  const orderId = String(vnp_Params["vnp_TxnRef"] || "");
-  const transactionId = String(vnp_Params["vnp_TransactionNo"] || "");
-  const paidAmount = Math.round(Number(vnp_Params["vnp_Amount"] || 0) / 100);
+  // Bắt buộc có orderId từ vnp_TxnRef (không dùng fallback regex)
+  if (!orderId) {
+    return res.json({
+      success: false,
+      code: "01",
+      message: "Thiếu vnp_TxnRef — không xác định được mã đơn hàng",
+    });
+  }
 
   try {
-    if (!orderId) {
-      return res.json({
-        success: false,
-        code: "01",
-        message: "Thiếu mã đơn hàng từ VNPay",
-      });
-    }
-
     const order = await findOrderByOrderId(orderId);
     if (!order) {
       return res.json({
@@ -302,6 +384,15 @@ exports.vnpayReturn = async (req, res) => {
     }
 
     if (!isOrderAmountMatched(order, paidAmount)) {
+      payLog("vnpay.return.amount_mismatch", {
+        gateway: "vnpay",
+        orderId,
+        transactionId,
+        amountExpected: order.totalAmount,
+        amountActual: paidAmount,
+        signatureValid: true,
+        source: "return",
+      });
       return res.json({
         success: false,
         code: "04",
@@ -309,23 +400,35 @@ exports.vnpayReturn = async (req, res) => {
       });
     }
 
-    if (code === "00") {
-      await markOrderPaidWithGateway(order, {
-        gateway: "vnpay",
-        transactionId,
-        transactionTime: new Date(),
-        amount: paidAmount,
-        gatewayResponse: req.query,
-      });
-    }
+    // KHÔNG commit paid ở đây — chỉ trả trạng thái verify cho frontend.
+    // Paid sẽ được commit bởi VNPay IPN (server-to-server) hoặc qua polling.
+    const isAlreadyPaid = order.payment?.status === "paid";
+
+    payLog("vnpay.return.verify", {
+      gateway: "vnpay",
+      orderId,
+      transactionId,
+      resultCode: code,
+      signatureValid: true,
+      amountExpected: order.totalAmount,
+      amountActual: paidAmount,
+      alreadyPaid: isAlreadyPaid,
+      source: "return",
+    });
 
     return res.json({
       success: code === "00",
       code,
-      message: code === "00" ? "Thanh toán thành công" : "Thanh toán thất bại",
+      message:
+        code === "00"
+          ? isAlreadyPaid
+            ? "Thanh toán đã được xác nhận"
+            : "Xác thực thành công — đang chờ xác nhận từ cổng thanh toán"
+          : "Thanh toán thất bại",
       orderId,
       transactionId,
       amount: paidAmount,
+      alreadyPaid: isAlreadyPaid,
     });
   } catch (err) {
     console.error("[VNPay return] error:", err.message);
@@ -342,15 +445,29 @@ exports.vnpayReturn = async (req, res) => {
  * VNPay server-to-server callback → cập nhật DB
  */
 exports.vnpayIPN = async (req, res) => {
+  // Fail fast nếu thiếu config
+  let secretKey;
+  try {
+    ({ secretKey } = requireVNPayConfig());
+  } catch (cfgErr) {
+    payLog("vnpay.ipn.config_error", { error: cfgErr.message });
+    return res.json({ RspCode: "99", Message: cfgErr.message });
+  }
+
   const vnp_Params = { ...req.query };
   const secureHash = vnp_Params["vnp_SecureHash"];
-  const orderId = vnp_Params["vnp_TxnRef"];
+  const hashType = vnp_Params["vnp_SecureHashType"];
+  const orderId = String(vnp_Params["vnp_TxnRef"] || "");
   const rspCode = vnp_Params["vnp_ResponseCode"];
   delete vnp_Params["vnp_SecureHash"];
   delete vnp_Params["vnp_SecureHashType"];
 
-  const secretKey =
-    process.env.VNP_HASH_SECRET || "6CWJ6YCV87XZR9J3L6VUYRLZ93UHXEXK";
+  // Từ chối hash type không hợp lệ (phải là HmacSHA512 hoặc bỏ trống)
+  if (hashType && hashType !== "HmacSHA512") {
+    payLog("vnpay.ipn.invalid_hash_type", { gateway: "vnpay", orderId, hashType });
+    return res.json({ RspCode: "97", Message: "Invalid hash type" });
+  }
+
   const sorted = vnpSortObject(vnp_Params);
   const signData = vnpStringify(sorted);
   const signed = crypto
@@ -358,29 +475,60 @@ exports.vnpayIPN = async (req, res) => {
     .update(Buffer.from(signData, "utf-8"))
     .digest("hex");
 
-  if (secureHash !== signed) {
+  if (!secureHash || secureHash !== signed) {
+    payLog("vnpay.ipn.sig_fail", {
+      gateway: "vnpay",
+      orderId,
+      signatureValid: false,
+      source: "ipn",
+    });
     return res.json({ RspCode: "97", Message: "Checksum failed" });
   }
 
   try {
+    if (!orderId) {
+      return res.json({ RspCode: "01", Message: "Missing orderId (vnp_TxnRef)" });
+    }
+
     const order = await findOrderByOrderId(orderId);
     if (!order) {
+      payLog("vnpay.ipn.order_not_found", { gateway: "vnpay", orderId, source: "ipn" });
       return res.json({ RspCode: "01", Message: "Order not found" });
     }
 
     const rawVnpAmount = Number(vnp_Params["vnp_Amount"] || 0);
     const paidAmount = Math.round(rawVnpAmount / 100);
     if (!isOrderAmountMatched(order, paidAmount)) {
+      payLog("vnpay.ipn.amount_mismatch", {
+        gateway: "vnpay",
+        orderId,
+        amountExpected: order.totalAmount,
+        amountActual: paidAmount,
+        signatureValid: true,
+        source: "ipn",
+      });
       return res.json({ RspCode: "04", Message: "Invalid amount" });
     }
 
     if (rspCode === "00") {
-      await markOrderPaidWithGateway(order, {
+      const transactionId = String(vnp_Params["vnp_TransactionNo"] || "");
+      const { updated } = await markOrderPaidWithGateway(order, {
         gateway: "vnpay",
-        transactionId: vnp_Params["vnp_TransactionNo"] || "",
+        transactionId,
         transactionTime: new Date(),
         amount: paidAmount,
         gatewayResponse: req.query,
+      });
+      payLog("vnpay.ipn.commit", {
+        gateway: "vnpay",
+        orderId,
+        transactionId,
+        resultCode: rspCode,
+        signatureValid: true,
+        amountExpected: order.totalAmount,
+        amountActual: paidAmount,
+        idempotentHit: !updated,
+        source: "ipn",
       });
     }
     return res.json({ RspCode: "00", Message: "Confirm Success" });
@@ -616,36 +764,77 @@ exports.createMoMoUrl = async (req, res) => {
  */
 exports.momoIPN = async (req, res) => {
   const { orderId, resultCode } = req.body;
-  console.log("[MoMo IPN] orderId:", orderId, " resultCode:", resultCode);
+  const transactionId = String(req.body?.transId || "");
 
   try {
     const secretKey = process.env.MOMO_SECRET_KEY;
     if (!secretKey) {
+      payLog("momo.ipn.config_error", { gateway: "momo", orderId, error: "missing MOMO_SECRET_KEY" });
       return res
         .status(500)
         .json({ status: 1, message: "missing momo secret" });
     }
-    if (!verifyMoMoIpnSignature(req.body, secretKey)) {
+
+    const sigValid = verifyMoMoIpnSignature(req.body, secretKey);
+    if (!sigValid) {
+      payLog("momo.ipn.sig_fail", {
+        gateway: "momo",
+        orderId,
+        transactionId,
+        resultCode,
+        signatureValid: false,
+        source: "ipn",
+      });
       return res.status(400).json({ status: 1, message: "invalid signature" });
     }
 
     const order = await findOrderByOrderId(orderId);
     if (!order) {
+      payLog("momo.ipn.order_not_found", { gateway: "momo", orderId, source: "ipn" });
       return res.status(404).json({ status: 1, message: "order not found" });
     }
 
     const paidAmount = Math.round(Number(req.body?.amount || 0));
     if (!isOrderAmountMatched(order, paidAmount)) {
+      payLog("momo.ipn.amount_mismatch", {
+        gateway: "momo",
+        orderId,
+        transactionId,
+        amountExpected: order.totalAmount,
+        amountActual: paidAmount,
+        signatureValid: true,
+        source: "ipn",
+      });
       return res.status(400).json({ status: 1, message: "invalid amount" });
     }
 
     if (Number(resultCode) === 0) {
-      await markOrderPaidWithGateway(order, {
+      const { updated } = await markOrderPaidWithGateway(order, {
         gateway: "momo",
-        transactionId: String(req.body?.transId || ""),
+        transactionId,
         transactionTime: new Date(),
         amount: paidAmount,
         gatewayResponse: req.body,
+      });
+      payLog("momo.ipn.commit", {
+        gateway: "momo",
+        orderId,
+        transactionId,
+        resultCode,
+        signatureValid: true,
+        amountExpected: order.totalAmount,
+        amountActual: paidAmount,
+        idempotentHit: !updated,
+        source: "ipn",
+      });
+    } else {
+      payLog("momo.ipn.failed", {
+        gateway: "momo",
+        orderId,
+        transactionId,
+        resultCode,
+        signatureValid: true,
+        source: "ipn",
       });
     }
     return res.json({ status: 0, message: "success" });

@@ -7,8 +7,13 @@ import {
   inject,
 } from '@angular/core';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
-import { OrderService } from '../../../core/services/order.service';
 
+/**
+ * MoMo return page — chỉ đọc query params từ MoMo redirect, hiển thị trạng thái.
+ * KHÔNG gọi markOrderPaid ở đây — paid được commit bởi MoMo IPN server-to-server.
+ * Khi resultCode === 0: hiển thị "thanh toán được xác nhận, đang xử lý".
+ * Khi resultCode !== 0: hiển thị lỗi cụ thể, KHÔNG set success = true.
+ */
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-momo-return-page',
@@ -20,48 +25,43 @@ import { OrderService } from '../../../core/services/order.service';
 export class MomoReturnPageComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  private orderSvc = inject(OrderService);
 
   loading = signal(true);
+  /** true chỉ khi verify thành công (resultCode === 0) */
   success = signal(false);
+  /** true khi thanh toán thành công nhưng vẫn đang đợi IPN xác nhận */
+  pending = signal(false);
   orderId = signal('');
   amount = signal('');
   message = signal('');
-  countdown = signal(3);
+  countdown = signal(5);
 
   private _countdownTimer: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit(): void {
     const p = this.route.snapshot.queryParams;
     const resultCode = Number(p['resultCode'] ?? '-1');
-    const orderId = p['orderId'] ?? '';
-    const transId = String(p['transId'] ?? '').trim();
+    const orderId = String(p['orderId'] ?? '').trim();
     const rawAmount = p['amount'] ?? '0';
-    const errMessage = p['message'] ?? 'Thanh toán không thành công.';
+    const errMessage = String(p['message'] ?? 'Thanh toán không thành công.');
 
-    const formatted = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
-      Number(rawAmount),
-    );
+    const formatted = new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+    }).format(Number(rawAmount));
 
     this.amount.set(formatted);
 
     if (resultCode === 0 && orderId) {
-      this.orderSvc.markOrderPaid(orderId, { gateway: 'momo', transactionId: transId }).subscribe({
-        next: () => {
-          this.orderId.set(orderId);
-          this.success.set(true);
-          this.loading.set(false);
-          this._startCountdown();
-        },
-        error: () => {
-          // MoMo đã xác nhận — vẫn hiển thị thành công
-          this.orderId.set(orderId);
-          this.success.set(true);
-          this.loading.set(false);
-          this._startCountdown();
-        },
-      });
+      // Thanh toán thành công ở phía MoMo.
+      // Paid status sẽ được cập nhật qua IPN server-to-server — không gọi API ở đây.
+      this.orderId.set(orderId);
+      this.pending.set(true);  // chờ IPN, hiển thị màn hình "đang xử lý"
+      this.success.set(false); // chưa confirmed paid trong DB
+      this.loading.set(false);
+      this._startCountdown('/orders');
     } else {
+      // Thanh toán thất bại hoặc bị huỷ — hiển thị lỗi.
       const momoErrors: Record<string, string> = {
         '1001': 'Giao dịch thất bại do nguồn tiền không hợp lệ.',
         '1002': 'Bị từ chối bởi nhà phát hành thẻ.',
@@ -76,19 +76,22 @@ export class MomoReturnPageComponent implements OnInit, OnDestroy {
         '2001': 'Giao dịch không thành công.',
         '9000': 'Giao dịch bị hủy bởi người dùng.',
       };
+      // KHÔNG set success(true) trong nhánh lỗi
+      this.success.set(false);
+      this.pending.set(false);
       this.message.set(momoErrors[String(resultCode)] ?? errMessage);
       this.loading.set(false);
-      this._startCountdown();
+      this._startCountdown('/orders');
     }
   }
 
-  private _startCountdown(): void {
+  private _startCountdown(destination: string): void {
     this._countdownTimer = setInterval(() => {
       const next = this.countdown() - 1;
       this.countdown.set(next);
       if (next <= 0) {
         clearInterval(this._countdownTimer!);
-        this.router.navigate(['/orders']);
+        this.router.navigate([destination]);
       }
     }, 1000);
   }

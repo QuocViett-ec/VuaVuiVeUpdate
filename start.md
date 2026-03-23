@@ -171,3 +171,8 @@ python api.py
 - Admin portal mo tai `http://localhost:4201` (man hinh login: `/auth/login`).
 - Frontend da khoa port khi chay dev: customer `4200`, admin `4201`; neu ban se fail-fast de tranh sai URL.
 - Phan goi y san pham tren home/recommended page da duoc sua de goi dung endpoint `/api/recommend`.
+
+staff@vuavuive.vn
+/ Pass: Staff@123
+audit@vuavuive.vn
+/ Pass: Audit@123

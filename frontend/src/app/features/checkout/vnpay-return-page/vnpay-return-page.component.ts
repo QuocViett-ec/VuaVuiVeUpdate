@@ -1,9 +1,15 @@
-import { Component, ChangeDetectionStrategy, signal, OnInit, OnDestroy } from '@angular/core';
+import { Component, ChangeDetectionStrategy, signal, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
-import { OrderService } from '../../../core/services/order.service';
 import { PaymentService } from '../../../core/services/payment.service';
 
+/**
+ * VNPay return page — verify chữ ký server-side, hiển thị trạng thái.
+ * KHÔNG gọi markOrderPaid từ return page — paid commit bởi VNPay IPN server-to-server.
+ * Không dùng fallback regex để lấy orderId — bắt buộc phải có vnp_TxnRef.
+ * Khi verify thành công (code=00): hiển thị "đang xác nhận".
+ * Khi lỗi: hiển thị lỗi, KHÔNG set success = true.
+ */
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-vnpay-return-page',
@@ -15,35 +21,33 @@ import { PaymentService } from '../../../core/services/payment.service';
 })
 export class VnpayReturnPageComponent implements OnInit, OnDestroy {
   loading = signal(true);
+  /** true chỉ khi verify thành công và code=00 */
   success = signal(false);
+  /** true khi verify thành công nhưng chờ IPN commit (pending) */
+  pending = signal(false);
   orderId = signal('');
   amount = signal('');
   bankCode = signal('');
   payDate = signal('');
   message = signal('');
-  countdown = signal(3);
+  countdown = signal(5);
+
+  private route = inject(ActivatedRoute);
+  private paymentSvc = inject(PaymentService);
+  private router = inject(Router);
 
   private _countdownTimer: ReturnType<typeof setInterval> | null = null;
-
-  constructor(
-    private route: ActivatedRoute,
-    private orderSvc: OrderService,
-    private paymentSvc: PaymentService,
-    private router: Router,
-  ) {}
 
   ngOnInit(): void {
     const p = this.route.snapshot.queryParams as Record<string, string>;
     const code = p['vnp_ResponseCode'];
-    const info = p['vnp_OrderInfo'] || '';
     const amt = p['vnp_Amount'] || '0';
     const bank = p['vnp_BankCode'] || '';
     const rawDate = p['vnp_PayDate'] || '';
-
-    const orderIdMatch = info.match(/ORD-[A-Z0-9-]+/);
-    // Ưu tiên vnp_TxnRef (chứa orderId chính xác), fallback sang regex từ OrderInfo
-    const orderId = (p['vnp_TxnRef'] || '').trim() || (orderIdMatch ? orderIdMatch[0] : '');
     const txnNo = (p['vnp_TransactionNo'] || '').trim();
+
+    // Bắt buộc dùng vnp_TxnRef — không fallback regex từ vnp_OrderInfo
+    const orderId = (p['vnp_TxnRef'] || '').trim();
 
     // Format amount (VNPay sends in units * 100)
     const formatted = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(
@@ -84,11 +88,15 @@ export class VnpayReturnPageComponent implements OnInit, OnDestroy {
         '75': 'Ngân hàng bảo trì.',
         '99': 'Lỗi không xác định.',
       };
+      // KHÔNG set success(true) trong nhánh lỗi
+      this.success.set(false);
+      this.pending.set(false);
       this.message.set(messages[rawCode] ?? 'Thanh toán không thành công.');
       this.loading.set(false);
       this._startCountdown();
     };
 
+    // Từ chối ngay nếu không có vnp_TxnRef
     if (!orderId) {
       failWithCode(code || '99');
       return;
@@ -97,29 +105,22 @@ export class VnpayReturnPageComponent implements OnInit, OnDestroy {
     this.paymentSvc.verifyVNPayReturn(p).subscribe({
       next: (verify) => {
         if (verify.success) {
-          this.orderSvc
-            .markOrderPaid(orderId, { gateway: 'vnpay', transactionId: txnNo })
-            .subscribe({
-              next: () => {
-                this.orderId.set(orderId);
-                this.success.set(true);
-                this.loading.set(false);
-                this._startCountdown();
-              },
-              error: () => {
-                // Backend return đã verify và có thể đã cập nhật paid, vẫn hiển thị thành công.
-                this.orderId.set(orderId);
-                this.success.set(true);
-                this.loading.set(false);
-                this._startCountdown();
-              },
-            });
+          // Verify thành công: hiển thị pending, chờ IPN commit.
+          // KHÔNG gọi markOrderPaid ở đây.
+          this.orderId.set(orderId);
+          this.pending.set(true);
+          this.success.set(false); // chưa confirmed trong DB
+          this.loading.set(false);
+          this._startCountdown();
           return;
         }
 
+        // Verify thất bại (sig sai, amount mismatch, v.v.)
+        // KHÔNG set success(true)
         failWithCode(verify.code || code || '99');
       },
       error: () => {
+        // Network/server error khi verify — không kết luận thành công
         failWithCode(code || '99');
       },
     });

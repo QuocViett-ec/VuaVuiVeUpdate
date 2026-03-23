@@ -10,7 +10,9 @@
     "seed": "node scripts/seed.js && node scripts/seed-orders.js",
     "seed:reviews": "node scripts/seed-reviews.js",
     "seed:ml-events": "node scripts/seed-ml-events.js",
-    "smoke:recommender": "node scripts/smoke-recommender-test.js"
+    "smoke:recommender": "node scripts/smoke-recommender-test.js",
+    "test": "jest",
+    "test:payment": "jest tests/payment.test.js --no-coverage"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -30,6 +32,7 @@
     "resend": "^4.8.0"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
     "nodemon": "^3.1.3"
   }
 }
