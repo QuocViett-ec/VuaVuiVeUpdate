@@ -61,20 +61,30 @@ export class ProductDetailComponent implements OnInit, OnDestroy {
     return CAT_LABELS[p.cat] ?? p.cat;
   });
 
+  private routeSub?: Subscription;
+
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id') || '';
-    this.loadProduct(id);
+    this.routeSub = this.route.paramMap.subscribe((params) => {
+      const id = params.get('id') || '';
+      this.loading.set(true);
+      this.qty.set(1);
+      this.product.set(null);
+      this.reviews.set([]);
+      this.reviewStats.set(null);
+      this.loadProduct(id);
+    });
 
     this.realtimeSub = this.realtime.ofType('product.changed').subscribe((evt: any) => {
       const payload = evt?.payload || {};
       const changedId = String(payload.productId || '');
-      const currentId = this.product()?.id || id;
+      const currentId = this.product()?.id || '';
       if (!changedId || changedId !== currentId) return;
       this.loadProduct(currentId);
     });
   }
 
   ngOnDestroy(): void {
+    this.routeSub?.unsubscribe();
     this.realtimeSub?.unsubscribe();
   }
 

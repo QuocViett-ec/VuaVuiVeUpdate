@@ -69,6 +69,10 @@
               {{ r.name }}
             </a>
             <p class="rec-price">{{ r.price | number }}đ</p>
+            <div class="rec-rating" aria-label="Đánh giá trung bình">
+              <span class="rec-rating__star">★</span>
+              <span class="rec-rating__value">{{ personalAverageRating(r.product_id) }}</span>
+            </div>
             @if (r.reason) {
               <p class="rec-reason">{{ r.reason }}</p>
             }

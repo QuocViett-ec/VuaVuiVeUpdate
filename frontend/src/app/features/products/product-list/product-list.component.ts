@@ -150,7 +150,14 @@ export class ProductListComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.route.queryParams.subscribe((p) => {
       if (p['cat']) this.selectedCat.set(p['cat']);
-      if (p['q']) this.searchQuery.set(p['q']);
+      if (p['q']) {
+        this.searchQuery.set(p['q']);
+        if (isPlatformBrowser(this.platformId)) {
+          setTimeout(() => {
+            document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 350);
+        }
+      }
     });
     this.loadProducts();
 

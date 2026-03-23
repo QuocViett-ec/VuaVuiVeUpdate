@@ -37,6 +37,7 @@ export class RecommendedPageComponent implements OnInit {
   interests = signal<string[]>([]);
   isGuest = signal(false);
   hasPersonalHistory = signal(false);
+  personalRatingMap = signal<Record<string, number>>({});
   private loadVersion = 0;
   private impressionKeys = new Set<string>();
 
@@ -114,6 +115,28 @@ export class RecommendedPageComponent implements OnInit {
 
   toProduct(rec: Recommendation): Product {
     return this.recommenderSvc.toProduct(rec);
+  }
+
+  personalAverageRating(productId: string | number): string {
+    const rating = Number(this.personalRatingMap()[String(productId)] ?? 0);
+    if (!Number.isFinite(rating) || rating <= 0 || rating < 1) return '4.5';
+    return rating.toFixed(1);
+  }
+
+  private buildPersonalRatingMap$(recs: Recommendation[]): Observable<Record<string, number>> {
+    const ids = [...new Set(recs.map((r) => String(r.product_id || '').trim()).filter(Boolean))];
+    if (!ids.length) return of({});
+
+    return forkJoin(ids.map((id) => this.productSvc.getProductById(id))).pipe(
+      map((products) => {
+        const byId: Record<string, number> = {};
+        products.forEach((product, idx) => {
+          const id = ids[idx];
+          byId[id] = Number(product?.rating ?? 0);
+        });
+        return byId;
+      }),
+    );
   }
 
   private rootOfCategory(category: string): string {
@@ -257,6 +280,7 @@ export class RecommendedPageComponent implements OnInit {
 
     if (!user?.id) {
       this.personal.set([]);
+      this.personalRatingMap.set({});
       this.interests.set([]);
       this.hasPersonalHistory.set(false);
       this.loadGuestSections(version);
@@ -300,6 +324,7 @@ export class RecommendedPageComponent implements OnInit {
           const personalIdSet = new Set(personalRecs.map((r) => String(r.product_id)));
 
           const similar$ = this.buildSimilarProducts$(seedProductIds, personalIdSet, 8, 2);
+          const personalRatings$ = this.buildPersonalRatingMap$(personalRecs);
 
           // Use global cold-start request for trending so it reflects platform-wide popularity,
           // not this user's personal purchase profile.
@@ -322,14 +347,15 @@ export class RecommendedPageComponent implements OnInit {
             ),
           );
 
-          return forkJoin({ similar: similar$, trending: trending$ });
+          return forkJoin({ similar: similar$, trending: trending$, personalRatings: personalRatings$ });
         }),
       )
       .subscribe({
-        next: ({ similar, trending }) => {
+        next: ({ similar, trending, personalRatings }) => {
           if (version !== this.loadVersion) return;
           this.similar.set(similar);
           this.trending.set(trending);
+          this.personalRatingMap.set(personalRatings);
           this.trackSectionImpressions(
             'similar',
             similar.map((p) => p.id),
@@ -343,6 +369,7 @@ export class RecommendedPageComponent implements OnInit {
         },
         error: () => {
           if (version !== this.loadVersion) return;
+          this.personalRatingMap.set({});
           this.loading.set(false);
           this.fallbackCatalogIfNeeded();
         },
