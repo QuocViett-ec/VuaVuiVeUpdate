@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
 const Review = require("../models/Review.model");
+const Voucher = require("../models/Voucher.model");
 const { publishToUser } = require("../services/realtime-bus");
 const { createAuditLog } = require("./user.controller");
 const { validateVoucher, markVoucherUsed } = require("./voucher.controller");
@@ -83,6 +84,31 @@ function isWithinReturnWindow(order) {
   if (!baseDate) return false;
   const elapsed = Date.now() - new Date(baseDate).getTime();
   return elapsed >= 0 && elapsed <= RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+}
+
+function calcDaysLeft(expiresAt) {
+  if (!expiresAt) return null;
+  const end = new Date(expiresAt);
+  if (Number.isNaN(end.getTime())) return null;
+  const now = new Date();
+  const ms = end.getTime() - now.getTime();
+  return Math.ceil(ms / (1000 * 60 * 60 * 24));
+}
+
+function estimateVoucherDiscount(voucher, subtotal, shippingFee) {
+  const type = String(voucher?.type || "");
+  const value = Math.max(0, Number(voucher?.value || 0));
+  const cap = Math.max(0, Number(voucher?.cap || 0));
+  const safeSubtotal = Math.max(0, Number(subtotal || 0));
+  const safeShipping = Math.max(0, Number(shippingFee || 0));
+
+  if (type === "ship") return safeShipping;
+  if (type === "fixed") return value;
+  if (type === "percent") {
+    const discount = Math.round((safeSubtotal * value) / 100);
+    return cap > 0 ? Math.min(discount, cap) : discount;
+  }
+  return 0;
 }
 
 async function restockOrderItemsIdempotent(order) {
@@ -255,6 +281,83 @@ exports.submitOrderReviews = async (req, res, next) => {
       message: "Gửi đánh giá thành công",
       data: saved,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/orders/voucher/available
+ * Query: subtotal, shippingFee
+ */
+exports.listApplicableVouchers = async (req, res, next) => {
+  try {
+    const subtotal = Math.max(0, Number(req.query?.subtotal || 0));
+    const shippingFee = Math.max(0, Number(req.query?.shippingFee || 0));
+    const now = new Date();
+
+    const vouchers = await Voucher.find({
+      isActive: true,
+      $and: [
+        {
+          $or: [
+            { startsAt: { $exists: false } },
+            { startsAt: null },
+            { startsAt: { $lte: now } },
+          ],
+        },
+        {
+          $or: [
+            { expiresAt: { $exists: false } },
+            { expiresAt: null },
+            { expiresAt: { $gte: now } },
+          ],
+        },
+        {
+          $or: [
+            { maxUses: { $exists: false } },
+            { maxUses: 0 },
+            { $expr: { $gt: ["$maxUses", "$usedCount"] } },
+          ],
+        },
+      ],
+    })
+      .sort({ expiresAt: 1, createdAt: -1 })
+      .lean();
+
+    const data = vouchers
+      .map((voucher) => {
+        const minOrderValue = Math.max(0, Number(voucher.minOrderValue || 0));
+        const canApply = subtotal >= minOrderValue;
+        const estimatedDiscount = estimateVoucherDiscount(
+          voucher,
+          subtotal,
+          shippingFee,
+        );
+        const daysLeft = calcDaysLeft(voucher.expiresAt);
+
+        return {
+          code: String(voucher.code || "").toUpperCase(),
+          type: voucher.type,
+          value: Number(voucher.value || 0),
+          cap: Number(voucher.cap || 0),
+          minOrderValue,
+          maxUses: Number(voucher.maxUses || 0),
+          usedCount: Number(voucher.usedCount || 0),
+          expiresAt: voucher.expiresAt || null,
+          note: String(voucher.note || ""),
+          canApply,
+          estimatedDiscount: canApply ? estimatedDiscount : 0,
+          daysLeft,
+        };
+      })
+      .sort((a, b) => {
+        if (a.canApply !== b.canApply) return a.canApply ? -1 : 1;
+        return b.estimatedDiscount - a.estimatedDiscount;
+      })
+      .slice(0, 30);
+
+    return res.json({ success: true, data });
   } catch (err) {
     next(err);
   }

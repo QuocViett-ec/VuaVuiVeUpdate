@@ -31,7 +31,8 @@
         <div class="field">
           <label>Địa chỉ giao hàng *</label>
           <textarea
-            [(ngModel)]="address"
+            [ngModel]="address"
+            (ngModelChange)="onAddressChange($event)"
             rows="2"
             placeholder="Số nhà, đường, phường, quận, tỉnh"
             class="input"
@@ -138,6 +139,56 @@
         </div>
 
         <!-- Voucher -->
+        <div class="voucher-list">
+          <div class="voucher-list__head">
+            <h3>Voucher có thể áp dụng</h3>
+            <button type="button" class="voucher-refresh" (click)="loadApplicableVouchers()">
+              Tải lại
+            </button>
+          </div>
+
+          @if (loadingApplicableVouchers()) {
+            <p class="voucher-list__state">Đang tải voucher...</p>
+          } @else if (voucherListError()) {
+            <p class="voucher-list__state voucher-list__state--error">{{ voucherListError() }}</p>
+          } @else if (!applicableVouchers().length) {
+            <p class="voucher-list__state">Không có voucher phù hợp với đơn hàng hiện tại.</p>
+          } @else {
+            <div class="voucher-list__items">
+              @for (voucher of visibleVouchers(); track voucher.code) {
+                <article class="voucher-card" [class.active]="voucherCode === voucher.code">
+                  <div class="voucher-card__main">
+                    <strong>{{ voucher.code }}</strong>
+                    <p>{{ voucherValueLabel(voucher) }}</p>
+                    <small>{{ voucherConditionLabel(voucher) }}</small>
+                    @if (voucher.note) {
+                      <small class="voucher-note">{{ voucher.note }}</small>
+                    }
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn--outline btn--sm"
+                    [disabled]="!voucher.canApply"
+                    (click)="useApplicableVoucher(voucher)"
+                  >
+                    {{ voucher.canApply ? 'Dùng mã' : 'Chưa đủ điều kiện' }}
+                  </button>
+                </article>
+              }
+            </div>
+
+            @if (hiddenVoucherCount() > 0 || showAllVouchers()) {
+              <button type="button" class="voucher-more" (click)="toggleVoucherList()">
+                @if (showAllVouchers()) {
+                  Thu gọn mã
+                } @else {
+                  Xem thêm {{ hiddenVoucherCount() }} mã
+                }
+              </button>
+            }
+          }
+        </div>
+
         <div class="voucher-row">
           <input
             [ngModel]="voucherCode"
@@ -160,7 +211,7 @@
             <p class="voucher-warn">{{ voucherResult()!.warning }}</p>
           }
           @if (voucherResult()!.ok) {
-            <button type="button" class="voucher-clear" (click)="clearVoucher()">Bo ma</button>
+            <button type="button" class="voucher-clear" (click)="clearVoucher()">Bỏ mã</button>
           }
         }
 

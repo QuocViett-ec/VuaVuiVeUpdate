@@ -10,7 +10,7 @@ import { RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DecimalPipe } from '@angular/common';
 import { CartService } from '../../../core/services/cart.service';
-import { OrderService } from '../../../core/services/order.service';
+import { ApplicableVoucher, OrderService } from '../../../core/services/order.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { GeolocationService } from '../../../core/services/geolocation.service';
@@ -44,9 +44,15 @@ export class CheckoutPageComponent implements OnInit {
   paymentMethod: 'cod' | 'vnpay' | 'momo' = 'cod';
   selectedSlotId = '';
   voucherCode = '';
+  private voucherReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  private voucherRequestSeq = 0;
 
   slots = signal<DeliverySlot[]>([]);
   voucherResult = signal<VoucherResult | null>(null);
+  applicableVouchers = signal<ApplicableVoucher[]>([]);
+  loadingApplicableVouchers = signal(false);
+  voucherListError = signal('');
+  showAllVouchers = signal(false);
   loading = signal(false);
   isLocating = signal(false);
   locationError = signal('');
@@ -102,6 +108,13 @@ export class CheckoutPageComponent implements OnInit {
   readonly totalAmount = computed(() =>
     Math.max(0, this.subtotal() + this.shippingFee() - this.discount()),
   );
+  readonly visibleVouchers = computed(() => {
+    const list = this.applicableVouchers();
+    return this.showAllVouchers() ? list : list.slice(0, 3);
+  });
+  readonly hiddenVoucherCount = computed(() =>
+    Math.max(0, this.applicableVouchers().length - this.visibleVouchers().length),
+  );
 
   ngOnInit(): void {
     const navState = history.state?.selectedIds;
@@ -119,6 +132,86 @@ export class CheckoutPageComponent implements OnInit {
       this.email = user.email;
       this.address = user.address ?? '';
     }
+
+    this.loadApplicableVouchers();
+  }
+
+  loadApplicableVouchers(): void {
+    if (this.itemCount() <= 0) {
+      this.applicableVouchers.set([]);
+      return;
+    }
+
+    const seq = ++this.voucherRequestSeq;
+    this.loadingApplicableVouchers.set(true);
+    this.voucherListError.set('');
+
+    this.orderSvc.getApplicableVouchers(this.subtotal(), this.shippingFee()).subscribe({
+      next: (rows) => {
+        if (seq !== this.voucherRequestSeq) return;
+        this.applicableVouchers.set(rows);
+        this.showAllVouchers.set(false);
+        this.loadingApplicableVouchers.set(false);
+      },
+      error: () => {
+        if (seq !== this.voucherRequestSeq) return;
+        this.applicableVouchers.set([]);
+        this.voucherListError.set('Không tải được danh sách voucher.');
+        this.loadingApplicableVouchers.set(false);
+      },
+    });
+  }
+
+  refreshVouchersDebounced(): void {
+    if (this.voucherReloadTimer) clearTimeout(this.voucherReloadTimer);
+    this.voucherReloadTimer = setTimeout(() => {
+      this.loadApplicableVouchers();
+    }, 250);
+  }
+
+  onAddressChange(value: string): void {
+    this.address = value;
+    this.refreshVouchersDebounced();
+  }
+
+  voucherValueLabel(voucher: ApplicableVoucher): string {
+    if (voucher.type === 'ship') return 'Freeship';
+    if (voucher.type === 'percent') {
+      return voucher.cap > 0
+        ? `Giảm ${voucher.value}% tối đa ${voucher.cap.toLocaleString('vi-VN')}đ`
+        : `Giảm ${voucher.value}%`;
+    }
+    return `Giảm ${voucher.value.toLocaleString('vi-VN')}đ`;
+  }
+
+  voucherConditionLabel(voucher: ApplicableVoucher): string {
+    const minOrderText = voucher.canApply
+      ? `Đơn từ ${voucher.minOrderValue.toLocaleString('vi-VN')}đ`
+      : `Cần đơn từ ${voucher.minOrderValue.toLocaleString('vi-VN')}đ`;
+    const daysText =
+      voucher.daysLeft === null
+        ? ''
+        : voucher.daysLeft < 0
+          ? ' • Đã hết hạn'
+          : voucher.daysLeft === 0
+            ? ' • Hết hạn hôm nay'
+            : ` • Còn ${voucher.daysLeft} ngày`;
+    return `${minOrderText}${daysText}`;
+  }
+
+  useApplicableVoucher(voucher: ApplicableVoucher): void {
+    if (!voucher.canApply) {
+      this.toast.info(
+        `Mã ${voucher.code} cần đơn từ ${voucher.minOrderValue.toLocaleString('vi-VN')}đ`,
+      );
+      return;
+    }
+    this.voucherCode = voucher.code;
+    this.applyVoucher();
+  }
+
+  toggleVoucherList(): void {
+    this.showAllVouchers.update((state) => !state);
   }
 
   applyVoucher(): void {
@@ -138,6 +231,7 @@ export class CheckoutPageComponent implements OnInit {
   clearVoucher(): void {
     this.voucherCode = '';
     this.voucherResult.set(null);
+    this.loadApplicableVouchers();
   }
 
   onVoucherCodeChange(value: string): void {
@@ -156,6 +250,7 @@ export class CheckoutPageComponent implements OnInit {
         next: (addr) => {
           if (addr) {
             this.address = addr;
+            this.refreshVouchersDebounced();
           } else {
             this.locationError.set('Không thể xác định địa chỉ.');
           }
@@ -299,9 +394,7 @@ export class CheckoutPageComponent implements OnInit {
         return;
       }
       const backendMessage = String(err?.error?.message || '');
-      this.toast.error(
-        backendMessage || 'Đặt hàng thất bại. Vui lòng thử lại sau.',
-      );
+      this.toast.error(backendMessage || 'Đặt hàng thất bại. Vui lòng thử lại sau.');
     } finally {
       this.loading.set(false);
     }

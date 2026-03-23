@@ -39,6 +39,7 @@ const writeLimiter = rateLimit({
 });
 
 // User routes (auth required)
+router.get("/voucher/available", readLimiter, orderCtrl.listApplicableVouchers);
 router.post("/", requireAuth, writeLimiter, orderCtrl.createOrder);
 router.post(
   "/voucher/validate",

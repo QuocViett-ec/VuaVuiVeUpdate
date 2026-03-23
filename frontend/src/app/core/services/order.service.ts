@@ -35,6 +35,21 @@ export interface ProductReviewInput {
   comment?: string;
 }
 
+export interface ApplicableVoucher {
+  code: string;
+  type: 'ship' | 'percent' | 'fixed';
+  value: number;
+  cap: number;
+  minOrderValue: number;
+  maxUses: number;
+  usedCount: number;
+  expiresAt: string | null;
+  note: string;
+  canApply: boolean;
+  estimatedDiscount: number;
+  daysLeft: number | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OrderService {
   private readonly api = environment.apiBase;
@@ -194,6 +209,38 @@ export class OrderService {
             message: String(err?.error?.message || 'Mã không hợp lệ.'),
           } as VoucherResult),
         ),
+      );
+  }
+
+  getApplicableVouchers(subtotal: number, shippingFee: number): Observable<ApplicableVoucher[]> {
+    const qs = new URLSearchParams();
+    qs.set('subtotal', String(Math.max(0, Number(subtotal || 0))));
+    qs.set('shippingFee', String(Math.max(0, Number(shippingFee || 0))));
+
+    return this.http
+      .get<any>(`${this.api}/api/orders/voucher/available?${qs.toString()}`, {
+        withCredentials: true,
+      })
+      .pipe(
+        map((res: any) => {
+          const rows = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+          return rows.map((row: any) => ({
+            code: String(row?.code || '').toUpperCase(),
+            type: row?.type === 'ship' || row?.type === 'fixed' ? row.type : 'percent',
+            value: Number(row?.value || 0),
+            cap: Number(row?.cap || 0),
+            minOrderValue: Number(row?.minOrderValue || 0),
+            maxUses: Number(row?.maxUses || 0),
+            usedCount: Number(row?.usedCount || 0),
+            expiresAt: row?.expiresAt || null,
+            note: String(row?.note || ''),
+            canApply: row?.canApply !== false,
+            estimatedDiscount: Number(row?.estimatedDiscount || 0),
+            daysLeft:
+              row?.daysLeft === null || row?.daysLeft === undefined ? null : Number(row.daysLeft),
+          })) as ApplicableVoucher[];
+        }),
+        catchError(() => of([])),
       );
   }
 
