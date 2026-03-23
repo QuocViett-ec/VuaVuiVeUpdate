@@ -16,18 +16,11 @@
         </span>
       </div>
       <a [href]="customerPortalUrl" class="btn-home" target="_blank" rel="noopener noreferrer">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-          <polyline points="9 22 9 12 15 12 15 22" />
-        </svg>
+        <span class="material-symbols-outlined g-icon" style="font-size: 16px;">storefront</span>
         Trang khách
       </a>
       <button type="button" class="btn-logout" (click)="logout()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-          <polyline points="16 17 21 12 16 7" />
-          <line x1="21" y1="12" x2="9" y2="12" />
-        </svg>
+        <span class="material-symbols-outlined g-icon" style="font-size: 16px;">logout</span>
         Đăng xuất
       </button>
     </div>
@@ -41,10 +34,7 @@
         <div class="nav-section">
           <span class="nav-section-label">Tổng quan</span>
           <a routerLink="dashboard" routerLinkActive="active" class="nav-item">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
-              <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
-            </svg>
+            <span class="material-symbols-outlined g-icon" style="font-size: 18px; margin-right: 8px;">dashboard</span>
             Bảng điều khiển
           </a>
         </div>
@@ -53,24 +43,15 @@
           <div class="nav-section">
             <span class="nav-section-label">Vận hành</span>
             <a routerLink="orders" routerLinkActive="active" class="nav-item">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <path d="M16 10a4 4 0 0 1-8 0" />
-              </svg>
+              <span class="material-symbols-outlined g-icon" style="font-size: 18px; margin-right: 8px;">local_shipping</span>
               Đơn hàng
             </a>
             <a routerLink="products" routerLinkActive="active" class="nav-item">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-              </svg>
+              <span class="material-symbols-outlined g-icon" style="font-size: 18px; margin-right: 8px;">inventory_2</span>
               Sản phẩm
             </a>
             <a routerLink="vouchers" routerLinkActive="active" class="nav-item">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20.59 13.41 11 3.83a2 2 0 0 0-1.41-.59H4a2 2 0 0 0-2 2v5.59a2 2 0 0 0 .59 1.41l9.58 9.59a2 2 0 0 0 2.83 0l5.59-5.59a2 2 0 0 0 0-2.83z" />
-                <line x1="7" y1="7" x2="7.01" y2="7" />
-              </svg>
+              <span class="material-symbols-outlined g-icon" style="font-size: 18px; margin-right: 8px;">confirmation_number</span>
               Voucher
             </a>
           </div>
@@ -80,20 +61,11 @@
           <div class="nav-section">
             <span class="nav-section-label">Quản trị</span>
             <a routerLink="users" routerLinkActive="active" class="nav-item">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
+              <span class="material-symbols-outlined g-icon" style="font-size: 18px; margin-right: 8px;">group</span>
               Người dùng
             </a>
             <a routerLink="ml-insights" routerLinkActive="active" class="nav-item">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <line x1="3" y1="9" x2="21" y2="9" />
-                <line x1="9" y1="21" x2="9" y2="9" />
-              </svg>
+              <span class="material-symbols-outlined g-icon" style="font-size: 18px; margin-right: 8px;">insights</span>
               ML Insights
             </a>
           </div>
@@ -104,22 +76,12 @@
         <div class="nav-section">
           <span class="nav-section-label">Phân tích</span>
           <a routerLink="reports" routerLinkActive="active" class="nav-item">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="20" x2="18" y2="10" />
-              <line x1="12" y1="20" x2="12" y2="4" />
-              <line x1="6" y1="20" x2="6" y2="14" />
-            </svg>
+            <span class="material-symbols-outlined g-icon" style="font-size: 18px; margin-right: 8px;">bar_chart</span>
             Báo cáo
           </a>
           @if (hasAnyRole(['admin', 'audit'])) {
             <a routerLink="audit" routerLinkActive="active" class="nav-item">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <polyline points="10 9 9 9 8 9" />
-              </svg>
+              <span class="material-symbols-outlined g-icon" style="font-size: 18px; margin-right: 8px;">history</span>
               Nhật ký kiểm toán
             </a>
           }
