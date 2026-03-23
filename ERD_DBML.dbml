@@ -1,0 +1,243 @@
+// VuaVuiVe Backend - MongoDB ERD (DBML for dbdiagram.io)
+// Source of truth: backend/models/*.js + backend/server.js (connect-mongo sessions)
+
+Enum user_provider {
+  local
+  google
+}
+
+Enum user_role {
+  user
+  admin
+  staff
+  audit
+}
+
+Enum product_category {
+  veg
+  fruit
+  meat
+  drink
+  dry
+  spice
+  household
+  sweet
+  frozen
+  other
+}
+
+Enum payment_method {
+  cod
+  vnpay
+  momo
+}
+
+Enum payment_status {
+  pending
+  paid
+}
+
+Enum order_status {
+  pending
+  confirmed
+  shipping
+  delivered
+  cancelled
+}
+
+Enum voucher_type {
+  ship
+  percent
+  fixed
+}
+
+Enum user_event_type {
+  view_product
+  add_to_cart
+  purchase
+  view_recipe
+}
+
+Table users {
+  _id varchar [pk, note: 'Mongo ObjectId']
+  name varchar [not null]
+  phone varchar [unique, note: 'sparse unique in Mongoose']
+  email varchar [unique, note: 'sparse unique, lowercase in Mongoose']
+  password varchar [note: 'select:false in Mongoose']
+  google_id varchar [unique, note: 'sparse unique in Mongoose']
+  avatar varchar [default: '']
+  provider user_provider [not null, default: 'local']
+  address varchar [default: '']
+  role user_role [not null, default: 'user']
+  is_active boolean [not null, default: true]
+  reset_password_token varchar
+  reset_password_expires datetime
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table products {
+  _id varchar [pk, note: 'Mongo ObjectId']
+  external_id varchar [note: 'indexed in Mongoose']
+  name varchar [not null]
+  slug varchar [not null, unique]
+  price decimal [not null]
+  original_price decimal
+  category product_category [not null, default: 'other']
+  sub_category varchar [default: '']
+  description text [default: '']
+  image_url varchar [default: '']
+  stock int [not null, default: 0]
+  unit varchar [default: 'kg']
+  is_active boolean [not null, default: true]
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table product_tags {
+  id int [pk, increment]
+  product_id varchar [not null, note: 'Mongo ObjectId']
+  tag varchar [not null]
+}
+
+Table orders {
+  _id varchar [pk, note: 'Mongo ObjectId']
+  order_id varchar [not null, unique]
+  user_id varchar [not null, note: 'Mongo ObjectId']
+
+  delivery_name varchar [not null]
+  delivery_phone varchar [not null]
+  delivery_address text [not null]
+  delivery_slot varchar [default: '']
+
+  payment_method payment_method [not null, default: 'cod']
+  payment_status payment_status [not null, default: 'pending']
+  payment_gateway varchar [default: '']
+  payment_transaction_id varchar [default: '']
+  payment_transaction_time datetime
+  payment_amount decimal [default: 0]
+  payment_gateway_response text [note: 'Mixed/JSON in Mongoose']
+
+  voucher_code varchar [default: '', note: 'soft reference to vouchers.code']
+  shipping_fee decimal [not null, default: 0]
+  discount decimal [not null, default: 0]
+  subtotal decimal [not null]
+  total_amount decimal [not null]
+  status order_status [not null, default: 'pending']
+  note text [default: '']
+
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table order_items {
+  id int [pk, increment]
+  order_id varchar [not null, note: 'Mongo ObjectId (orders._id)']
+  product_id varchar [not null, note: 'Mongo ObjectId (products._id)']
+  product_name varchar [not null]
+  quantity int [not null]
+  price decimal [not null]
+  subtotal decimal [not null]
+}
+
+Table vouchers {
+  _id varchar [pk, note: 'Mongo ObjectId']
+  code varchar [not null, unique]
+  type voucher_type [not null, default: 'percent']
+  value decimal [not null]
+  cap decimal [not null, default: 0]
+  min_order_value decimal [not null, default: 0]
+  max_uses int [not null, default: 0]
+  used_count int [not null, default: 0]
+  starts_at datetime
+  expires_at datetime
+  is_active boolean [not null, default: true]
+  note text [default: '']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table audit_logs {
+  _id varchar [pk, note: 'Mongo ObjectId']
+  admin_id varchar [not null, note: 'Mongo ObjectId (users._id)']
+  action varchar [not null]
+  target varchar [not null]
+  details text [note: 'Mixed/JSON in Mongoose']
+  ip varchar [default: '']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table recommend_histories {
+  _id varchar [pk, note: 'Mongo ObjectId']
+  user_id varchar [not null, note: 'Mongo ObjectId (users._id)']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+}
+
+Table recommendation_items {
+  id int [pk, increment]
+  history_id varchar [not null, note: 'Mongo ObjectId (recommend_histories._id)']
+  product_id varchar [not null, note: 'stored as String in model']
+  score decimal [default: 0]
+  reason text [default: '']
+}
+
+Table user_events {
+  _id varchar [pk, note: 'Mongo ObjectId']
+  user_id varchar [note: 'nullable, Mongo ObjectId (users._id)']
+  session_id varchar [not null]
+  event_type user_event_type [not null]
+  product_id varchar [note: 'stored as String in model']
+  metadata text [note: 'Mixed/JSON in Mongoose']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+
+  indexes {
+    (user_id, created_at)
+    (product_id)
+    (session_id, created_at)
+  }
+}
+
+Table reviews {
+  _id varchar [pk, note: 'Mongo ObjectId']
+  user_id varchar [not null, note: 'Mongo ObjectId (users._id)']
+  order_id varchar [not null, note: 'Mongo ObjectId (orders._id)']
+  order_code varchar [default: '']
+  product_id varchar [not null, note: 'Mongo ObjectId (products._id)']
+  product_name varchar [default: '']
+  product_image varchar [default: '']
+  rating int [not null, note: 'min=1, max=5']
+  comment varchar [note: 'maxlength=500']
+  created_at datetime [not null]
+  updated_at datetime [not null]
+
+  indexes {
+    (user_id)
+    (order_id)
+    (product_id)
+    (user_id, order_id, product_id) [unique]
+  }
+}
+
+Table sessions {
+  _id varchar [pk, note: 'connect-mongo session id']
+  expires datetime [not null]
+  session text [not null, note: 'serialized session payload']
+}
+
+Ref: orders.user_id > users._id
+Ref: order_items.order_id > orders._id
+Ref: order_items.product_id > products._id
+Ref: product_tags.product_id > products._id
+Ref: audit_logs.admin_id > users._id
+Ref: recommend_histories.user_id > users._id
+Ref: recommendation_items.history_id > recommend_histories._id
+Ref: user_events.user_id > users._id
+Ref: reviews.user_id > users._id
+Ref: reviews.order_id > orders._id
+Ref: reviews.product_id > products._id
+
+// Soft relation (business rule, not strict FK in Mongo):
+Ref: orders.voucher_code > vouchers.code
