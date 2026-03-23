@@ -46,6 +46,7 @@ export class ProductService {
     const slug = this._slugify(catRaw);
     const cat = (CATEGORY_MAP[slug] ?? slug) || 'all';
     const oldPrice = p.oldPrice ?? p.originalPrice;
+    const soldCount = Number(p.soldCount ?? 0);
     // Map backend imageUrl → frontend img
     const img = p.img ?? p.imageUrl ?? p.image ?? '';
     // Build image URL: if it's a relative path (not starting with http or /),
@@ -56,6 +57,7 @@ export class ProductService {
       ...p,
       id,
       oldPrice,
+      soldCount: Number.isFinite(soldCount) && soldCount > 0 ? soldCount : undefined,
       cat,
       sub: subRaw || 'all',
       img: resolvedImg,

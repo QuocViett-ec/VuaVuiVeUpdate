@@ -3,14 +3,15 @@
 /**
  * payment.controller.js
  * Xử lý thanh toán VNPay Sandbox + MoMo Test
- * Backend callback đã verify là nguồn sự thật duy nhất của payment status.
+ * Backend callback/return đã verify là nguồn sự thật duy nhất của payment status.
  * IPN server-to-server là nguồn commit paid chính.
- * Return endpoint chỉ verify để hiển thị trạng thái cho người dùng.
+ * Return endpoint commit theo cơ chế idempotent để đồng bộ UI nhanh hơn.
  */
 
 const crypto = require("crypto");
 const https = require("https");
 const Order = require("../models/Order.model");
+const { publishToUser } = require("../services/realtime-bus");
 
 // ─── Structured logging ───────────────────────────────────────────────────────
 
@@ -21,7 +22,9 @@ const Order = require("../models/Order.model");
  *               idempotentHit, source, event
  */
 function payLog(event, fields = {}) {
-  console.log(JSON.stringify({ ts: new Date().toISOString(), event, ...fields }));
+  console.log(
+    JSON.stringify({ ts: new Date().toISOString(), event, ...fields }),
+  );
 }
 
 // ─── VNPay utilities ──────────────────────────────────────────────────────────
@@ -71,21 +74,59 @@ function isOrderAmountMatched(order, amount) {
   return expected > 0 && actual === expected;
 }
 
+function shouldPromoteOrderStatusAfterPaid(order) {
+  return String(order?.status || "") === "pending";
+}
+
+function publishOrderStatusUpdated(order, source) {
+  if (!order?.userId) return;
+  publishToUser(order.userId, "order.status_updated", {
+    orderId: String(order.orderId || ""),
+    dbId: String(order._id || ""),
+    userId: String(order.userId || ""),
+    status: String(order.status || ""),
+    paymentStatus: String(order.payment?.status || "pending"),
+    updatedAt: order.updatedAt,
+    source,
+  });
+}
+
 async function markOrderPaidWithGateway(order, payload) {
   if (!order.payment) order.payment = {};
-  if (order.payment.status === "paid") {
-    return { updated: false, order };
+
+  const wasPaid = order.payment.status === "paid";
+  const canPromoteStatus = shouldPromoteOrderStatusAfterPaid(order);
+
+  if (wasPaid && !canPromoteStatus) {
+    return {
+      updated: false,
+      order,
+      paymentUpdated: false,
+      statusUpdated: false,
+    };
   }
 
-  order.payment.status = "paid";
-  order.payment.gateway = payload.gateway;
-  order.payment.transactionId = payload.transactionId || "";
-  order.payment.transactionTime = payload.transactionTime || new Date();
-  order.payment.amount = Number(payload.amount || order.totalAmount || 0);
-  order.payment.gatewayResponse = payload.gatewayResponse || null;
+  if (!wasPaid) {
+    order.payment.status = "paid";
+    order.payment.gateway = payload.gateway;
+    order.payment.transactionId = payload.transactionId || "";
+    order.payment.transactionTime = payload.transactionTime || new Date();
+    order.payment.amount = Number(payload.amount || order.totalAmount || 0);
+    order.payment.gatewayResponse = payload.gatewayResponse || null;
+  }
+
+  if (canPromoteStatus) {
+    order.status = "confirmed";
+  }
+
   await order.save();
 
-  return { updated: true, order };
+  return {
+    updated: true,
+    order,
+    paymentUpdated: !wasPaid,
+    statusUpdated: canPromoteStatus,
+  };
 }
 
 function getBackendOrigin(req) {
@@ -128,18 +169,24 @@ const MOMO_IPN_REQUIRED_FIELDS = [
   "transId",
 ];
 
-function verifyMoMoIpnSignature(body, secretKey) {
+function verifyMoMoIpnSignature(body, secretKey, fallbackAccessKey = "") {
   // Hardened: từ chối nếu bất kỳ required field nào bị thiếu/null.
   // Không coalesce `null → ""` để tránh sig bypass.
+  const normalized = {};
   for (const key of MOMO_IPN_REQUIRED_FIELDS) {
-    if (body?.[key] === undefined || body?.[key] === null) {
+    let value = body?.[key];
+    if ((value === undefined || value === null) && key === "accessKey") {
+      value = fallbackAccessKey;
+    }
+    if (value === undefined || value === null) {
       return false; // missing field → sig invalid
     }
+    normalized[key] = String(value);
   }
 
-  const rawSignature = MOMO_IPN_REQUIRED_FIELDS
-    .map((key) => `${key}=${String(body[key])}`)
-    .join("&");
+  const rawSignature = MOMO_IPN_REQUIRED_FIELDS.map(
+    (key) => `${key}=${normalized[key]}`,
+  ).join("&");
 
   const signed = crypto
     .createHmac("sha256", secretKey)
@@ -319,8 +366,8 @@ exports.createVNPayUrl = async (req, res) => {
 /**
  * GET /api/payment/vnpay/return
  * VNPay redirect sau giao dịch → verify HMAC → trả JSON cho frontend.
- * KHÔNG cập nhật DB paid ở đây — chỉ verify chữ ký để hiển thị UI.
- * Paid được commit bởi VNPay IPN (server-to-server) dưới đây.
+ * Verify chữ ký + cập nhật DB theo cơ chế idempotent.
+ * IPN vẫn là nguồn commit chính, return endpoint giúp đồng bộ nhanh trạng thái UI.
  */
 exports.vnpayReturn = async (req, res) => {
   // Fail fast nếu thiếu config
@@ -400,11 +447,50 @@ exports.vnpayReturn = async (req, res) => {
       });
     }
 
-    // KHÔNG commit paid ở đây — chỉ trả trạng thái verify cho frontend.
-    // Paid sẽ được commit bởi VNPay IPN (server-to-server) hoặc qua polling.
-    const isAlreadyPaid = order.payment?.status === "paid";
+    if (!isExpectedGateway(order, "vnpay")) {
+      return res.json({
+        success: false,
+        code: "02",
+        message: "Đơn hàng không dùng phương thức VNPay",
+      });
+    }
 
-    payLog("vnpay.return.verify", {
+    if (code === "00") {
+      const { updated } = await markOrderPaidWithGateway(order, {
+        gateway: "vnpay",
+        transactionId,
+        transactionTime: new Date(),
+        amount: paidAmount,
+        gatewayResponse: req.query,
+      });
+
+      if (updated) {
+        publishOrderStatusUpdated(order, "vnpay_return");
+      }
+
+      payLog("vnpay.return.commit", {
+        gateway: "vnpay",
+        orderId,
+        transactionId,
+        resultCode: code,
+        signatureValid: true,
+        amountExpected: order.totalAmount,
+        amountActual: paidAmount,
+        idempotentHit: !updated,
+        source: "return",
+      });
+
+      return res.json({
+        success: true,
+        code,
+        message: "Thanh toán thành công",
+        orderId,
+        transactionId,
+        amount: paidAmount,
+      });
+    }
+
+    payLog("vnpay.return.failed", {
       gateway: "vnpay",
       orderId,
       transactionId,
@@ -412,23 +498,16 @@ exports.vnpayReturn = async (req, res) => {
       signatureValid: true,
       amountExpected: order.totalAmount,
       amountActual: paidAmount,
-      alreadyPaid: isAlreadyPaid,
       source: "return",
     });
 
     return res.json({
-      success: code === "00",
+      success: false,
       code,
-      message:
-        code === "00"
-          ? isAlreadyPaid
-            ? "Thanh toán đã được xác nhận"
-            : "Xác thực thành công — đang chờ xác nhận từ cổng thanh toán"
-          : "Thanh toán thất bại",
+      message: "Thanh toán thất bại",
       orderId,
       transactionId,
       amount: paidAmount,
-      alreadyPaid: isAlreadyPaid,
     });
   } catch (err) {
     console.error("[VNPay return] error:", err.message);
@@ -464,7 +543,11 @@ exports.vnpayIPN = async (req, res) => {
 
   // Từ chối hash type không hợp lệ (phải là HmacSHA512 hoặc bỏ trống)
   if (hashType && hashType !== "HmacSHA512") {
-    payLog("vnpay.ipn.invalid_hash_type", { gateway: "vnpay", orderId, hashType });
+    payLog("vnpay.ipn.invalid_hash_type", {
+      gateway: "vnpay",
+      orderId,
+      hashType,
+    });
     return res.json({ RspCode: "97", Message: "Invalid hash type" });
   }
 
@@ -487,13 +570,23 @@ exports.vnpayIPN = async (req, res) => {
 
   try {
     if (!orderId) {
-      return res.json({ RspCode: "01", Message: "Missing orderId (vnp_TxnRef)" });
+      return res.json({
+        RspCode: "01",
+        Message: "Missing orderId (vnp_TxnRef)",
+      });
     }
 
     const order = await findOrderByOrderId(orderId);
     if (!order) {
-      payLog("vnpay.ipn.order_not_found", { gateway: "vnpay", orderId, source: "ipn" });
+      payLog("vnpay.ipn.order_not_found", {
+        gateway: "vnpay",
+        orderId,
+        source: "ipn",
+      });
       return res.json({ RspCode: "01", Message: "Order not found" });
+    }
+    if (!isExpectedGateway(order, "vnpay")) {
+      return res.json({ RspCode: "02", Message: "Gateway mismatch" });
     }
 
     const rawVnpAmount = Number(vnp_Params["vnp_Amount"] || 0);
@@ -530,6 +623,9 @@ exports.vnpayIPN = async (req, res) => {
         idempotentHit: !updated,
         source: "ipn",
       });
+      if (updated) {
+        publishOrderStatusUpdated(order, "vnpay_ipn");
+      }
     }
     return res.json({ RspCode: "00", Message: "Confirm Success" });
   } catch (err) {
@@ -759,6 +855,153 @@ exports.createMoMoUrl = async (req, res) => {
 };
 
 /**
+ * GET /api/payment/momo/return
+ * MoMo redirect callback → verify signature + cập nhật DB theo cơ chế idempotent
+ */
+exports.momoReturn = async (req, res) => {
+  const orderId = String(req.query?.orderId || "");
+  const transactionId = String(req.query?.transId || "");
+  const resultCode = String(req.query?.resultCode || "");
+
+  try {
+    const secretKey = process.env.MOMO_SECRET_KEY;
+    const accessKey = process.env.MOMO_ACCESS_KEY || "";
+
+    if (!secretKey) {
+      payLog("momo.return.config_error", {
+        gateway: "momo",
+        orderId,
+        error: "missing MOMO_SECRET_KEY",
+      });
+      return res.status(500).json({
+        success: false,
+        code: "99",
+        message: "Thiếu cấu hình MoMo",
+      });
+    }
+
+    const sigValid = verifyMoMoIpnSignature(req.query, secretKey, accessKey);
+    if (!sigValid) {
+      payLog("momo.return.sig_fail", {
+        gateway: "momo",
+        orderId,
+        transactionId,
+        resultCode,
+        signatureValid: false,
+        source: "return",
+      });
+      return res.json({
+        success: false,
+        code: "97",
+        message: "Chữ ký không hợp lệ",
+      });
+    }
+
+    if (!orderId) {
+      return res.json({
+        success: false,
+        code: "01",
+        message: "Thiếu orderId",
+      });
+    }
+
+    const order = await findOrderByOrderId(orderId);
+    if (!order) {
+      return res.json({
+        success: false,
+        code: "01",
+        message: "Không tìm thấy đơn hàng",
+      });
+    }
+    if (!isExpectedGateway(order, "momo")) {
+      return res.json({
+        success: false,
+        code: "02",
+        message: "Đơn hàng không dùng phương thức MoMo",
+      });
+    }
+
+    const paidAmount = Math.round(Number(req.query?.amount || 0));
+    if (!isOrderAmountMatched(order, paidAmount)) {
+      payLog("momo.return.amount_mismatch", {
+        gateway: "momo",
+        orderId,
+        transactionId,
+        amountExpected: order.totalAmount,
+        amountActual: paidAmount,
+        signatureValid: true,
+        source: "return",
+      });
+      return res.json({
+        success: false,
+        code: "04",
+        message: "Sai lệch số tiền thanh toán",
+      });
+    }
+
+    if (Number(resultCode) === 0) {
+      const { updated } = await markOrderPaidWithGateway(order, {
+        gateway: "momo",
+        transactionId,
+        transactionTime: new Date(),
+        amount: paidAmount,
+        gatewayResponse: req.query,
+      });
+
+      if (updated) {
+        publishOrderStatusUpdated(order, "momo_return");
+      }
+
+      payLog("momo.return.commit", {
+        gateway: "momo",
+        orderId,
+        transactionId,
+        resultCode,
+        signatureValid: true,
+        amountExpected: order.totalAmount,
+        amountActual: paidAmount,
+        idempotentHit: !updated,
+        source: "return",
+      });
+
+      return res.json({
+        success: true,
+        code: "00",
+        message: "Thanh toán thành công",
+        orderId,
+        transactionId,
+        amount: paidAmount,
+      });
+    }
+
+    payLog("momo.return.failed", {
+      gateway: "momo",
+      orderId,
+      transactionId,
+      resultCode,
+      signatureValid: true,
+      source: "return",
+    });
+
+    return res.json({
+      success: false,
+      code: resultCode || "99",
+      message: String(req.query?.message || "Thanh toán thất bại"),
+      orderId,
+      transactionId,
+      amount: paidAmount,
+    });
+  } catch (err) {
+    console.error("[MoMo return] error:", err.message);
+    return res.status(500).json({
+      success: false,
+      code: "99",
+      message: "Lỗi xử lý callback MoMo",
+    });
+  }
+};
+
+/**
  * POST /api/payment/momo/ipn
  * MoMo server-to-server callback → cập nhật DB
  */
@@ -769,13 +1012,21 @@ exports.momoIPN = async (req, res) => {
   try {
     const secretKey = process.env.MOMO_SECRET_KEY;
     if (!secretKey) {
-      payLog("momo.ipn.config_error", { gateway: "momo", orderId, error: "missing MOMO_SECRET_KEY" });
+      payLog("momo.ipn.config_error", {
+        gateway: "momo",
+        orderId,
+        error: "missing MOMO_SECRET_KEY",
+      });
       return res
         .status(500)
         .json({ status: 1, message: "missing momo secret" });
     }
 
-    const sigValid = verifyMoMoIpnSignature(req.body, secretKey);
+    const sigValid = verifyMoMoIpnSignature(
+      req.body,
+      secretKey,
+      process.env.MOMO_ACCESS_KEY || "",
+    );
     if (!sigValid) {
       payLog("momo.ipn.sig_fail", {
         gateway: "momo",
@@ -790,8 +1041,15 @@ exports.momoIPN = async (req, res) => {
 
     const order = await findOrderByOrderId(orderId);
     if (!order) {
-      payLog("momo.ipn.order_not_found", { gateway: "momo", orderId, source: "ipn" });
+      payLog("momo.ipn.order_not_found", {
+        gateway: "momo",
+        orderId,
+        source: "ipn",
+      });
       return res.status(404).json({ status: 1, message: "order not found" });
+    }
+    if (!isExpectedGateway(order, "momo")) {
+      return res.status(400).json({ status: 1, message: "gateway mismatch" });
     }
 
     const paidAmount = Math.round(Number(req.body?.amount || 0));
@@ -827,6 +1085,9 @@ exports.momoIPN = async (req, res) => {
         idempotentHit: !updated,
         source: "ipn",
       });
+      if (updated) {
+        publishOrderStatusUpdated(order, "momo_ipn");
+      }
     } else {
       payLog("momo.ipn.failed", {
         gateway: "momo",

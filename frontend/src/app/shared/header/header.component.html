@@ -29,11 +29,20 @@
     <div class="header__search">
       <input
         type="search"
-        placeholder="Tìm sản phẩm..."
+        placeholder="Tìm sản phẩm... (có thể gõ không dấu)"
         class="search-input"
         [(ngModel)]="searchQuery"
-        (keyup.enter)="goSearch()"
+        (ngModelChange)="onSearchInput($event)"
+        (focus)="openHints()"
+        (keydown.enter)="goSearch()"
+        autocomplete="off"
+        spellcheck="false"
       />
+      @if (searchQuery.trim()) {
+        <button class="search-clear" (click)="clearSearch()" aria-label="Xóa từ khóa">
+          &times;
+        </button>
+      }
       <button class="search-btn" (click)="goSearch()" aria-label="Tìm kiếm">
         <svg
           width="18"
@@ -47,6 +56,16 @@
           <path d="m21 21-4.35-4.35" />
         </svg>
       </button>
+
+      @if (showSearchHints() && searchHints().length) {
+        <div class="search-hints">
+          @for (hint of searchHints(); track hint) {
+            <button type="button" class="hint-pill" (click)="pickHint(hint)">
+              {{ hint }}
+            </button>
+          }
+        </div>
+      }
     </div>
 
     <!-- Right actions -->

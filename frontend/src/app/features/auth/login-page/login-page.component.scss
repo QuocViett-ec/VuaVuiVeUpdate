@@ -8,7 +8,7 @@
 }
 
 .auth-card {
-  background: #fff;
+  background: #fcf7e4;
   border-radius: 20px;
   padding: 2.5rem;
   width: 100%;
@@ -192,4 +192,75 @@
   color: #666;
   font-size: 0.9rem;
   margin-bottom: 1rem;
+}
+
+/* Login/Register only visual tuning */
+.auth-page--entry {
+  background: linear-gradient(135deg, #e6f0df, #f4f8ee 60%, #edf5e4);
+
+  > .auth-card,
+  .auth-card {
+    background: #fcf7e4 !important;
+    border: 1px solid #d8e4cb;
+    box-shadow: 0 14px 46px rgba(83, 120, 64, 0.18);
+  }
+
+  .auth-logo-link {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .auth-logo-img {
+    display: block;
+    margin: 0 auto;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 0.32rem 0.7rem;
+    max-width: 150px;
+    max-height: 64px;
+    box-shadow: none;
+  }
+
+  .auth-title {
+    color: #2f7f3f;
+  }
+
+  .blenda {
+    background: linear-gradient(135deg, #267a3c, #3f9a4c);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 8px rgba(80, 155, 89, 0.34));
+  }
+
+  .field label {
+    color: #384737;
+    font-weight: 650;
+  }
+
+  .input {
+    border-color: #cfd8ca;
+    background: #f7faf4;
+
+    &:focus {
+      border-color: #3a8a4b;
+      box-shadow: 0 0 0 3px rgba(58, 138, 75, 0.12);
+    }
+  }
+
+  .btn--primary {
+    background: linear-gradient(135deg, #2f8b3f, #2f7d32);
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #297636, #25692f);
+    }
+  }
+
+  .auth-links a,
+  .link-forgot {
+    color: #2f7d32;
+  }
 }

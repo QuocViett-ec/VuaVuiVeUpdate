@@ -11,7 +11,7 @@ import { inject } from '@angular/core';
   standalone: true,
   imports: [CommonModule, RouterLink],
   template: `
-    <div class="product-card">
+    <div class="product-card" [class.product-card--flash]="flashMode">
       <a [routerLink]="['/products', product.id]" class="card-img-wrap" (click)="onProductClick()">
         <img
           [src]="product.img || fallbackImg"
@@ -25,6 +25,9 @@ import { inject } from '@angular/core';
         }
       </a>
       <div class="card-body">
+        @if (flashMode) {
+          <p class="card-brand">FLASH DEAL</p>
+        }
         <a [routerLink]="['/products', product.id]" class="card-name" (click)="onProductClick()">{{
           product.name
         }}</a>
@@ -40,13 +43,19 @@ import { inject } from '@angular/core';
         <div class="card-rating" aria-label="Đánh giá trung bình">
           <span class="card-rating__star">★</span>
           <span class="card-rating__value">{{ averageRating() }}</span>
+          <span class="card-rating__count">({{ reviewCount() }})</span>
+          <span class="card-sold">Đã bán {{ soldCount() }}</span>
         </div>
+        @if (flashMode) {
+          <div class="card-sale-row" aria-label="Tiến độ bán hàng">
+            <div class="card-sale-progress">
+              <span class="card-sale-progress__bar" [style.width.%]="saleProgressPct()"></span>
+            </div>
+            <span class="card-sale-progress__pct">{{ saleProgressPct() }}%</span>
+          </div>
+        }
         <div class="card-actions">
-          <button
-            class="btn-add"
-            (click)="add()"
-            [disabled]="product.stock === 0"
-          >
+          <button class="btn-add" (click)="add()" [disabled]="product.stock === 0">
             @if (product.stock === 0) {
               Hết hàng
             } @else {
@@ -61,6 +70,7 @@ import { inject } from '@angular/core';
 })
 export class ProductCardComponent {
   @Input({ required: true }) product!: Product;
+  @Input() flashMode = false;
   @Output() productClick = new EventEmitter<Product>();
   @Output() addToCartClick = new EventEmitter<Product>();
   private cart = inject(CartService);
@@ -69,6 +79,29 @@ export class ProductCardComponent {
   discountPct() {
     if (!this.product.oldPrice) return 0;
     return Math.round((1 - this.product.price / this.product.oldPrice) * 100);
+  }
+
+  soldCount() {
+    const sold = Number(this.product.soldCount ?? 0);
+    if (Number.isFinite(sold) && sold > 0) return Math.round(sold);
+    const seed = String(this.product.id || '')
+      .split('')
+      .reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+    return 80 + (seed % 300);
+  }
+
+  saleProgressPct() {
+    const sold = this.soldCount();
+    const stock = Math.max(0, Number(this.product.stock ?? 0));
+    if (!stock) return Math.min(95, Math.max(22, Math.round((sold % 100) + 20)));
+    const pct = Math.round((sold / (sold + stock)) * 100);
+    return Math.min(95, Math.max(12, pct));
+  }
+
+  reviewCount() {
+    const count = Number(this.product.reviewCount ?? 0);
+    if (Number.isFinite(count) && count > 0) return Math.round(count);
+    return 40 + (this.soldCount() % 220);
   }
 
   averageRating() {

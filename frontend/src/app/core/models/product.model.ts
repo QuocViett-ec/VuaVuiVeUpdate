@@ -13,6 +13,7 @@ export interface Product {
   status?: 'active' | 'inactive';
   rating?: number;
   reviewCount?: number;
+  soldCount?: number;
 }
 
 export interface CartItem {

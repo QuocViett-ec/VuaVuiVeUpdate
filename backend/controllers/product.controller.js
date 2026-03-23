@@ -3,6 +3,7 @@
 const mongoose = require("mongoose");
 const Product = require("../models/Product.model");
 const Review = require("../models/Review.model");
+const Order = require("../models/Order.model");
 const { publishToCustomers } = require("../services/realtime-bus");
 const { createAuditLog } = require("./user.controller");
 
@@ -21,12 +22,73 @@ function fallbackRatingFromId(productId) {
   return Number((score / 10).toFixed(1));
 }
 
+function fallbackSoldCountFromId(productId) {
+  const raw = String(productId || "");
+  if (!raw) return 120;
+  let sum = 0;
+  for (let i = 0; i < raw.length; i += 1) {
+    sum += raw.charCodeAt(i) * (i + 3);
+  }
+  return 60 + (sum % 420);
+}
+
+function fallbackReviewCountFromId(productId) {
+  const raw = String(productId || "");
+  if (!raw) return 4;
+  let sum = 0;
+  for (let i = 0; i < raw.length; i += 1) {
+    sum += raw.charCodeAt(i);
+  }
+  return 4 + (sum % 2);
+}
+
+function buildMockReviews(product, existingCount = 0) {
+  const productId = String(product?._id || "");
+  const target = fallbackReviewCountFromId(productId);
+  const missing = Math.max(0, target - Number(existingCount || 0));
+  if (!missing) return [];
+
+  const comments = [
+    "Dong goi gon gang, san pham dung mo ta.",
+    "Chat luong on dinh, se tiep tuc ung ho.",
+    "Gia hop ly, nhan hang nhanh va de su dung.",
+    "Mui vi ok, gia dinh minh danh gia tot.",
+    "San pham dung nhu ky vong, nen mua thu.",
+  ];
+
+  const names = [
+    "Khach hang than thiet",
+    "Nguoi mua da xac minh",
+    "Thanh vien Vua Vui Ve",
+    "Khach hang moi",
+    "Khach hang quen",
+  ];
+
+  const rows = [];
+  for (let i = 0; i < missing; i += 1) {
+    const seed = (productId + String(i))
+      .split("")
+      .reduce((s, ch) => s + ch.charCodeAt(0), 0);
+    const rating = 4 + (seed % 2);
+    rows.push({
+      id: `mock-${productId}-${i}`,
+      userName: names[seed % names.length],
+      rating,
+      comment: `${comments[seed % comments.length]} (${String(product?.name || "San pham")})`,
+      createdAt: new Date(Date.now() - (i + 1) * 86400000).toISOString(),
+    });
+  }
+
+  return rows;
+}
+
 function attachRatingFallback(product) {
   const id = String(product?._id || product?.id || "");
   return {
     ...product,
     rating: fallbackRatingFromId(id),
-    reviewCount: 0,
+    reviewCount: fallbackReviewCountFromId(id),
+    soldCount: fallbackSoldCountFromId(id),
   };
 }
 
@@ -41,21 +103,44 @@ async function attachRatings(products) {
 
   if (!ids.length) return list.map((p) => attachRatingFallback(p));
 
-  const stats = await Review.aggregate([
-    {
-      $match: {
-        productId: {
-          $in: ids.map((id) => new mongoose.Types.ObjectId(id)),
+  const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+
+  const [stats, sales] = await Promise.all([
+    Review.aggregate([
+      {
+        $match: {
+          productId: {
+            $in: objectIds,
+          },
         },
       },
-    },
-    {
-      $group: {
-        _id: "$productId",
-        avgRating: { $avg: "$rating" },
-        reviewCount: { $sum: 1 },
+      {
+        $group: {
+          _id: "$productId",
+          avgRating: { $avg: "$rating" },
+          reviewCount: { $sum: 1 },
+        },
       },
-    },
+    ]),
+    Order.aggregate([
+      {
+        $match: {
+          status: { $in: ["confirmed", "shipping", "delivered"] },
+        },
+      },
+      { $unwind: "$items" },
+      {
+        $match: {
+          "items.productId": { $in: objectIds },
+        },
+      },
+      {
+        $group: {
+          _id: "$items.productId",
+          soldCount: { $sum: "$items.quantity" },
+        },
+      },
+    ]),
   ]);
 
   const statByProductId = new Map(
@@ -68,6 +153,10 @@ async function attachRatings(products) {
     ]),
   );
 
+  const salesByProductId = new Map(
+    sales.map((row) => [String(row._id), Number(row.soldCount || 0)]),
+  );
+
   return list.map((p) => {
     const id = String(p?._id || "");
     const stat = statByProductId.get(id);
@@ -76,16 +165,21 @@ async function attachRatings(products) {
         ...p,
         rating: stat.rating,
         reviewCount: stat.reviewCount,
+        soldCount: salesByProductId.get(id) || fallbackSoldCountFromId(id),
       };
     }
-
-    return attachRatingFallback(p);
+    return {
+      ...attachRatingFallback(p),
+      soldCount: salesByProductId.get(id) || fallbackSoldCountFromId(id),
+    };
   });
 }
 
 function buildProductQuery(id) {
   const isObjectId = /^[a-f\d]{24}$/i.test(String(id || ""));
-  return isObjectId ? { _id: id, isActive: true } : { slug: id, isActive: true };
+  return isObjectId
+    ? { _id: id, isActive: true }
+    : { slug: id, isActive: true };
 }
 
 /**
@@ -331,11 +425,6 @@ exports.getReviews = async (req, res, next) => {
         .lean(),
     ]);
 
-    const averageRating = Number(
-      Number(stats[0]?.averageRating || fallbackRatingFromId(product._id)).toFixed(1),
-    );
-    const reviewCount = Number(stats[0]?.reviewCount || 0);
-
     const reviews = rows.map((row) => ({
       id: String(row._id),
       userName: String(row?.userId?.name || "Khách hàng"),
@@ -344,6 +433,24 @@ exports.getReviews = async (req, res, next) => {
       createdAt: row?.createdAt || null,
     }));
 
+    const reviewsWithFallback = [
+      ...reviews,
+      ...buildMockReviews(product, reviews.length),
+    ];
+
+    const fallbackCount = fallbackReviewCountFromId(product._id);
+    const reviewCount = Number(
+      stats[0]?.reviewCount || reviewsWithFallback.length || fallbackCount,
+    );
+    const avgFromReviews =
+      reviewsWithFallback.length > 0
+        ? reviewsWithFallback.reduce(
+            (sum, item) => sum + Number(item.rating || 0),
+            0,
+          ) / reviewsWithFallback.length
+        : fallbackRatingFromId(product._id);
+    const averageRating = Number(Number(avgFromReviews).toFixed(1));
+
     return res.json({
       success: true,
       data: {
@@ -351,7 +458,7 @@ exports.getReviews = async (req, res, next) => {
         productName: String(product.name || ""),
         averageRating,
         reviewCount,
-        reviews,
+        reviews: reviewsWithFallback,
       },
     });
   } catch (err) {

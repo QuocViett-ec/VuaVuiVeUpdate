@@ -7,7 +7,8 @@ const Order = require("../models/Order.model");
 const User = require("../models/User.model");
 const Review = require("../models/Review.model");
 
-const REVIEWS_PER_PRODUCT = 4;
+const REVIEWS_MIN = 4;
+const REVIEWS_MAX = 5;
 
 const COMMENT_TEMPLATES = [
   "San pham dung mo ta, dong goi gon gang.",
@@ -38,15 +39,29 @@ function commentFor(productName, productId, index) {
   return `${base} (${productName})`;
 }
 
-function pickFallbackKey(seed, used, users, deliveredOrders) {
+function targetReviewsForProduct(productId) {
+  const seed = makeSeedFromText(productId);
+  const span = REVIEWS_MAX - REVIEWS_MIN + 1;
+  return REVIEWS_MIN + (seed % span);
+}
+
+function pickFallbackKey(
+  seed,
+  usedOrderKeys,
+  usedUserKeys,
+  users,
+  deliveredOrders,
+) {
   if (!users.length || !deliveredOrders.length) return null;
 
   for (let i = 0; i < users.length * 2; i += 1) {
     const user = users[(seed + i) % users.length];
     const order = deliveredOrders[(seed * 3 + i) % deliveredOrders.length];
-    const key = `${String(user._id)}::${String(order._id)}`;
-    if (!used.has(key)) {
-      used.add(key);
+    const userKey = String(user._id);
+    const orderKey = `${userKey}::${String(order._id)}`;
+    if (!usedOrderKeys.has(orderKey) && !usedUserKeys.has(userKey)) {
+      usedOrderKeys.add(orderKey);
+      usedUserKeys.add(userKey);
       return {
         userId: user._id,
         orderId: order._id,
@@ -116,17 +131,31 @@ async function seedReviews() {
 
     for (const product of products) {
       const productId = String(product._id);
+      const targetReviewCount = targetReviewsForProduct(productId);
       const productName = String(product.name || "San pham");
       const productImage = String(product.imageUrl || "");
       const byPair = candidatesByProduct.get(productId) || new Map();
-      const picked = [...byPair.values()].slice(0, REVIEWS_PER_PRODUCT);
-      const usedKeys = new Set(
+      const uniqueByUser = new Map();
+      for (const row of byPair.values()) {
+        const userKey = String(row.userId);
+        if (!uniqueByUser.has(userKey)) uniqueByUser.set(userKey, row);
+      }
+
+      const picked = [...uniqueByUser.values()].slice(0, targetReviewCount);
+      const usedOrderKeys = new Set(
         picked.map((row) => `${String(row.userId)}::${String(row.orderId)}`),
       );
+      const usedUserKeys = new Set(picked.map((row) => String(row.userId)));
 
-      while (picked.length < REVIEWS_PER_PRODUCT) {
+      while (picked.length < targetReviewCount) {
         const seed = makeSeedFromText(productId) + picked.length;
-        const fallback = pickFallbackKey(seed, usedKeys, users, deliveredOrders);
+        const fallback = pickFallbackKey(
+          seed,
+          usedOrderKeys,
+          usedUserKeys,
+          users,
+          deliveredOrders,
+        );
         if (!fallback) break;
         picked.push({
           ...fallback,

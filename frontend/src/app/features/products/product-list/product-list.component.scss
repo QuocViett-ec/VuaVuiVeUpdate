@@ -150,6 +150,30 @@
   }
 }
 
+.flash-panel {
+  border: 3px solid #f38b3a;
+  border-radius: 14px;
+  padding: 0.72rem;
+  background: linear-gradient(180deg, #ffcfac 0%, #ffc49a 100%);
+  box-shadow: 0 10px 28px rgba(236, 129, 50, 0.22);
+}
+
+.flash-panel .title {
+  margin-bottom: 0.65rem;
+}
+
+.flash-panel .title h2 {
+  color: #ffffff;
+  text-shadow: 0 1px 1px rgba(137, 63, 9, 0.32);
+}
+
+.flash-panel .flash-banner {
+  background: #ffd8bd;
+  border: 1px solid #f3a264;
+  border-radius: 999px;
+  padding: 0.38rem 0.78rem;
+}
+
 .countdown {
   color: #d32f2f;
   font-weight: 700;
@@ -184,6 +208,8 @@
 
 .flash-grid {
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.66rem;
+  margin-top: 0.62rem;
 }
 
 .product-grid {
@@ -243,11 +269,24 @@
 
 /* Controls row */
 .controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
+  display: grid;
+  gap: 0.6rem;
   margin-bottom: 1rem;
+}
+
+.controls-main {
+  display: grid;
+  grid-template-columns: minmax(330px, 1.15fr) minmax(520px, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.filter-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  min-width: 0;
 }
 
 .search-hints {
@@ -277,8 +316,7 @@
 /* Search bar */
 .search-wrap {
   position: relative;
-  flex: 1;
-  min-width: 240px;
+  min-width: 0;
   display: flex;
   align-items: center;
 }
@@ -324,19 +362,21 @@
     border-color: #2e7d32;
   }
   &[type='search'] {
-    min-width: 220px;
-    flex: 1;
+    min-width: 0;
+    width: 100%;
   }
 }
 
 select.input {
-  min-width: 140px;
+  min-width: 116px;
+  max-width: 130px;
 }
 
 .range-wrap {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
   label {
     font-size: 0.85rem;
     color: #555;
@@ -347,6 +387,7 @@ select.input {
 .range-input {
   accent-color: #2e7d32;
   cursor: pointer;
+  width: 108px;
 }
 
 .result-count {
@@ -410,16 +451,46 @@ select.input {
   .cat-grid {
     grid-template-columns: repeat(4, 1fr);
   }
-  .controls {
-    flex-direction: column;
+  .controls-main {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
   }
+
+  .filter-wrap {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  select.input {
+    min-width: 140px;
+    max-width: none;
+  }
+
   .input[type='search'] {
     min-width: 0;
     width: 100%;
   }
+
+  .range-input {
+    width: 120px;
+  }
 }
 
 @media (min-width: 601px) and (max-width: 1024px) {
+  .controls-main {
+    grid-template-columns: 1fr;
+  }
+
+  .filter-wrap {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  select.input {
+    min-width: 136px;
+    max-width: none;
+  }
+
   .flash-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

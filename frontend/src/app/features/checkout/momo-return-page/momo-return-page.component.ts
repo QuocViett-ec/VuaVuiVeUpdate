@@ -7,11 +7,12 @@ import {
   inject,
 } from '@angular/core';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
+import { PaymentService } from '../../../core/services/payment.service';
 
 /**
- * MoMo return page — chỉ đọc query params từ MoMo redirect, hiển thị trạng thái.
- * KHÔNG gọi markOrderPaid ở đây — paid được commit bởi MoMo IPN server-to-server.
- * Khi resultCode === 0: hiển thị "thanh toán được xác nhận, đang xử lý".
+ * MoMo return page — luôn verify server-side qua backend trước khi hiển thị kết quả.
+ * Backend return endpoint sẽ commit trạng thái theo cơ chế idempotent.
+ * IPN vẫn là nguồn commit chính, return đảm bảo đồng bộ nhanh cho UI.
  * Khi resultCode !== 0: hiển thị lỗi cụ thể, KHÔNG set success = true.
  */
 @Component({
@@ -25,6 +26,7 @@ import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 export class MomoReturnPageComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private paymentSvc = inject(PaymentService);
 
   loading = signal(true);
   /** true chỉ khi verify thành công (resultCode === 0) */
@@ -39,7 +41,7 @@ export class MomoReturnPageComponent implements OnInit, OnDestroy {
   private _countdownTimer: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit(): void {
-    const p = this.route.snapshot.queryParams;
+    const p = this.route.snapshot.queryParams as Record<string, string>;
     const resultCode = Number(p['resultCode'] ?? '-1');
     const orderId = String(p['orderId'] ?? '').trim();
     const rawAmount = p['amount'] ?? '0';
@@ -52,16 +54,7 @@ export class MomoReturnPageComponent implements OnInit, OnDestroy {
 
     this.amount.set(formatted);
 
-    if (resultCode === 0 && orderId) {
-      // Thanh toán thành công ở phía MoMo.
-      // Paid status sẽ được cập nhật qua IPN server-to-server — không gọi API ở đây.
-      this.orderId.set(orderId);
-      this.pending.set(true);  // chờ IPN, hiển thị màn hình "đang xử lý"
-      this.success.set(false); // chưa confirmed paid trong DB
-      this.loading.set(false);
-      this._startCountdown('/orders');
-    } else {
-      // Thanh toán thất bại hoặc bị huỷ — hiển thị lỗi.
+    const failWithCode = (rawCode: string, fallbackMessage?: string) => {
       const momoErrors: Record<string, string> = {
         '1001': 'Giao dịch thất bại do nguồn tiền không hợp lệ.',
         '1002': 'Bị từ chối bởi nhà phát hành thẻ.',
@@ -76,13 +69,34 @@ export class MomoReturnPageComponent implements OnInit, OnDestroy {
         '2001': 'Giao dịch không thành công.',
         '9000': 'Giao dịch bị hủy bởi người dùng.',
       };
-      // KHÔNG set success(true) trong nhánh lỗi
       this.success.set(false);
       this.pending.set(false);
-      this.message.set(momoErrors[String(resultCode)] ?? errMessage);
+      this.message.set(momoErrors[String(rawCode)] ?? fallbackMessage ?? errMessage);
       this.loading.set(false);
       this._startCountdown('/orders');
+    };
+
+    if (!orderId) {
+      failWithCode(String(resultCode || 99));
+      return;
     }
+
+    this.paymentSvc.verifyMoMoReturn(p).subscribe({
+      next: (verify) => {
+        if (verify.success) {
+          this.orderId.set(String(verify.orderId || orderId));
+          this.pending.set(true);
+          this.success.set(false);
+          this.loading.set(false);
+          this._startCountdown('/orders');
+          return;
+        }
+        failWithCode(verify.code || String(resultCode || 99), verify.message || errMessage);
+      },
+      error: () => {
+        failWithCode(String(resultCode || 99));
+      },
+    });
   }
 
   private _startCountdown(destination: string): void {

@@ -16,6 +16,8 @@ router.get("/vnpay/ipn", paymentCtrl.vnpayIPN);
 // ─── MoMo ────────────────────────────────────────────────────────────────────
 // Tạo URL thanh toán MoMo (cần đăng nhập)
 router.post("/momo/create", requireAuth, paymentCtrl.createMoMoUrl);
+// MoMo redirect callback (verify + idempotent commit)
+router.get("/momo/return", paymentCtrl.momoReturn);
 // MoMo IPN server-to-server callback
 router.post("/momo/ipn", paymentCtrl.momoIPN);
 

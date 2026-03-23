@@ -43,6 +43,12 @@ type PromoBanner = {
 const FLASH_SALE_COUNT = 10;
 const LS_RECENT_PRODUCT_SEARCH = 'vvv_recent_product_search';
 
+function hashSeed(value: string): number {
+  return String(value || '')
+    .split('')
+    .reduce((sum, ch, idx) => sum + ch.charCodeAt(0) * (idx + 1), 0);
+}
+
 /** Chuẩn hóa chuỗi tiếng Việt: bỏ dấu, lowercase, trim */
 function vn(s: string): string {
   return s
@@ -154,7 +160,9 @@ export class ProductListComponent implements OnInit, OnDestroy {
         this.searchQuery.set(p['q']);
         if (isPlatformBrowser(this.platformId)) {
           setTimeout(() => {
-            document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document
+              .getElementById('catalog')
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }, 350);
         }
       }
@@ -366,7 +374,20 @@ export class ProductListComponent implements OnInit, OnDestroy {
     const withDiscount = ps.filter((p) => p.oldPrice && p.oldPrice > p.price);
     const base = withDiscount.length >= FLASH_SALE_COUNT ? withDiscount : ps;
     const startIndex = this.flashSlot() === 'morning' ? 0 : FLASH_SALE_COUNT;
-    this.flashProducts.set(base.slice(startIndex, startIndex + FLASH_SALE_COUNT));
+    const selected = base.slice(startIndex, startIndex + FLASH_SALE_COUNT).map((p, index) => {
+      const seed = hashSeed(`${p.id}-${startIndex + index}`);
+      const oldPrice =
+        p.oldPrice && p.oldPrice > p.price
+          ? p.oldPrice
+          : Math.round((p.price * (1.25 + (seed % 3) * 0.08)) / 1000) * 1000;
+      const soldCount = Number(p.soldCount && p.soldCount > 0 ? p.soldCount : 80 + (seed % 320));
+      return {
+        ...p,
+        oldPrice,
+        soldCount,
+      };
+    });
+    this.flashProducts.set(selected);
   }
 
   private tickCd(): void {
@@ -387,5 +408,4 @@ export class ProductListComponent implements OnInit, OnDestroy {
     const span = img.parentElement;
     if (span) span.textContent = fallback;
   }
-
 }

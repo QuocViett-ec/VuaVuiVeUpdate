@@ -501,6 +501,17 @@ exports.forgotPassword = async (req, res, next) => {
         ttlMinutes: otpTtlMinutes,
       });
     } catch (mailErr) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          `[auth.forgotPassword] Email service unavailable, using DEV OTP fallback for ${deliveryEmail}: ${otp}`,
+        );
+        return res.json({
+          success: true,
+          code: "DEV_OTP_FALLBACK",
+          message: `Che do dev: OTP cua ban la ${otp}`,
+        });
+      }
+
       user.passwordResetOtpHash = undefined;
       user.passwordResetOtpExpires = undefined;
       user.passwordResetOtpAttempts = 0;

@@ -1,6 +1,18 @@
 // Same layout as login page - reuse styles via shared SCSS
 @use '../login-page/login-page.component.scss';
 
+.auth-page--entry {
+  .auth-card {
+    max-width: 560px;
+  }
+
+  .auth-title {
+    font-size: clamp(2.25rem, 5.2vw, 2.85rem);
+    line-height: 1.08;
+    white-space: nowrap;
+  }
+}
+
 // ── OTP Overlay ───────────────────────────────────────────────────────────────
 .otp-overlay {
   position: fixed;

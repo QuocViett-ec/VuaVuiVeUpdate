@@ -18,6 +18,8 @@ export interface VNPayReturnVerifyResult {
   amount?: number;
 }
 
+export type MoMoReturnVerifyResult = VNPayReturnVerifyResult;
+
 interface RawPaymentResponse {
   success?: boolean;
   data?: string;
@@ -66,6 +68,31 @@ export class PaymentService {
 
     return this.http
       .get<VNPayReturnVerifyResult>(`${this.base}/vnpay/return`, {
+        params,
+        withCredentials: true,
+      })
+      .pipe(
+        map((res) => ({
+          success: Boolean(res?.success),
+          code: String(res?.code || '99'),
+          message: res?.message,
+          orderId: res?.orderId,
+          transactionId: res?.transactionId,
+          amount: res?.amount,
+        })),
+      );
+  }
+
+  verifyMoMoReturn(query: Record<string, string>): Observable<MoMoReturnVerifyResult> {
+    let params = new HttpParams();
+    Object.entries(query).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && String(value).length > 0) {
+        params = params.set(key, String(value));
+      }
+    });
+
+    return this.http
+      .get<MoMoReturnVerifyResult>(`${this.base}/momo/return`, {
         params,
         withCredentials: true,
       })

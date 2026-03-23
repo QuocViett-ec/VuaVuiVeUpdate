@@ -1,11 +1,19 @@
-import { Component, ChangeDetectionStrategy, signal, OnInit, OnDestroy, inject } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  signal,
+  OnInit,
+  OnDestroy,
+  inject,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import { PaymentService } from '../../../core/services/payment.service';
 
 /**
  * VNPay return page — verify chữ ký server-side, hiển thị trạng thái.
- * KHÔNG gọi markOrderPaid từ return page — paid commit bởi VNPay IPN server-to-server.
+ * Backend return endpoint commit trạng thái theo cơ chế idempotent.
+ * IPN vẫn là nguồn commit chính, return đảm bảo đồng bộ nhanh cho UI.
  * Không dùng fallback regex để lấy orderId — bắt buộc phải có vnp_TxnRef.
  * Khi verify thành công (code=00): hiển thị "đang xác nhận".
  * Khi lỗi: hiển thị lỗi, KHÔNG set success = true.
@@ -105,11 +113,11 @@ export class VnpayReturnPageComponent implements OnInit, OnDestroy {
     this.paymentSvc.verifyVNPayReturn(p).subscribe({
       next: (verify) => {
         if (verify.success) {
-          // Verify thành công: hiển thị pending, chờ IPN commit.
-          // KHÔNG gọi markOrderPaid ở đây.
+          // Verify thành công: backend đã xử lý idempotent, UI giữ trạng thái pending ngắn
+          // để người dùng có trải nghiệm nhất quán giữa return và IPN.
           this.orderId.set(orderId);
           this.pending.set(true);
-          this.success.set(false); // chưa confirmed trong DB
+          this.success.set(false);
           this.loading.set(false);
           this._startCountdown();
           return;
