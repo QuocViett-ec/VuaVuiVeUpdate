@@ -119,11 +119,16 @@ export class AuthService {
         }
       },
       error: (err) => {
+        // 401/403: chỉ xóa session nếu đang có session trong cache.
+        // Nếu không có session cache, backend vừa restart → giữ yên, không cần logout.
         if (err?.status === 401 || err?.status === 403) {
-          this._clearSession();
+          if (this._session()) {
+            // Có session cache mà server từ chối → session thực sự đã hết hạn
+            this._clearSession();
+          }
           return;
         }
-        // Backend không chạy → giữ nguyên session cache để UI hiển thị
+        // Backend không chạy (status=0) hoặc lỗi network → giữ session cache để UI hiển thị
       },
     });
   }

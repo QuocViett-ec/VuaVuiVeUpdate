@@ -28,13 +28,17 @@ function isProtectedCustomerApi(url: string): boolean {
   const target = url || '';
   if (isAuthPublicEndpoint(target)) return false;
 
+  // Các endpoint này không trigger redirect về login khi 401:
+  // - /api/auth/me : gọi khi startup để restore session, thất bại là bình thường
+  // - /api/realtime/stream : SSE best-effort, không cần redirect
+  const silentEndpoints = ['/api/auth/me', '/api/realtime/stream', '/api/realtime/'];
+  if (silentEndpoints.some((p) => target.includes(p))) return false;
+
   return (
-    target.includes('/api/auth/me') ||
     target.includes('/api/auth/profile') ||
     target.includes('/api/auth/password') ||
-    target.includes('/api/orders/') ||
+    target.includes('/api/orders') ||
     target.includes('/api/payment/') ||
-    target.includes('/api/recommend/') ||
     target.includes('/api/users/me')
   );
 }

@@ -290,9 +290,17 @@ export class CheckoutPageComponent implements OnInit {
       this.toast.success('Đặt hàng thành công! 🎉');
       this.router.navigate(['/orders']);
     } catch (err: any) {
+      const status = err?.status ?? err?.error?.status;
+      if (status === 401 || status === 403) {
+        // Session hết hạn sau khi backend restart — yêu cầu đăng nhập lại
+        this.auth.forceClearClientSession();
+        this.toast.error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        this.router.navigate(['/auth/login'], { queryParams: { returnUrl: '/checkout' } });
+        return;
+      }
       const backendMessage = String(err?.error?.message || '');
       this.toast.error(
-        backendMessage || 'Đặt hàng thất bại. Vui lòng đăng nhập lại hoặc thử lại sau.',
+        backendMessage || 'Đặt hàng thất bại. Vui lòng thử lại sau.',
       );
     } finally {
       this.loading.set(false);
