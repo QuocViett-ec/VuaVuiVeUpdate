@@ -9,6 +9,13 @@ ml/VuaVuiVe_Recommender/data/03_features/user_item_matrix.npz
 ml/VuaVuiVe_Recommender/data/03_features/cf_mappings.json
 ml/VuaVuiVe_Recommender/models/*.pkl
 ml/VuaVuiVe_Recommender/models/*.joblib
+!ml/VuaVuiVe_Recommender/models/nmf_model.pkl
+!ml/VuaVuiVe_Recommender/data/03_features/cooccurrence_neighbors.json
+!ml/VuaVuiVe_Recommender/data/03_features/user_item_matrix.npz
+!ml/VuaVuiVe_Recommender/data/03_features/cf_mappings.json
+!ml/VuaVuiVe_Recommender/data/vvv/products.json
+!ml/VuaVuiVe_Recommender/data/vvv/orders.json
+!ml/VuaVuiVe_Recommender/data/vvv/users.json
 
 # ============================
 # Node modules
