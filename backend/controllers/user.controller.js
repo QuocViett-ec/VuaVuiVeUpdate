@@ -56,6 +56,15 @@ function fillMonthlySeries(rawMap, months) {
   return data;
 }
 
+function normalizeStoredImagePath(raw) {
+  const value = String(raw || "").trim();
+  if (!value) return "";
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  if (value.startsWith("/")) return value;
+  const cleaned = value.replace(/^\.\//, "").replace(/^\.\.\//, "");
+  return `/${cleaned}`;
+}
+
 async function buildAdminAnalytics() {
   const today = startOfDay(new Date());
   const last30Date = new Date(today);
@@ -81,6 +90,7 @@ async function buildAdminAnalytics() {
     ordersByStatusAgg,
     last30DaysAgg,
     last12MonthsAgg,
+    topProductsAgg,
     recentOrders,
   ] = await Promise.all([
     User.countDocuments({ isActive: true }),
@@ -167,6 +177,70 @@ async function buildAdminAnalytics() {
       },
       { $sort: { _id: 1 } },
     ]),
+    Order.aggregate([
+      { $match: { status: { $ne: "cancelled" } } },
+      { $unwind: "$items" },
+      {
+        $addFields: {
+          productIdKey: { $toString: "$items.productId" },
+        },
+      },
+      {
+        $group: {
+          _id: "$productIdKey",
+          productName: { $first: "$items.productName" },
+          soldQuantity: { $sum: "$items.quantity" },
+          revenue: { $sum: "$items.subtotal" },
+          itemImageUrl: { $first: "$items.imageUrl" },
+          itemProductImage: { $first: "$items.productImage" },
+          itemImage: { $first: "$items.image" },
+        },
+      },
+      { $sort: { soldQuantity: -1, revenue: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: "products",
+          let: { pid: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: [{ $toString: "$_id" }, "$$pid"],
+                },
+              },
+            },
+            { $project: { imageUrl: 1 } },
+          ],
+          as: "product",
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          productId: "$_id",
+          productName: 1,
+          soldQuantity: 1,
+          revenue: 1,
+          imageUrl: {
+            $ifNull: [
+              { $arrayElemAt: ["$product.imageUrl", 0] },
+              {
+                $ifNull: [
+                  "$itemImageUrl",
+                  {
+                    $ifNull: [
+                      "$itemProductImage",
+                      { $ifNull: ["$itemImage", ""] },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    ]),
     Order.find()
       .sort({ createdAt: -1 })
       .limit(8)
@@ -198,6 +272,10 @@ async function buildAdminAnalytics() {
   const revenueLast30Days = fillDailySeries(last30Map, 30);
   const revenueLast7Days = revenueLast30Days.slice(-7);
   const revenueByMonth = fillMonthlySeries(last12Map, 12);
+  const topProducts = (topProductsAgg || []).map((item) => ({
+    ...item,
+    imageUrl: normalizeStoredImagePath(item?.imageUrl),
+  }));
 
   return {
     overview: {
@@ -212,6 +290,7 @@ async function buildAdminAnalytics() {
     revenueLast7Days,
     revenueLast30Days,
     revenueByMonth,
+    topProducts,
     ordersByStatus: ordersByStatusAgg.map((item) => ({
       status: item._id || "unknown",
       count: item.count,
@@ -447,12 +526,10 @@ exports.createAuditLogRoute = async (req, res, next) => {
   try {
     const { adminId, action, target, details } = req.body;
     if (!adminId || !action || !target) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "adminId, action, target là bắt buộc",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "adminId, action, target là bắt buộc",
+      });
     }
     const log = await AuditLog.create({
       adminId,

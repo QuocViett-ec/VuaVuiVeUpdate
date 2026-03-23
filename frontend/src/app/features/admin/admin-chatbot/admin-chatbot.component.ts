@@ -27,6 +27,26 @@ const QUICK_REPLIES = [
   { label: 'Tồn kho thấp', value: 'Sản phẩm nào sắp hết hàng?' },
 ];
 
+const ICON_TOKEN_MAP: Array<{ token: string; icon: string }> = [
+  { token: '📦', icon: 'inventory_2' },
+  { token: '👤', icon: 'person' },
+  { token: '📞', icon: 'call' },
+  { token: '📍', icon: 'location_on' },
+  { token: '🛒', icon: 'shopping_cart' },
+  { token: '💰', icon: 'payments' },
+  { token: '💳', icon: 'credit_card' },
+  { token: '📊', icon: 'analytics' },
+  { token: '🕐', icon: 'schedule' },
+  { token: '⏳', icon: 'hourglass_top' },
+  { token: '✅', icon: 'check_circle' },
+  { token: '❌', icon: 'cancel' },
+  { token: '⚠️', icon: 'warning' },
+  { token: '⚠', icon: 'warning' },
+  { token: '🚨', icon: 'emergency' },
+  { token: '🔴', icon: 'radio_button_checked' },
+  { token: '💡', icon: 'lightbulb' },
+];
+
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-admin-chatbot',
@@ -109,11 +129,10 @@ export class AdminChatbotComponent implements AfterViewChecked {
     this.shouldScroll = true;
 
     this.http
-      .post<{ success: boolean; data: { message: string; type: string } }>(
-        `${environment.apiBase}/api/admin/chatbot`,
-        { message: msg },
-        { withCredentials: true },
-      )
+      .post<{
+        success: boolean;
+        data: { message: string; type: string };
+      }>(`${environment.apiBase}/api/admin/chatbot`, { message: msg }, { withCredentials: true })
       .subscribe({
         next: (res) => {
           this.messages.update((msgs) => {
@@ -160,11 +179,31 @@ export class AdminChatbotComponent implements AfterViewChecked {
   }
 
   formatMessage(content: string): string {
-    // Simple markdown-like formatting
-    return content
+    const safeContent = this.escapeHtml(content);
+    const withIcons = this.replaceIconTokens(safeContent);
+
+    return withIcons
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`(.+?)`/g, '<code>$1</code>')
       .replace(/\n/g, '<br>');
+  }
+
+  private replaceIconTokens(content: string): string {
+    let next = content;
+    for (const item of ICON_TOKEN_MAP) {
+      const iconHtml = `<span class="material-symbols-outlined chat-inline-icon" aria-hidden="true">${item.icon}</span>`;
+      next = next.split(item.token).join(iconHtml);
+    }
+    return next;
+  }
+
+  private escapeHtml(content: string): string {
+    return String(content || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   formatTime(date: Date): string {

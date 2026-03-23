@@ -4,6 +4,7 @@ import {
   OnInit,
   OnDestroy,
   PLATFORM_ID,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -48,8 +49,17 @@ interface DashboardAnalytics {
   revenueLast7Days: SeriesPoint[];
   revenueLast30Days: SeriesPoint[];
   revenueByMonth: SeriesPoint[];
+  topProducts?: TopProduct[];
   ordersByStatus: StatusPoint[];
   recentOrders: RecentOrder[];
+}
+
+interface TopProduct {
+  productId?: string;
+  productName: string;
+  soldQuantity: number;
+  revenue: number;
+  imageUrl?: string;
 }
 
 interface StatCard {
@@ -76,7 +86,18 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
   error = signal('');
   stats = signal<StatCard[]>([]);
   recentOrders = signal<RecentOrder[]>([]);
+  topProducts = signal<TopProduct[]>([]);
+  topProductColumns = computed(() => {
+    const items = this.topProducts();
+    const columns: TopProduct[][] = [];
+    for (let i = 0; i < 10; i += 2) {
+      const col = items.slice(i, i + 2);
+      if (col.length > 0) columns.push(col);
+    }
+    return columns;
+  });
   headline = signal('Bức tranh vận hành hôm nay');
+  readonly fallbackProductImage = '/images/brand/LogoVVV.png';
 
   private refreshInterval: any;
   private analyticsData: DashboardAnalytics | null = null;
@@ -121,6 +142,15 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
           this.analyticsData = res.data;
           this.stats.set(this.buildStats(this.analyticsData.overview));
           this.recentOrders.set(this.analyticsData.recentOrders);
+          this.topProducts.set(
+            (this.analyticsData.topProducts ?? []).map((item) => ({
+              ...item,
+              productName: item.productName || 'Sản phẩm',
+              imageUrl: this.normalizeProductImage(item.imageUrl),
+              soldQuantity: Number(item.soldQuantity || 0),
+              revenue: Number(item.revenue || 0),
+            })),
+          );
           this.headline.set(this.buildHeadline(this.analyticsData.overview));
           this.loading.set(false);
           this.chartsDrawn = false; // Need to redraw when data refreshes
@@ -142,10 +172,9 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
     const ChartClass = (window as any).Chart;
     const revenueCanvas = document.getElementById('revenueChart');
     const statusCanvas = document.getElementById('statusChart');
-    const monthCanvas = document.getElementById('monthChart');
 
     // Make sure both Chart.js library is loaded AND Angular has rendered the DOM elements
-    if (ChartClass && revenueCanvas && statusCanvas && monthCanvas) {
+    if (ChartClass && revenueCanvas && statusCanvas) {
       if (!this.chartsDrawn) {
         this.drawCharts(this.analyticsData);
         this.chartsDrawn = true;
@@ -162,28 +191,28 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
         label: 'Doanh thu',
         value: overview.totalRevenue.toLocaleString('vi-VN') + 'đ',
         hint: `${overview.paidOrders.toLocaleString('vi-VN')} đơn đã thanh toán`,
-        icon: '💰',
+        icon: 'payments',
         tone: 'emerald',
       },
       {
         label: 'Đơn hàng',
         value: overview.totalOrders.toLocaleString('vi-VN'),
         hint: `${overview.pendingOrders.toLocaleString('vi-VN')} đơn đang chờ`,
-        icon: '📦',
+        icon: 'inventory_2',
         tone: 'blue',
       },
       {
         label: 'Người dùng',
         value: overview.totalUsers.toLocaleString('vi-VN'),
         hint: `${overview.totalProducts.toLocaleString('vi-VN')} sản phẩm đang bán`,
-        icon: '👤',
+        icon: 'person',
         tone: 'amber',
       },
       {
         label: 'Giá trị trung bình',
         value: Math.round(overview.averageOrderValue).toLocaleString('vi-VN') + 'đ',
         hint: 'Trên mỗi đơn không bị hủy',
-        icon: '📊',
+        icon: 'analytics',
         tone: 'rose',
       },
     ];
@@ -275,36 +304,57 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
         },
       });
     }
+  }
 
-    const monthCanvas = document.getElementById('monthChart') as HTMLCanvasElement | null;
-    if (monthCanvas) {
-      if ((monthCanvas as any).__chart) (monthCanvas as any).__chart.destroy();
-      (monthCanvas as any).__chart = new Chart(monthCanvas, {
-        type: 'bar',
-        data: {
-          labels: analytics.revenueByMonth.slice(-6).map((item) => item.month || ''),
-          datasets: [
-            {
-              label: 'Doanh thu theo tháng',
-              data: analytics.revenueByMonth.slice(-6).map((item) => item.revenue),
-              backgroundColor: ['#d1fae5', '#a7f3d0', '#6ee7b7', '#34d399', '#10b981', '#059669'],
-              borderRadius: 10,
-            },
-          ],
-        },
-        options: {
-          plugins: { legend: { display: false } },
-          scales: {
-            y: {
-              beginAtZero: true,
-              ticks: {
-                callback: (value: number | string) => Number(value).toLocaleString('vi-VN'),
-              },
-            },
-          },
-        },
-      });
+  private normalizeProductImage(raw?: string): string {
+    const value = String(raw || '').trim();
+    if (!value) return this.fallbackProductImage;
+    const apiOrigin = this.resolveApiOrigin();
+    const cleaned = value.replace(/^\.\//, '').replace(/^\.\.\//, '');
+
+    if (value.startsWith('data:image/')) {
+      return value;
     }
+    if (value.startsWith('http://') || value.startsWith('https://')) {
+      return value;
+    }
+
+    if (cleaned.startsWith('uploads/')) {
+      return `${apiOrigin}/${cleaned}`;
+    }
+
+    if (cleaned.startsWith('images/') || cleaned.startsWith('vid/')) {
+      return `/${cleaned}`;
+    }
+
+    if (value.startsWith('/uploads/')) {
+      return `${apiOrigin}${value}`;
+    }
+
+    if (value.startsWith('/images/') || value.startsWith('/vid/')) {
+      return value;
+    }
+
+    if (value.startsWith('/')) {
+      return apiOrigin ? `${apiOrigin}${value}` : value;
+    }
+
+    if (apiOrigin) {
+      return `${apiOrigin}/${cleaned}`;
+    }
+
+    return this.fallbackProductImage;
+  }
+
+  private resolveApiOrigin(): string {
+    const base = String(environment.apiBase || '').trim();
+    if (base.startsWith('http://') || base.startsWith('https://')) {
+      return base.replace(/\/$/, '').replace(/\/api$/, '');
+    }
+    if (typeof window !== 'undefined') {
+      return window.location.origin;
+    }
+    return '';
   }
 
   statusLabel(status: string): string {
@@ -320,5 +370,12 @@ export class AdminDashboardV2Component implements OnInit, OnDestroy {
 
   customerName(order: RecentOrder): string {
     return order.delivery?.name || 'Khách lẻ';
+  }
+
+  onProductImageError(event: Event): void {
+    const img = event.target as HTMLImageElement | null;
+    if (!img) return;
+    if (img.src.endsWith(this.fallbackProductImage)) return;
+    img.src = this.fallbackProductImage;
   }
 }

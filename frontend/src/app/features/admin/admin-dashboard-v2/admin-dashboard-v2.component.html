@@ -16,7 +16,9 @@
 
   <section class="stats-grid" *ngIf="!loading() && !error()">
     <article class="stat-card" *ngFor="let stat of stats()" [attr.data-tone]="stat.tone">
-      <div class="stat-kicker">{{ stat.icon }}</div>
+      <div class="stat-kicker">
+        <span class="material-symbols-outlined g-icon">{{ stat.icon }}</span>
+      </div>
       <p class="stat-label">{{ stat.label }}</p>
       <strong class="stat-value">{{ stat.value }}</strong>
       <p class="stat-hint">{{ stat.hint }}</p>
@@ -44,14 +46,45 @@
       <canvas id="statusChart" #statusChart></canvas>
     </article>
 
-    <article class="panel panel--wide">
-      <div class="panel-head">
+    <article class="panel panel--full">
+      <div class="panel-head panel-head--top-products">
         <div>
-          <p class="panel-kicker">6 tháng gần đây</p>
-          <h3>Nhịp doanh thu theo tháng</h3>
+          <p class="panel-kicker">Top bán chạy</p>
+          <h3>Top 10 sản phẩm bán chạy</h3>
         </div>
       </div>
-      <canvas id="monthChart" #monthChart></canvas>
+
+      <div class="top-products" *ngIf="topProducts().length > 0; else emptyTopProducts">
+        <div
+          class="top-products-column"
+          *ngFor="let col of topProductColumns(); let colIdx = index"
+        >
+          <article class="top-product-card" *ngFor="let p of col; let idx = index">
+            <div class="top-product-rank">#{{ colIdx * 2 + idx + 1 }}</div>
+
+            <img
+              class="top-product-image"
+              [src]="p.imageUrl || fallbackProductImage"
+              [alt]="p.productName"
+              (error)="onProductImageError($event)"
+              loading="lazy"
+            />
+
+            <div class="top-product-main">
+              <p class="top-product-name">{{ p.productName }}</p>
+              <p class="top-product-meta">
+                <span class="material-symbols-outlined g-icon">shopping_bag</span>
+                {{ p.soldQuantity | number }} đã bán
+              </p>
+              <p class="top-product-revenue">{{ p.revenue | number }}đ</p>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <ng-template #emptyTopProducts>
+        <p class="state">Chưa có dữ liệu sản phẩm bán chạy.</p>
+      </ng-template>
     </article>
   </section>
 
