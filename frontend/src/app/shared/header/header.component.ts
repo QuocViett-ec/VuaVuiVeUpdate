@@ -1,4 +1,4 @@
-﻿import { Component, inject, signal, HostListener } from '@angular/core';
+import { Component, inject, signal, HostListener } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -39,9 +39,13 @@ export class HeaderComponent {
     this.showAccountDropdown.update((v) => !v);
   }
   goSearch(): void {
-    if (!this.searchQuery.trim()) return;
-    this.router.navigate(['/products'], { queryParams: { q: this.searchQuery.trim() } });
-    this.searchQuery = '';
+    const q = this.searchQuery.trim();
+    if (!q) {
+      this.router.navigate(['/products']);
+      return;
+    }
+    this.router.navigate(['/products'], { queryParams: { q } });
+    // Không xóa searchQuery để giữ hiển thị trong ô search
   }
   logout(): void {
     this.showAccountDropdown.set(false);

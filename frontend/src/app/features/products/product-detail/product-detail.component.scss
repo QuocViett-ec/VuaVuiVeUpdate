@@ -188,6 +188,40 @@
   }
 }
 
+.pd-description {
+  margin-top: 2rem;
+  padding: 1.25rem 1.5rem;
+  background: #f5fbf5;
+  border-left: 4px solid #2e7d32;
+  border-radius: 0 8px 8px 0;
+
+  &__title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1b2a1e;
+    margin: 0 0 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  &__text {
+    color: #444;
+    line-height: 1.75;
+    margin: 0;
+    font-size: 0.95rem;
+
+    &--muted {
+      color: #aaa;
+      font-style: italic;
+    }
+  }
+
+  &--empty {
+    border-left-color: #ddd;
+    background: #fafafa;
+  }
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
