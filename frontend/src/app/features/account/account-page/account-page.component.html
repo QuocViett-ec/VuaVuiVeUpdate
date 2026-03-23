@@ -11,9 +11,6 @@
         >
           <span>Sửa thông tin cá nhân</span><span>›</span>
         </button>
-        <button class="account-item" [class.active]="tab() === 'orders'" (click)="setTab('orders')">
-          <span>Đơn hàng từng mua</span><span>›</span>
-        </button>
         <button
           class="account-item"
           [class.active]="tab() === 'security'"
@@ -110,82 +107,6 @@
                 <p class="muted" style="margin-top: 8px">{{ acctMsg() }}</p>
               }
             </form>
-          </section>
-        }
-
-        <!-- Orders -->
-        @if (tab() === 'orders') {
-          <section class="account-panel" style="padding: 16px">
-            <p class="muted">Các đơn hàng gần đây sẽ tự đồng bộ khi admin cập nhật trạng thái.</p>
-
-            @if (ordersLoading()) {
-              <p class="muted" style="margin-top: 10px">Đang tải đơn hàng...</p>
-            } @else if (!ordersPreview().length) {
-              <p class="muted" style="margin-top: 10px">Chưa có đơn hàng nào.</p>
-            } @else {
-              <div class="order-history-list">
-                @for (order of ordersPreview(); track order.id) {
-                  <article class="order-history-card">
-                    <div class="order-history-top">
-                      <div class="order-history-code">Đơn hàng #{{ order.id }}</div>
-                      <a [routerLink]="['/orders', order.id]" class="order-history-detail"
-                        >Xem chi tiết ></a
-                      >
-                    </div>
-
-                    <div class="order-history-sub">
-                      <span>Giao lúc: {{ order.deliverySlot || 'Chưa cập nhật' }}</span>
-                      <span> · </span>
-                      <span>Mua lúc: {{ order.createdAt | date: 'HH:mm:ss dd/MM/yyyy' }}</span>
-                    </div>
-
-                    <div class="order-history-thumbs">
-                      @for (thumb of getOrderItemThumbs(order, 4); track thumb + $index) {
-                        <img [src]="thumb" alt="Sản phẩm trong đơn" class="order-thumb" />
-                      }
-                    </div>
-
-                    <div class="order-history-bottom">
-                      <div class="order-history-total">
-                        Tổng đơn hàng: {{ order.totalAmount | number }} đ
-                      </div>
-                      <div class="order-history-actions">
-                        <button
-                          type="button"
-                          class="btn-order btn-order--review"
-                          [disabled]="!canReviewOrder(order)"
-                          (click)="onReviewOrder(order)"
-                        >
-                          Đánh giá
-                        </button>
-                        <button
-                          type="button"
-                          class="btn-order btn-order--reorder"
-                          (click)="reorderOrder(order)"
-                        >
-                          Mua lại đơn
-                        </button>
-                        <button
-                          type="button"
-                          class="btn-order btn-order--return"
-                          [disabled]="!canReturnOrder(order)"
-                          (click)="onReturnOrder(order)"
-                        >
-                          Trả hàng
-                        </button>
-                      </div>
-                    </div>
-                  </article>
-                }
-              </div>
-            }
-
-            <a
-              routerLink="/orders"
-              class="btn btn--pri"
-              style="display: inline-block; margin-top: 12px"
-              >Xem tất cả đơn hàng</a
-            >
           </section>
         }
 
