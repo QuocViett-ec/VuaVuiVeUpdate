@@ -10,6 +10,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pathlib import Path
 import sys
+import os
 from datetime import datetime, timezone
 import math
 
@@ -32,12 +33,32 @@ recommender = HybridRecommender(MODELS_DIR, FEATURES_DIR)
 print(" Model loaded successfully!")
 
 # Load VVV Adapter
-# PROJECT_ROOT = VuaVuiVeUpdate/ml/VuaVuiVe_Recommender
-# .parents[2] goes up to VuaVuiVeNC/ where backoffice/data/ lives
-VVV_DATA_DIR = PROJECT_ROOT.parents[2] / 'backoffice' / 'data'
+# Prefer explicit VVV_DATA_DIR from environment in production.
+def resolve_vvv_data_dir(project_root: Path) -> Path:
+    env_dir = os.getenv('VVV_DATA_DIR', '').strip()
+    if env_dir:
+        return Path(env_dir)
+
+    candidates = [
+        # Common layout when running from monorepo root
+        project_root.parents[1] / 'backoffice' / 'data',
+        # Optional local fallback inside ML project
+        project_root / 'data' / 'vvv',
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    # Last-resort default; startup will show clear file-not-found details.
+    return candidates[0]
+
+
+VVV_DATA_DIR = resolve_vvv_data_dir(PROJECT_ROOT)
 MAPPING_FILE = PROJECT_ROOT / 'mappings' / 'vvv_instacart_mapping.json'
 
 print(" Loading VVV-Instacart adapter...")
+print(f" VVV data dir: {VVV_DATA_DIR}")
 adapter = VVVInstacartAdapter(VVV_DATA_DIR, MAPPING_FILE)
 print(" Adapter loaded successfully!")
 
@@ -637,9 +658,10 @@ if __name__ == '__main__':
     print("  POST /api/batch-recommend")
     print("\n" + "="*50 + "\n")
     
+    port = int(os.getenv('PORT', '5001'))
     app.run(
         host='0.0.0.0',
-        port=5001,
+        port=port,
         debug=False,
         use_reloader=False
     )
