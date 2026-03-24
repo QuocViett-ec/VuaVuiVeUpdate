@@ -2,16 +2,22 @@
 
 const express = require("express");
 const rateLimit = require("express-rate-limit");
+const ipKeyGenerator = rateLimit.ipKeyGenerator || ((ip) => ip);
 const router = express.Router();
 const authController = require("../controllers/auth.controller");
 const { requireAuth } = require("../middleware/auth.middleware");
+
+function sessionOrIpKey(req) {
+  if (req.session?.userId) return `user:${req.session.userId}`;
+  return ipKeyGenerator(req.ip);
+}
 
 // Rate limiter for sensitive auth endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20,
   skip: () => process.env.NODE_ENV === "development",
-  keyGenerator: (req) => req.session?.userId || req.ip,
+  keyGenerator: sessionOrIpKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -26,7 +32,7 @@ const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   skip: () => process.env.NODE_ENV === "development",
-  keyGenerator: (req) => req.session?.userId || req.ip,
+  keyGenerator: sessionOrIpKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: {

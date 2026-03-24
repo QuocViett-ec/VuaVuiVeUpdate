@@ -2,6 +2,7 @@
 
 const express = require("express");
 const rateLimit = require("express-rate-limit");
+const ipKeyGenerator = rateLimit.ipKeyGenerator || ((ip) => ip);
 const router = express.Router();
 const orderCtrl = require("../controllers/order.controller");
 const {
@@ -10,11 +11,16 @@ const {
   requirePermission,
 } = require("../middleware/auth.middleware");
 
+function sessionOrIpKey(req) {
+  if (req.session?.userId) return `user:${req.session.userId}`;
+  return ipKeyGenerator(req.ip);
+}
+
 const readLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   skip: () => process.env.NODE_ENV === "development",
-  keyGenerator: (req) => req.session?.userId || req.ip,
+  keyGenerator: sessionOrIpKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -28,7 +34,7 @@ const writeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
   skip: () => process.env.NODE_ENV === "development",
-  keyGenerator: (req) => req.session?.userId || req.ip,
+  keyGenerator: sessionOrIpKey,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
