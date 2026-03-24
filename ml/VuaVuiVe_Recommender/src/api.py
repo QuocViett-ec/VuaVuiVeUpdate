@@ -42,24 +42,33 @@ print(" Model loaded successfully!")
 
 # Load VVV Adapter
 # Prefer explicit VVV_DATA_DIR from environment in production.
+def is_valid_vvv_data_dir(path: Path) -> bool:
+    required = ["products.json", "orders.json", "users.json"]
+    return all((path / name).exists() for name in required)
+
+
 def resolve_vvv_data_dir(project_root: Path) -> Path:
     env_dir = os.getenv('VVV_DATA_DIR', '').strip()
     if env_dir:
-        return Path(env_dir)
+        candidate = Path(env_dir)
+        if is_valid_vvv_data_dir(candidate):
+            return candidate
+        print(f" WARN: VVV_DATA_DIR is set but invalid: {candidate}")
 
     candidates = [
+        # Preferred in this repository
+        project_root / 'data' / 'vvv',
         # Common layout when running from monorepo root
         project_root.parents[1] / 'backoffice' / 'data',
         # Optional local fallback inside ML project
-        project_root / 'data' / 'vvv',
+        project_root.parents[1] / 'data' / 'vvv',
     ]
 
     for candidate in candidates:
-        if candidate.exists():
+        if is_valid_vvv_data_dir(candidate):
             return candidate
 
-    # Last-resort default; startup will show clear file-not-found details.
-    return candidates[0]
+    return Path("")
 
 
 VVV_DATA_DIR = resolve_vvv_data_dir(PROJECT_ROOT)
@@ -67,14 +76,25 @@ MAPPING_FILE = PROJECT_ROOT / 'mappings' / 'vvv_instacart_mapping.json'
 
 print(" Loading VVV-Instacart adapter...")
 print(f" VVV data dir: {VVV_DATA_DIR}")
-adapter = VVVInstacartAdapter(VVV_DATA_DIR, MAPPING_FILE)
-print(" Adapter loaded successfully!")
+adapter = None
+ADAPTER_READY = False
+if VVV_DATA_DIR and is_valid_vvv_data_dir(VVV_DATA_DIR):
+    adapter = VVVInstacartAdapter(VVV_DATA_DIR, MAPPING_FILE)
+    ADAPTER_READY = True
+    print(" Adapter loaded successfully!")
+else:
+    print(" WARN: VVV adapter disabled (missing products.json/orders.json/users.json).")
+    print(" WARN: API will run in degraded mode; backend should fallback locally.")
 
 
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    return jsonify({'status': 'ok', 'message': 'Recommendation API is running'})
+    return jsonify({
+        'status': 'ok',
+        'message': 'Recommendation API is running',
+        'adapter_ready': ADAPTER_READY,
+    })
 
 
 @app.route('/api/recommend', methods=['POST'])
@@ -107,6 +127,12 @@ def get_recommendations():
     }
     """
     try:
+        if not ADAPTER_READY or adapter is None:
+            return jsonify({
+                'error': 'VVV adapter is not ready',
+                'method': 'degraded_mode',
+            }), 503
+
         # Pick up newly synced backoffice/data/*.json changes (orders/products/users)
         # without needing to restart the Flask server.
         try:
@@ -505,6 +531,12 @@ def get_similar_items():
     }
     """
     try:
+        if not ADAPTER_READY or adapter is None:
+            return jsonify({
+                'error': 'VVV adapter is not ready',
+                'method': 'degraded_mode',
+            }), 503
+
         try:
             adapter.reload_if_changed()
         except Exception:
