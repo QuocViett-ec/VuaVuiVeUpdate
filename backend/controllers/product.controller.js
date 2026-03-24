@@ -103,45 +103,58 @@ async function attachRatings(products) {
 
   if (!ids.length) return list.map((p) => attachRatingFallback(p));
 
-  const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+  const objectIds = ids
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
 
-  const [stats, sales] = await Promise.all([
-    Review.aggregate([
-      {
-        $match: {
-          productId: {
-            $in: objectIds,
+  if (!objectIds.length) {
+    return list.map((p) => attachRatingFallback(p));
+  }
+
+  let stats = [];
+  let sales = [];
+  try {
+    [stats, sales] = await Promise.all([
+      Review.aggregate([
+        {
+          $match: {
+            productId: {
+              $in: objectIds,
+            },
           },
         },
-      },
-      {
-        $group: {
-          _id: "$productId",
-          avgRating: { $avg: "$rating" },
-          reviewCount: { $sum: 1 },
+        {
+          $group: {
+            _id: "$productId",
+            avgRating: { $avg: "$rating" },
+            reviewCount: { $sum: 1 },
+          },
         },
-      },
-    ]),
-    Order.aggregate([
-      {
-        $match: {
-          status: { $in: ["confirmed", "shipping", "delivered"] },
+      ]),
+      Order.aggregate([
+        {
+          $match: {
+            status: { $in: ["confirmed", "shipping", "delivered"] },
+          },
         },
-      },
-      { $unwind: "$items" },
-      {
-        $match: {
-          "items.productId": { $in: objectIds },
+        { $unwind: "$items" },
+        {
+          $match: {
+            "items.productId": { $in: objectIds },
+          },
         },
-      },
-      {
-        $group: {
-          _id: "$items.productId",
-          soldCount: { $sum: "$items.quantity" },
+        {
+          $group: {
+            _id: "$items.productId",
+            soldCount: { $sum: "$items.quantity" },
+          },
         },
-      },
-    ]),
-  ]);
+      ]),
+    ]);
+  } catch (err) {
+    console.warn("attachRatings fallback due to aggregate error:", err.message);
+    return list.map((p) => attachRatingFallback(p));
+  }
 
   const statByProductId = new Map(
     stats.map((row) => [
@@ -384,7 +397,12 @@ exports.getOne = async (req, res, next) => {
         .status(404)
         .json({ success: false, message: "Không tìm thấy sản phẩm" });
     }
-    const [productWithRating] = await attachRatings([product]);
+    let productWithRating = attachRatingFallback(product);
+    try {
+      [productWithRating] = await attachRatings([product]);
+    } catch (err) {
+      console.warn("getOne rating fallback:", err.message);
+    }
     return res.json({ success: true, data: productWithRating });
   } catch (err) {
     next(err);

@@ -12,6 +12,7 @@ const morgan = require("morgan");
 const cors = require("cors");
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
+const mongoose = require("mongoose");
 const path = require("path");
 
 const connectDB = require("./config/db");
@@ -50,11 +51,8 @@ if (
 }
 
 const SESSION_TTL_MS = parseInt(process.env.SESSION_MAX_AGE_MS || "604800000");
-const sessionStore = MongoStore.create({
-  mongoUrl: process.env.MONGO_URI,
-  collectionName: "sessions",
-  ttl: SESSION_TTL_MS / 1000,
-});
+let customerSession = null;
+let adminSession = null;
 
 function getRequestOrigin(req) {
   const origin = req.headers.origin;
@@ -89,13 +87,13 @@ function resolveSessionScope(req) {
   return "customer";
 }
 
-function createSessionMiddleware(cookieName) {
+function createSessionMiddleware(cookieName, store) {
   return session({
     name: cookieName,
     secret: SESSION_SECRET || "vvv_secret",
     resave: false,
     saveUninitialized: false,
-    store: sessionStore,
+    store,
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -107,6 +105,19 @@ function createSessionMiddleware(cookieName) {
   });
 }
 
+function initializeSessionMiddlewares() {
+  if (customerSession && adminSession) return;
+
+  const store = MongoStore.create({
+    clientPromise: Promise.resolve(mongoose.connection.getClient()),
+    collectionName: "sessions",
+    ttl: SESSION_TTL_MS / 1000,
+  });
+
+  customerSession = createSessionMiddleware("vvv.customer.sid", store);
+  adminSession = createSessionMiddleware("vvv.admin.sid", store);
+}
+
 function getCookieNames(req) {
   const header = req.headers.cookie || "";
   if (!header) return [];
@@ -115,9 +126,6 @@ function getCookieNames(req) {
     .map((item) => item.trim().split("=")[0])
     .filter(Boolean);
 }
-
-const customerSession = createSessionMiddleware("vvv.customer.sid");
-const adminSession = createSessionMiddleware("vvv.admin.sid");
 
 function isAllowedOrigin(origin) {
   if (!origin) return true;
@@ -150,8 +158,6 @@ function isAllowedOrigin(origin) {
     return false;
   }
 }
-
-connectDB();
 
 if (process.env.TRUST_PROXY) {
   app.set(
@@ -222,11 +228,19 @@ app.get("/", (req, res) => {
 });
 
 app.get("/api/health", (req, res) => {
-  res.json({
+  const dbState = Number(require("mongoose").connection.readyState || 0);
+  const dbReady = dbState === 1;
+  const statusCode = dbReady ? 200 : 503;
+
+  res.status(statusCode).json({
     status: "ok",
     service: "VuaVuiVe Backend API",
     timestamp: new Date().toISOString(),
     session: !!req.session?.userId,
+    db: {
+      ready: dbReady,
+      state: dbState,
+    },
   });
 });
 
@@ -257,12 +271,22 @@ if (process.env.NODE_ENV !== "production") {
 
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`\nVuaVuiVe Backend chay tai http://localhost:${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV}`);
-  console.log(
-    `CORS config: ${process.env.CLIENT_ORIGINS || process.env.CLIENT_ORIGIN || "auto local dev"}`,
-  );
+async function startServer() {
+  await connectDB();
+  initializeSessionMiddlewares();
+
+  app.listen(PORT, () => {
+    console.log(`\nVuaVuiVe Backend chay tai http://localhost:${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log(
+      `CORS config: ${process.env.CLIENT_ORIGINS || process.env.CLIENT_ORIGIN || "auto local dev"}`,
+    );
+  });
+}
+
+startServer().catch((err) => {
+  console.error("Server startup failed:", err.message);
+  process.exit(1);
 });
 
 module.exports = app;
