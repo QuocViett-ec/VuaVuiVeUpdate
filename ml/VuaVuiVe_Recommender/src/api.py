@@ -16,6 +16,13 @@ import math
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent))
+
+# Reduce CPU/RAM spikes on free-tier instances.
+os.environ.setdefault('OMP_NUM_THREADS', '1')
+os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
+os.environ.setdefault('MKL_NUM_THREADS', '1')
+os.environ.setdefault('NUMEXPR_NUM_THREADS', '1')
+
 from recommender import HybridRecommender
 from vvv_adapter import VVVInstacartAdapter
 
@@ -29,7 +36,8 @@ MODELS_DIR = PROJECT_ROOT / "models"
 FEATURES_DIR = PROJECT_ROOT / "data" / "03_features"
 
 print(" Loading recommendation model...")
-recommender = HybridRecommender(MODELS_DIR, FEATURES_DIR)
+enable_cf = os.getenv('ENABLE_CF', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
+recommender = HybridRecommender(MODELS_DIR, FEATURES_DIR, enable_cf=enable_cf)
 print(" Model loaded successfully!")
 
 # Load VVV Adapter

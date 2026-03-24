@@ -18,9 +18,20 @@ from scipy.sparse import load_npz, csr_matrix
 class HybridRecommender:
     """Hybrid recommender: CF + Basket + Popular"""
 
-    def __init__(self, models_dir: Path, features_dir: Path):
+    def __init__(self, models_dir: Path, features_dir: Path, enable_cf: bool = True):
         self.models_dir = Path(models_dir)
         self.features_dir = Path(features_dir)
+        self.enable_cf = bool(enable_cf)
+
+        # Defaults so low-memory mode can skip CF artifacts safely.
+        self.user2idx = {}
+        self.prod2idx = {}
+        self.idx2user = {}
+        self.idx2prod = {}
+        self.user_item_matrix = None
+        self.nmf_model = None
+        self.user_factors = None
+        self.item_factors = None
         
         # Load model and artifacts
         self._load_all()
@@ -29,32 +40,36 @@ class HybridRecommender:
         """Load tất cả artifacts"""
         print("Loading hybrid recommender...")
         
-        # 1) NMF model (load từ pickle)
-        model_path = self.models_dir / "nmf_model.pkl"
-        if not model_path.exists():
-            raise FileNotFoundError(
-                f"Model không tồn tại: {model_path}\n"
-                "Hãy train model bằng notebook 03_train_model.ipynb trước!"
+        # 1) CF artifacts (optional in low-memory deployment)
+        if self.enable_cf:
+            model_path = self.models_dir / "nmf_model.pkl"
+            if not model_path.exists():
+                raise FileNotFoundError(
+                    f"Model không tồn tại: {model_path}\n"
+                    "Hãy train model bằng notebook 03_train_model.ipynb trước!"
+                )
+
+            with open(model_path, 'rb') as f:
+                model_data = pickle.load(f)
+                self.nmf_model = model_data['model']
+                self.user_factors = model_data['user_factors']
+                self.item_factors = model_data['item_factors']
+
+            print(
+                f"  ✓ Loaded NMF model: user_factors {self.user_factors.shape}, "
+                f"item_factors {self.item_factors.shape}"
             )
-        
-        with open(model_path, 'rb') as f:
-            model_data = pickle.load(f)
-            self.nmf_model = model_data['model']
-            self.user_factors = model_data['user_factors']
-            self.item_factors = model_data['item_factors']
-        
-        print(f"  ✓ Loaded NMF model: user_factors {self.user_factors.shape}, item_factors {self.item_factors.shape}")
-        
-        # 2) CF mappings
-        with open(self.features_dir / "cf_mappings.json", "r", encoding="utf-8") as f:
-            cf_maps = json.load(f)
-            self.user2idx = {int(k): int(v) for k, v in cf_maps["user2idx"].items()}
-            self.prod2idx = {int(k): int(v) for k, v in cf_maps["prod2idx"].items()}
-            self.idx2user = {int(k): int(v) for k, v in cf_maps["idx2user"].items()}
-            self.idx2prod = {int(k): int(v) for k, v in cf_maps["idx2prod"].items()}
-        
-        # 3) User-item matrix (để filter đã mua)
-        self.user_item_matrix = load_npz(self.features_dir / "user_item_matrix.npz")
+
+            with open(self.features_dir / "cf_mappings.json", "r", encoding="utf-8") as f:
+                cf_maps = json.load(f)
+                self.user2idx = {int(k): int(v) for k, v in cf_maps["user2idx"].items()}
+                self.prod2idx = {int(k): int(v) for k, v in cf_maps["prod2idx"].items()}
+                self.idx2user = {int(k): int(v) for k, v in cf_maps["idx2user"].items()}
+                self.idx2prod = {int(k): int(v) for k, v in cf_maps["idx2prod"].items()}
+
+            self.user_item_matrix = load_npz(self.features_dir / "user_item_matrix.npz")
+        else:
+            print("  ✓ Low-memory mode: skip loading CF artifacts (NMF + user_item_matrix)")
         
         # 4) Basket neighbors
         with open(self.features_dir / "cooccurrence_neighbors.json", "r", encoding="utf-8") as f:
@@ -67,7 +82,10 @@ class HybridRecommender:
             self.popular_global = pop["global"]
             self.popular_by_dept = {int(k): v for k, v in pop["by_department"].items()}
         
-        print(f"✓ Loaded: {len(self.user2idx)} users, {len(self.prod2idx)} products")
+        print(
+            f"✓ Loaded: {len(self.user2idx)} users, {len(self.prod2idx)} products, "
+            f"{len(self.basket_neighbors)} basket keys"
+        )
 
     def recommend(
         self,
@@ -95,7 +113,7 @@ class HybridRecommender:
         candidates = {}  # product_id -> score
 
         # 1) CF recommendations (NMF-based)
-        if user_id in self.user2idx:
+        if w_cf > 0 and user_id in self.user2idx and self.item_factors is not None:
             user_idx = self.user2idx[user_id]
             
             # Check if user_idx trong phạm vi (có thể bị sample)
@@ -130,7 +148,7 @@ class HybridRecommender:
             candidates[prod_id] = candidates.get(prod_id, 0) + w_pop * score_pop
 
         # Filter đã mua (nếu yêu cầu)
-        if filter_purchased and user_id in self.user2idx:
+        if filter_purchased and user_id in self.user2idx and self.user_item_matrix is not None:
             user_idx = self.user2idx[user_id]
             purchased = set(self.user_item_matrix[user_idx].indices)
             purchased_prod_ids = {self.idx2prod[int(i)] for i in purchased if int(i) in self.idx2prod}
