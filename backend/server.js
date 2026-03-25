@@ -66,11 +66,39 @@ function getRequestOrigin(req) {
   }
 }
 
+function getPortalScopeHint(req) {
+  const raw = String(req.headers["x-portal-scope"] || "")
+    .toLowerCase()
+    .trim();
+  if (raw === "admin" || raw === "customer") return raw;
+  return "";
+}
+
+function inferScopeFromCookies(req) {
+  const cookieNames = getCookieNames(req);
+  const hasAdmin = cookieNames.includes("vvv.admin.sid");
+  const hasCustomer = cookieNames.includes("vvv.customer.sid");
+
+  if (hasAdmin && !hasCustomer) return "admin";
+  if (hasCustomer && !hasAdmin) return "customer";
+
+  return "";
+}
+
 function resolveSessionScope(req) {
   const url = req.originalUrl || req.url || "";
   if (url.startsWith("/api/admin") || url.startsWith("/api/users"))
     return "admin";
+  if (url.startsWith("/api/auth/admin")) return "admin";
   if (/^\/api\/orders\/[^/]+\/status(?:\?|$)/.test(url)) return "admin";
+
+  const portalScopeHint = getPortalScopeHint(req);
+  if (portalScopeHint) return portalScopeHint;
+
+  if (url === "/api/auth/me" || url === "/api/auth/logout") {
+    const inferredScope = inferScopeFromCookies(req);
+    if (inferredScope) return inferredScope;
+  }
 
   const origin = getRequestOrigin(req);
   if (origin) {
@@ -179,7 +207,12 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "X-Portal-Scope",
+    ],
   }),
 );
 
