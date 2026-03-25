@@ -5,6 +5,7 @@ const Order = require("../models/Order.model");
 const Product = require("../models/Product.model");
 const Review = require("../models/Review.model");
 const Voucher = require("../models/Voucher.model");
+const Shipment = require("../models/Shipment.model");
 const { publishToUser } = require("../services/realtime-bus");
 const { createAuditLog } = require("./user.controller");
 const { validateVoucher, markVoucherUsed } = require("./voucher.controller");
@@ -77,6 +78,137 @@ function enrichOrderItemsWithProduct(order, productMap) {
     ...order,
     items: nextItems,
   };
+}
+
+function mapOrderStatusToShipmentStatus(orderStatus) {
+  const normalized = String(orderStatus || "").toLowerCase();
+  if (normalized === "shipping") return "in_transit";
+  if (normalized === "delivered") return "delivered";
+  if (normalized === "cancelled") return "cancelled";
+  if (normalized === "returned" || normalized === "refunded") return "returned";
+  return "pending";
+}
+
+function withShipmentData(order, shipmentMapByOrderId) {
+  const orderId = String(order?._id || "");
+  const shipments = shipmentMapByOrderId.get(orderId) || [];
+  return {
+    ...order,
+    shipments,
+    shipmentIds:
+      Array.isArray(order?.shipmentIds) && order.shipmentIds.length
+        ? order.shipmentIds
+        : shipments.map((s) => s._id),
+  };
+}
+
+async function attachShipmentsToOrders(orders) {
+  const list = Array.isArray(orders) ? orders : [];
+  if (!list.length) return list;
+
+  const orderIds = list
+    .map((order) => String(order?._id || ""))
+    .filter((id) => mongoose.Types.ObjectId.isValid(id));
+
+  if (!orderIds.length) return list;
+
+  const shipments = await Shipment.find({ orderId: { $in: orderIds } })
+    .sort({ createdAt: 1 })
+    .lean();
+
+  const shipmentMapByOrderId = new Map();
+  for (const shipment of shipments) {
+    const key = String(shipment.orderId || "");
+    const arr = shipmentMapByOrderId.get(key) || [];
+    arr.push(shipment);
+    shipmentMapByOrderId.set(key, arr);
+  }
+
+  return list.map((order) => withShipmentData(order, shipmentMapByOrderId));
+}
+
+async function ensureInitialShipmentForOrder(order, source = "order_create") {
+  if (!order?._id || !order?.userId) return null;
+
+  const existing = await Shipment.findOne({ orderId: order._id })
+    .sort({ createdAt: 1 })
+    .lean();
+  if (existing) {
+    if (!Array.isArray(order.shipmentIds) || !order.shipmentIds.length) {
+      order.shipmentIds = [existing._id];
+      await order.save();
+    }
+    return existing;
+  }
+
+  const mappedStatus = mapOrderStatusToShipmentStatus(order.status);
+  const shipment = await Shipment.create({
+    orderId: order._id,
+    customerId: order.userId,
+    shippingFee: Number(order.shippingFee || 0),
+    currentStatus: mappedStatus,
+    deliveredAt:
+      mappedStatus === "delivered" ? order.deliveredAt || new Date() : null,
+    deliverySnapshot: {
+      name: String(order.delivery?.name || ""),
+      phone: String(order.delivery?.phone || ""),
+      address: String(order.delivery?.address || ""),
+      slot: String(order.delivery?.slot || ""),
+    },
+    statusHistory: [
+      {
+        status: mappedStatus,
+        actorId: null,
+        source,
+        note: `Initialized from order status: ${String(order.status || "pending")}`,
+      },
+    ],
+  });
+
+  order.shipmentIds = [shipment._id];
+  await order.save();
+  return shipment.toObject();
+}
+
+async function syncShipmentsForOrderStatus(order, options = {}) {
+  if (!order?._id) return;
+
+  const actorId = options.actorId || null;
+  const source = String(options.source || "order_status_sync");
+  const note = String(options.note || "");
+  const nextShipmentStatus = mapOrderStatusToShipmentStatus(order.status);
+
+  const shipments = await Shipment.find({ orderId: order._id });
+  if (!shipments.length) {
+    await ensureInitialShipmentForOrder(order, source);
+    return;
+  }
+
+  await Promise.all(
+    shipments.map(async (shipment) => {
+      if (shipment.currentStatus === nextShipmentStatus) return;
+
+      shipment.currentStatus = nextShipmentStatus;
+      if (nextShipmentStatus === "delivered") {
+        shipment.deliveredAt =
+          shipment.deliveredAt || order.deliveredAt || new Date();
+      }
+      shipment.statusHistory = Array.isArray(shipment.statusHistory)
+        ? shipment.statusHistory
+        : [];
+      shipment.statusHistory.push({
+        status: nextShipmentStatus,
+        at: new Date(),
+        actorId:
+          actorId && mongoose.Types.ObjectId.isValid(String(actorId))
+            ? actorId
+            : null,
+        source,
+        note,
+      });
+      await shipment.save();
+    }),
+  );
 }
 
 function isWithinReturnWindow(order) {
@@ -395,6 +527,7 @@ exports.validateVoucherForCheckout = async (req, res, next) => {
       message: result.message,
       data: {
         ok: true,
+        voucherId: result?.voucher?._id || null,
         type: result.type,
         value: Number(result.value || 0),
         cap: Number(result.cap || 0),
@@ -505,6 +638,7 @@ exports.createOrder = async (req, res, next) => {
     let normalizedVoucherCode = String(voucherCode || "")
       .trim()
       .toUpperCase();
+    let voucherId = null;
 
     if (normalizedVoucherCode) {
       const voucherResult = await validateVoucher({
@@ -519,6 +653,7 @@ exports.createOrder = async (req, res, next) => {
           message: voucherResult.message,
         });
       }
+      voucherId = voucherResult?.voucher?._id || null;
 
       if (voucherResult.type === "ship") {
         validatedDiscount = Number(shippingFee ?? 0);
@@ -539,6 +674,7 @@ exports.createOrder = async (req, res, next) => {
       items,
       delivery,
       payment,
+      voucherId,
       voucherCode: normalizedVoucherCode,
       shippingFee: shippingFee ?? 0,
       discount: validatedDiscount,
@@ -549,6 +685,8 @@ exports.createOrder = async (req, res, next) => {
       ),
       note,
     });
+
+    await ensureInitialShipmentForOrder(order, "order_create");
 
     if (normalizedVoucherCode) {
       await markVoucherUsed(normalizedVoucherCode);
@@ -569,6 +707,7 @@ exports.createOrder = async (req, res, next) => {
       data: {
         orderId: order.orderId,
         _id: order._id,
+        shipmentIds: order.shipmentIds,
         totalAmount: order.totalAmount,
         subtotal: order.subtotal,
       },
@@ -623,11 +762,12 @@ exports.getMyOrders = async (req, res, next) => {
     const enrichedOrders = orders.map((order) =>
       enrichOrderItemsWithProduct(order, productMap),
     );
+    const ordersWithShipments = await attachShipmentsToOrders(enrichedOrders);
 
     return res.json({
       success: true,
       data: {
-        items: enrichedOrders,
+        items: ordersWithShipments,
         pagination: {
           total,
           page,
@@ -684,8 +824,9 @@ exports.getOrderById = async (req, res, next) => {
     }
 
     const enrichedOrder = enrichOrderItemsWithProduct(order, productMap);
+    const [orderWithShipments] = await attachShipmentsToOrders([enrichedOrder]);
 
-    return res.json({ success: true, data: enrichedOrder });
+    return res.json({ success: true, data: orderWithShipments });
   } catch (err) {
     next(err);
   }
@@ -759,6 +900,11 @@ exports.updateStatus = async (req, res, next) => {
         order.returnRequest.reviewedBy || req.session.userId;
     }
     await order.save();
+    await syncShipmentsForOrderStatus(order, {
+      actorId: req.session.userId,
+      source: "admin_status_update",
+      note: `Order status changed to ${status}`,
+    });
 
     const paymentStatus = String(order.payment?.status || "pending");
 
@@ -842,6 +988,11 @@ exports.cancelOrder = async (req, res, next) => {
 
     order.status = "cancelled";
     await order.save();
+    await syncShipmentsForOrderStatus(order, {
+      actorId: req.session.userId,
+      source: "order_cancel",
+      note: "Order was cancelled",
+    });
 
     await Promise.all(
       order.items.map((item) =>
@@ -1152,6 +1303,11 @@ exports.markOrderRefunded = async (req, res, next) => {
     order.returnRequest.reviewedBy =
       order.returnRequest.reviewedBy || req.session.userId;
     await order.save();
+    await syncShipmentsForOrderStatus(order, {
+      actorId: req.session.userId,
+      source: "admin_refund",
+      note: "Order refunded",
+    });
 
     await createAuditLog({
       adminId: req.session.userId,
@@ -1222,10 +1378,11 @@ exports.getAllOrders = async (req, res, next) => {
         .lean(),
       Order.countDocuments(filter),
     ]);
+    const ordersWithShipments = await attachShipmentsToOrders(orders);
 
     return res.json({
       success: true,
-      data: orders,
+      data: ordersWithShipments,
       pagination: {
         total,
         page: pageNum,
@@ -1275,8 +1432,14 @@ exports.bulkUpdateStatus = async (req, res, next) => {
       if (status === "delivered") {
         order.payment = order.payment || {};
         order.payment.status = "paid";
+        order.deliveredAt = order.deliveredAt || new Date();
       }
       await order.save();
+      await syncShipmentsForOrderStatus(order, {
+        actorId: req.session.userId,
+        source: "admin_bulk_status_update",
+        note: `Bulk status changed to ${status}`,
+      });
       updatedCount += 1;
 
       const nextPaymentStatus = String(order.payment?.status || "pending");

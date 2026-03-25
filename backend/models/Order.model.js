@@ -55,6 +55,11 @@ const orderSchema = new mongoose.Schema(
       amount: { type: Number, default: 0, min: 0 },
       gatewayResponse: { type: mongoose.Schema.Types.Mixed, default: null },
     },
+    voucherId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Voucher",
+      default: null,
+    },
     voucherCode: { type: String, default: "" },
     shippingFee: { type: Number, default: 0, min: 0 },
     discount: { type: Number, default: 0, min: 0 },
@@ -77,6 +82,10 @@ const orderSchema = new mongoose.Schema(
       default: "pending",
     },
     deliveredAt: { type: Date, default: null },
+    shipmentIds: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Shipment" }],
+      default: [],
+    },
     returnRequest: {
       status: {
         type: String,
@@ -100,5 +109,9 @@ const orderSchema = new mongoose.Schema(
   },
   { timestamps: true },
 );
+
+orderSchema.index({ userId: 1, createdAt: -1 });
+orderSchema.index({ status: 1, createdAt: -1 });
+orderSchema.index({ "payment.status": 1, createdAt: -1 });
 
 module.exports = mongoose.model("Order", orderSchema);

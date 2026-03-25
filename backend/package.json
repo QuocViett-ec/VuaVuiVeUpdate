@@ -11,6 +11,8 @@
     "seed:vouchers": "node scripts/seed-vouchers.js",
     "seed:reviews": "node scripts/seed-reviews.js",
     "seed:ml-events": "node scripts/seed-ml-events.js",
+    "migrate:order-logistics": "node scripts/migrate-order-logistics.js",
+    "migrate:order-logistics:dry": "node scripts/migrate-order-logistics.js --dry-run",
     "smoke:recommender": "node scripts/smoke-recommender-test.js",
     "test": "jest",
     "test:payment": "jest tests/payment.test.js --no-coverage"

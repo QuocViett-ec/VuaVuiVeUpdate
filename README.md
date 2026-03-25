@@ -238,6 +238,51 @@ npm run test:payment
 - Kiểm tra `RECOMMENDER_API=http://localhost:5001` trong `backend/.env`.
 - Khi ML down, backend có fallback local (`method: local_fallback`).
 
+---
+
+### 11) Logistics mới (Order - Shipment - Customer)
+
+Backend đã được nâng cấp để tách phần logistics ra collection `Shipment` và liên kết:
+
+- `Order.userId` -> `User._id`
+- `Order.shipmentIds[]` -> `Shipment._id`
+- `Shipment.orderId` -> `Order._id`
+- `Shipment.customerId` -> `User._id`
+
+Các API mới:
+
+- `GET /api/shipments/me` - customer xem shipment của mình
+- `GET /api/shipments/:id` - xem chi tiết shipment theo `_id` hoặc `trackingNumber`
+- `GET /api/shipments` - backoffice list shipment
+- `POST /api/shipments` - backoffice tạo shipment mới cho order (hỗ trợ split package)
+- `PATCH /api/shipments/:id` - backoffice cập nhật trạng thái/tracking/ETA
+
+Lưu ý:
+
+- Cập nhật shipment có thể đồng bộ ngược trạng thái order (ví dụ tất cả shipment delivered -> order delivered).
+- `trackingNumber` được normalize uppercase và chỉ unique khi có giá trị thực.
+
+Migration dữ liệu cũ:
+
+```powershell
+cd .\backend
+npm run migrate:order-logistics:dry
+```
+
+Khi dry-run ổn, chạy migrate thật:
+
+```powershell
+cd .\backend
+npm run migrate:order-logistics
+```
+
+Chạy từng phần để kiểm tra an toàn:
+
+```powershell
+cd .\backend
+node scripts/migrate-order-logistics.js --dry-run --limit=200
+```
+
 4. VNPay không tạo được link thanh toán
 
 - Kiểm tra biến `VNP_TMN_CODE`, `VNP_HASH_SECRET`, `VNP_URL`, `VNP_RETURN_URL` trong `backend/.env`.
