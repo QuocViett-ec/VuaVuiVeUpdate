@@ -22,7 +22,14 @@ Nhật ký hoạt động admin và chức năng xuất báo cáo CSV. Role `aud
   - Sản phẩm CSV → `GET /api/admin/products/export`
   - Users CSV → `GET /api/admin/users/export`
 
-## 3. Export CSV (Java)
+## 3. Audit Log API Endpoints
+
+| Method | Endpoint | Permission | Mô tả |
+|--------|----------|-----------|-------|
+| GET | /api/users/audit-logs | audit.read | Danh sách audit logs (admin, audit) |
+| POST | /api/users/audit-logs | — (admin only) | Tạo audit log thủ công |
+
+## 4. Export CSV (Java)
 
 ```java
 public class CsvExporter {
@@ -67,7 +74,7 @@ public class CsvExporter {
 }
 ```
 
-## 4. API Endpoints
+## 5. Export CSV API
 
 | Method | Endpoint | Permission | Mô tả |
 |--------|----------|-----------|-------|
@@ -75,7 +82,7 @@ public class CsvExporter {
 | GET | /api/admin/products/export | products.export | CSV sản phẩm |
 | GET | /api/admin/users/export | users.read | CSV users |
 
-## 5. Recommendation Telemetry (Admin)
+## 6. Recommendation Telemetry (Admin)
 
 | Method | Endpoint | Auth | Mô tả |
 |--------|----------|------|-------|
@@ -92,12 +99,12 @@ public class SectionMetrics {
 }
 ```
 
-## 6. Role Access
+## 7. Role Access
 
 | Feature | Admin | Staff | Audit |
 |---------|-------|-------|-------|
 | Xem audit logs | ✅ | ❌ | ✅ |
-| Export orders CSV | ✅ | ✅ | ✅ |
-| Export products CSV | ✅ | ✅ | ✅ |
+| Export orders CSV | ✅ | ✅ | ❌ |
+| Export products CSV | ✅ | ✅ | ❌ |
 | Export users CSV | ✅ | ❌ | ✅ |
 | View telemetry | ✅ | ❌ | ✅ |

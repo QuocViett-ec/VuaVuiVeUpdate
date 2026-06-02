@@ -12,7 +12,7 @@ Chatbot hỗ trợ admin tra đơn hàng, xem thống kê, đơn trễ, đơn ng
 
 | Method | Endpoint | Auth |
 |--------|----------|------|
-| POST | /api/admin-chatbot | ✅ (admin/staff/audit) |
+| POST | /api/admin/chatbot | ✅ (admin/staff/audit) |
 
 Request: `{ "message": "tổng quan" }`
 

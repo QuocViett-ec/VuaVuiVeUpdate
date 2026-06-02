@@ -159,3 +159,8 @@ app/src/main/java/vn/vuavuive/admin/     (Admin App)
 **Tham chiếu chung:**
 - [13 - Data Models](./13-data-models.md)
 - [14 - API Endpoints](./14-api-endpoints.md)
+
+**Hướng dẫn triển khai:**
+- [24 - Setup Guide (Multi-Module)](./24-setup-guide.md)
+- [25 - Implementation Plan](./25-implementation-plan.md)
+- [26 - Setup Action Checklist](./26-setup-action-checklist.md) ← **BẮT ĐẦU TỪ ĐÂY**

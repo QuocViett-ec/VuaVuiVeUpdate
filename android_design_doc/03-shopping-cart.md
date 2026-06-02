@@ -16,10 +16,10 @@ Giỏ hàng **offline-first**: lưu Room DB trước, đồng bộ server khi đ
 
 | Method | Endpoint | Auth | Mô tả |
 |--------|----------|------|-------|
-| GET | /api/cart | ✅ | Lấy giỏ hàng |
-| POST | /api/cart/sync | ✅ | Ghi đè giỏ hàng |
-| POST | /api/cart/merge | ✅ | Merge local + server |
-| DELETE | /api/cart | ✅ | Xóa tất cả |
+| GET | /api/cart/me | ✅ | Lấy giỏ hàng |
+| PUT | /api/cart/me | ✅ | Ghi đè giỏ hàng (sync) |
+| POST | /api/cart/me/merge | ✅ | Merge local + server |
+| DELETE | /api/cart/me | ✅ | Xóa tất cả |
 
 ## 4. Data Models (Java)
 

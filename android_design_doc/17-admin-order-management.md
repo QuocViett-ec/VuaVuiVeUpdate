@@ -25,9 +25,11 @@ Quản lý toàn bộ đơn hàng: xem, lọc, cập nhật trạng thái đơn 
 | Method | Endpoint | Permission | Mô tả |
 |--------|----------|-----------|-------|
 | GET | /api/admin/orders | orders.read | Tất cả đơn (page, limit, status, search) |
-| PATCH | /api/orders/:id/status | orders.write | Cập nhật trạng thái 1 đơn |
+| PUT | /api/orders/:id/status | orders.write | Cập nhật trạng thái 1 đơn |
 | PATCH | /api/admin/orders/bulk-status | orders.write | Bulk update status |
-| POST | /api/orders/:id/return-review | orders.write | Duyệt/từ chối trả hàng |
+| PUT | /api/orders/:id/return-review | orders.write | Duyệt/từ chối trả hàng |
+| PATCH | /api/orders/:id/paid | orders.write | Đánh dấu đã thanh toán |
+| PATCH | /api/orders/:id/refund | orders.write | Đánh dấu đã hoàn tiền (chỉ admin) |
 | GET | /api/admin/orders/export | orders.export | Xuất CSV |
 
 ## 4. Bulk Update Status
@@ -52,7 +54,7 @@ public class ReturnReviewRequest {
     private String reviewNote; // Ghi chú admin
 }
 
-// POST /api/orders/:id/return-review
+// PUT /api/orders/:id/return-review
 ```
 
 ## 6. Status Transitions (Admin)
@@ -60,6 +62,8 @@ public class ReturnReviewRequest {
 - pending/confirmed → cancelled
 - return_requested → return_approved / return_rejected
 - return_approved → returned → refunded
+- Paid: PATCH /api/orders/:id/paid (chỉ admin/staff)
+- Refund: PATCH /api/orders/:id/refund (chỉ admin)
 
 ## 7. Export CSV
 - `GET /api/admin/orders/export` → response Content-Type: text/csv

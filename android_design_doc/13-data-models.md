@@ -185,3 +185,63 @@ public class UserEvent {
     private Map<String, Object> metadata;
 }
 ```
+
+## 10. AuditLog (Admin)
+
+```java
+public class AuditLog {
+    private String _id;
+    private String adminId;       // ObjectId ref User
+    private String action;        // "order.status_updated", "product.created", etc
+    private String target;        // "Order:ORD-XXX", "Product:abc123"
+    private Map<String, Object> details;  // before/after context
+    private String ip;
+    private String createdAt;
+}
+```
+
+## 11. RecommendHistory
+
+```java
+public class RecommendHistory {
+    private String _id;
+    private String userId;
+    private List<RecommendItem> recommendations;
+    private String createdAt;
+}
+
+public class RecommendItem {
+    private String productId;
+    private double score;
+    private String reason;
+}
+```
+
+## 12. PaymentDetail (Chi tiết — đầy đủ từ backend)
+
+```java
+public class PaymentDetail {
+    private String method;           // "cod", "vnpay", "momo"
+    private String status;           // "pending", "paid", "refunded"
+    private String gateway;          // gateway code/name
+    private String transactionId;    // gateway transaction ID
+    private String transactionTime;  // ISO date - thời điểm thanh toán
+    private double amount;           // số tiền thanh toán
+    private Object gatewayResponse;  // Raw gateway payload (optional)
+}
+```
+
+## 13. DashboardStats (Admin)
+
+```java
+public class DashboardStats {
+    private int todayOrders;
+    private int monthOrders;
+    private int totalOrders;
+    private int pendingCount;
+    private int shippingCount;
+    private long totalRevenue;
+    private int totalUsers;
+}
+```
+

@@ -19,11 +19,13 @@ Quản lý vận chuyển: tạo shipment cho đơn hàng, cập nhật trạng 
 
 ## 3. API Endpoints
 
-| Method | Endpoint | Permission |
-|--------|----------|-----------|
-| GET | /api/shipments | shipments.read |
-| POST | /api/shipments | shipments.write |
-| PATCH | /api/shipments/:id/status | shipments.write |
+> **Lưu ý:** Shipment permissions dùng `orders.read`/`orders.write` trên backend, không phải `shipments.read`/`shipments.write`.
+
+| Method | Endpoint | Permission | Mô tả |
+|--------|----------|-----------|---------|
+| GET | /api/shipments | orders.read | Tất cả shipment (admin/staff/audit) |
+| POST | /api/shipments | orders.write | Tạo shipment cho đơn hàng (admin/staff) |
+| PATCH | /api/shipments/:id | orders.write | Cập nhật shipment - status, note, etc (admin/staff) |
 
 ## 4. Data Models
 

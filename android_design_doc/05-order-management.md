@@ -31,6 +31,7 @@ Xem danh sách đơn, chi tiết, theo dõi trạng thái, hủy đơn, yêu c�
 | cancelled | Đã hủy | ⚫ | - |
 | return_requested | Yêu cầu trả | 🟣 | - |
 | return_approved | Duyệt trả | 🟣 | - |
+| return_rejected | Từ chối trả | 🔵 | - |
 | returned | Đã trả | 🔴 | - |
 | refunded | Đã hoàn tiền | 🟢 | - |
 
@@ -81,8 +82,12 @@ public class OrderItem {
 public class PaymentDetail {
     private String method;
     private String status;         // "pending", "paid", "refunded"
+    private String gateway;
     private String transactionId;
+    private String transactionTime;
     private double amount;
+    private Object gatewayResponse;
+    // Xem đầy đủ tại 13-data-models.md § PaymentDetail
 }
 
 public class ReturnRequest {

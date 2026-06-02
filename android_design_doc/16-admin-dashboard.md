@@ -38,10 +38,10 @@ Lấy từ **Admin Chatbot API** (intent-based):
 
 | Dữ liệu | Intent | API |
 |----------|--------|-----|
-| Tổng quan | "overview" | POST /api/admin-chatbot |
-| Đơn chờ xử lý | "pending_orders" | POST /api/admin-chatbot |
-| SP sắp hết | "low_stock" | POST /api/admin-chatbot |
-| Đơn trễ | "late_orders" | POST /api/admin-chatbot |
+| Tổng quan | "overview" | POST /api/admin/chatbot |
+| Đơn chờ xử lý | "pending_orders" | POST /api/admin/chatbot |
+| SP sắp hết | "low_stock" | POST /api/admin/chatbot |
+| Đơn trễ | "late_orders" | POST /api/admin/chatbot |
 
 Hoặc gọi trực tiếp:
 
@@ -52,12 +52,21 @@ Hoặc gọi trực tiếp:
 | SP low stock | GET /api/admin/products?stockBelow=10 |
 | Users | GET /api/users?page=1&limit=1 (lấy total) |
 
-## 4. Auto Refresh
+## 4. Dashboard Stats APIs (Chuyên dụng)
+
+| Method | Endpoint | Permission | Mô tả |
+|--------|----------|-----------|-------|
+| GET | /api/users/dashboard/stats | dashboard.read | Thống kê tổng quan |
+| GET | /api/users/dashboard/analytics | dashboard.read | Phân tích chi tiết |
+
+> Không cần gọi nhiều API riêng lẻ như phiên bản cũ — backend đã tổng hợp dữ liệu.
+
+## 5. Auto Refresh
 - Pull-to-refresh
 - Auto refresh mỗi 60 giây (Handler.postDelayed)
 - SSE listener cho order updates
 
-## 5. Data Models
+## 6. Data Models
 
 ```java
 public class DashboardStats {

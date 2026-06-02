@@ -79,7 +79,14 @@ public class PaymentWebViewActivity extends AppCompatActivity {
 | POST | /api/orders/voucher/validate | ✅ | Validate voucher |
 | POST | /api/orders | ✅ | Tạo đơn hàng |
 | POST | /api/payment/vnpay/create | ✅ | URL VNPay |
+| GET | /api/payment/vnpay/return | ❌ | VNPay redirect callback |
+| GET | /api/payment/vnpay/ipn | ❌ | VNPay IPN (server-to-server) |
 | POST | /api/payment/momo/create | ✅ | URL MoMo |
+| GET | /api/payment/momo/return | ❌ | MoMo redirect callback |
+| POST | /api/payment/momo/ipn | ❌ | MoMo IPN (server-to-server) |
+
+> **Lưu ý:** IPN endpoints là server-to-server callback, Android app không cần gọi trực tiếp.
+> MoMo return là GET (không phải POST).
 
 ## 6. Data Models (Java)
 
@@ -134,3 +141,10 @@ public class VoucherInfo {
 | ship | discount = shippingFee |
 | percent | discount = subtotal × value% (max cap) |
 | fixed | discount = value |
+
+## 8. Geolocation (Android)
+- Sử dụng `FusedLocationProviderClient` để lấy tọa độ GPS
+- Reverse geocode qua Nominatim: `https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lng}&format=json&accept-language=vi`
+- Tự động điền địa chỉ giao hàng khi user nhấn "Dùng vị trí hiện tại"
+- Quyền cần xin: `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`
+- Web frontend cũng dùng tương tự qua `GeolocationService` + Nominatim
