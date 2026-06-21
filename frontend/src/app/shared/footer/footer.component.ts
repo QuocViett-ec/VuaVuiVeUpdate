@@ -57,7 +57,7 @@ import { RouterLink } from '@angular/router';
         </div>
         <div class="footer__links">
           <h4>Về Vựa Vui Vẻ</h4>
-          <a routerLink="/about">Giới thiệu</a>
+          <!-- <a routerLink="/about">Giới thiệu</a> -->
           <a routerLink="/job">Tuyển dụng</a>
           <a routerLink="/about2">Phát triển bền vững</a>
           <a routerLink="/news">Tin tức</a>

@@ -31,10 +31,10 @@ export const routes: Routes = [
     path: 'recipes',
     loadChildren: () => import('./features/recipes/recipes.routes').then((m) => m.recipesRoutes),
   },
-  {
-    path: 'about',
-    loadChildren: () => import('./features/about/about.routes').then((m) => m.aboutRoutes),
-  },
+  // {
+  //   path: 'about',
+  //   loadChildren: () => import('./features/about/about.routes').then((m) => m.aboutRoutes),
+  // },
   {
     path: 'cart',
     loadChildren: () => import('./features/cart/cart.routes').then((m) => m.cartRoutes),

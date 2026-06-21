@@ -6,6 +6,10 @@ const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 3000;
 
 async function connectDB(retries = MAX_RETRIES) {
+  if (!process.env.MONGO_URI) {
+    throw new Error("MONGO_URI is required");
+  }
+
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI, {
       serverSelectionTimeoutMS: 5000,
