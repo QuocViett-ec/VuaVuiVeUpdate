@@ -169,6 +169,21 @@ function isAllowedOrigin(origin) {
 
   if (configuredOrigins.includes(origin)) return true;
 
+  // Support wildcard matching (e.g. *.vercel.app or *)
+  for (const pattern of configuredOrigins) {
+    if (pattern === "*") return true;
+    if (pattern.includes("*")) {
+      const regexStr = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*");
+      const regex = new RegExp(`^${regexStr}$`, "i");
+      if (regex.test(origin)) return true;
+    }
+  }
+
+  // Auto-allow vercel.app domains for easy deployment (preview & production)
+  if (origin.endsWith(".vercel.app") || origin.includes("vercel.app")) {
+    return true;
+  }
+
   if (process.env.NODE_ENV === "production") {
     return false;
   }
@@ -203,8 +218,12 @@ app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 app.use(
   cors({
     origin(origin, callback) {
-      if (isAllowedOrigin(origin)) return callback(null, true);
-      return callback(new Error(`CORS blocked for origin: ${origin}`));
+      if (isAllowedOrigin(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`CORS blocked for origin: ${origin}`);
+        callback(null, false);
+      }
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
