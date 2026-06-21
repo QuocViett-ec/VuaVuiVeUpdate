@@ -37,23 +37,33 @@ const PORT = process.env.PORT || 3000;
 const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 
-if (process.env.NODE_ENV === "production" && !SESSION_SECRET) {
-  throw new Error("SESSION_SECRET is required in production");
+const startupErrors = [];
+const configErrors = [];
+
+if (process.env.NODE_ENV === "production") {
+  if (!SESSION_SECRET) {
+    configErrors.push("SESSION_SECRET is required in production. Please set the SESSION_SECRET environment variable.");
+    startupErrors.push("SESSION_SECRET is required in production. Please set the SESSION_SECRET environment variable.");
+  }
+  if (!process.env.CLIENT_ORIGINS && !process.env.CLIENT_ORIGIN) {
+    configErrors.push("CLIENT_ORIGINS or CLIENT_ORIGIN must be configured in production. Please set either of these environment variables.");
+    startupErrors.push("CLIENT_ORIGINS or CLIENT_ORIGIN must be configured in production. Please set either of these environment variables.");
+  }
 }
 
-if (
-  process.env.NODE_ENV === "production" &&
-  !process.env.CLIENT_ORIGINS &&
-  !process.env.CLIENT_ORIGIN
-) {
-  throw new Error(
-    "CLIENT_ORIGINS or CLIENT_ORIGIN must be configured in production",
-  );
+if (!process.env.MONGO_URI) {
+  configErrors.push("MONGO_URI is required. Please set the MONGO_URI environment variable.");
+  startupErrors.push("MONGO_URI is required. Please set the MONGO_URI environment variable.");
 }
 
 const SESSION_TTL_MS = parseInt(process.env.SESSION_MAX_AGE_MS || "604800000");
 let customerSession = null;
 let adminSession = null;
+
+// Fallback session middlewares using MemoryStore so the server never crashes on session operations if MongoDB is not ready.
+const memoryStore = new session.MemoryStore();
+const fallbackCustomerSession = createSessionMiddleware("vvv.customer.sid", memoryStore);
+const fallbackAdminSession = createSessionMiddleware("vvv.admin.sid", memoryStore);
 
 function getRequestOrigin(req) {
   const origin = req.headers.origin;
@@ -137,14 +147,21 @@ function createSessionMiddleware(cookieName, store) {
 function initializeSessionMiddlewares() {
   if (customerSession && adminSession) return;
 
-  const store = MongoStore.create({
-    clientPromise: Promise.resolve(mongoose.connection.getClient()),
-    collectionName: "sessions",
-    ttl: SESSION_TTL_MS / 1000,
-  });
+  if (process.env.MONGO_URI && mongoose.connection.readyState === 1) {
+    try {
+      const store = MongoStore.create({
+        clientPromise: Promise.resolve(mongoose.connection.getClient()),
+        collectionName: "sessions",
+        ttl: SESSION_TTL_MS / 1000,
+      });
 
-  customerSession = createSessionMiddleware("vvv.customer.sid", store);
-  adminSession = createSessionMiddleware("vvv.admin.sid", store);
+      customerSession = createSessionMiddleware("vvv.customer.sid", store);
+      adminSession = createSessionMiddleware("vvv.admin.sid", store);
+      console.log("MongoStore session middleware initialized successfully.");
+    } catch (err) {
+      console.error("Failed to initialize MongoStore session middleware:", err.message);
+    }
+  }
 }
 
 function getCookieNames(req) {
@@ -239,12 +256,71 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+// Return 503 Service Unavailable if there are critical startup configuration or connection errors.
+// This prevents the application from throwing unhandled errors or getting stuck while MongoDB is disconnected.
+app.use((req, res, next) => {
+  if (startupErrors.length > 0) {
+    if (req.path === "/" || req.path === "/api/health" || req.path === "/api/health/") {
+      return res.status(503).json({
+        status: "error",
+        service: "VuaVuiVe Backend API",
+        timestamp: new Date().toISOString(),
+        errors: startupErrors,
+        db: {
+          ready: false,
+          state: mongoose.connection.readyState,
+        }
+      });
+    }
+    if (req.path.startsWith("/api/")) {
+      return res.status(503).json({
+        success: false,
+        message: "Service Unavailable: The server has configuration or connection errors.",
+        errors: startupErrors,
+      });
+    }
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.status(503).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>VuaVuiVe Backend - Service Unavailable</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; background: #f8f9fa; color: #343a40; line-height: 1.6; }
+          .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-top: 5px solid #dc3545; }
+          h1 { color: #dc3545; margin-top: 0; }
+          ul { padding-left: 20px; }
+          li { margin-bottom: 10px; }
+          .footer { margin-top: 30px; font-size: 0.85em; color: #6c757d; border-top: 1px solid #dee2e6; padding-top: 15px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>Hệ thống cấu hình chưa hoàn tất</h1>
+          <p>Backend Vựa Vui Vẻ đã khởi động thành công và mở cổng kết nối, nhưng phát hiện các lỗi sau:</p>
+          <ul>
+            ${startupErrors.map(err => `<li><strong>Lỗi:</strong> ${err}</li>`).join("")}
+          </ul>
+          <p>Vui lòng cấu hình đầy đủ các biến môi trường trong Render Dashboard và khởi động lại dịch vụ.</p>
+          <div class="footer">
+            VuaVuiVe Backend &bull; Status: 503 Service Unavailable &bull; ${new Date().toLocaleString()}
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+  }
+  next();
+});
+
 app.use((req, res, next) => {
   const scope = resolveSessionScope(req);
   req.sessionScope = scope;
   req.sessionCookieName =
     scope === "admin" ? "vvv.admin.sid" : "vvv.customer.sid";
-  const middleware = scope === "admin" ? adminSession : customerSession;
+  const middleware = scope === "admin"
+    ? (adminSession || fallbackAdminSession)
+    : (customerSession || fallbackCustomerSession);
   return middleware(req, res, next);
 });
 
@@ -326,9 +402,7 @@ if (process.env.NODE_ENV !== "production") {
 app.use(errorHandler);
 
 async function startServer() {
-  await connectDB();
-  initializeSessionMiddlewares();
-
+  // Bind server immediately so that Render port scan succeeds
   app.listen(PORT, () => {
     console.log(`\nVuaVuiVe Backend chay tai http://localhost:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV}`);
@@ -336,11 +410,31 @@ async function startServer() {
       `CORS config: ${process.env.CLIENT_ORIGINS || process.env.CLIENT_ORIGIN || "auto local dev"}`,
     );
   });
+
+  // If there are initial config errors, do not attempt to connect to MongoDB
+  if (configErrors.length > 0) {
+    console.error("\n[CRITICAL] Server started with configuration errors:");
+    configErrors.forEach(err => console.error(` - ${err}`));
+    return;
+  }
+
+  // Connect to MongoDB in the background
+  console.log("Connecting to MongoDB in the background...");
+  connectDB()
+    .then(() => {
+      console.log("MongoDB connection established successfully.");
+      initializeSessionMiddlewares();
+    })
+    .catch((err) => {
+      console.error("MongoDB background connection failed:", err.message);
+      startupErrors.push(`MongoDB connection failed: ${err.message}`);
+      // Fallback is already initialized
+    });
 }
 
 startServer().catch((err) => {
   console.error("Server startup failed:", err.message);
-  process.exit(1);
+  // Do not crash the process so port scanner succeeds and logs can be retrieved.
 });
 
 module.exports = app;
