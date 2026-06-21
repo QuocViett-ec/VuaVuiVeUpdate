@@ -17,8 +17,8 @@ export class AdminLoginComponent {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
-  credential = '';
-  password = '';
+  credential = 'admin@vuavuive.vn';
+  password = 'Admin@123';
   loading = signal(false);
   error = signal('');
   customerPortalUrl = environment.customerPortalBase;
