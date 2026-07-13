@@ -30,6 +30,7 @@ vnpay_nodejs/node_modules/
 # ============================
 .env
 *.env.local
+backend/google-loggin/client_secret_*.json
 
 # ============================
 # Build outputs

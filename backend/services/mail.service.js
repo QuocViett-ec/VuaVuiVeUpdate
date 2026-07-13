@@ -53,24 +53,23 @@ exports.sendPasswordResetOtpEmail = async ({ to, name, otp, ttlMinutes }) => {
   const subject = "[Vua Vui Ve] Ma OTP dat lai mat khau";
   const text = `Ma OTP dat lai mat khau cua ban la ${otp}. Ma co hieu luc ${ttlMinutes} phut.`;
   const html = buildOtpHtml({ name, otp, ttlMinutes });
-  const from =
-    process.env.MAIL_FROM ||
-    process.env.RESEND_FROM_EMAIL ||
-    process.env.SMTP_USER ||
-    "onboarding@resend.dev";
 
   const resendClient = getResendClient();
   if (resendClient) {
-    await resendClient.emails.send({
+    const from =
+      process.env.RESEND_FROM_EMAIL || process.env.MAIL_FROM || "onboarding@resend.dev";
+    const { error } = await resendClient.emails.send({
       from,
       to,
       subject,
       html,
       text,
     });
+    if (error) throw new Error(error.message || "Resend rejected the email");
     return;
   }
 
   const transporter = getTransporter();
+  const from = process.env.MAIL_FROM || process.env.SMTP_USER;
   await transporter.sendMail({ from, to, subject, text, html });
 };
