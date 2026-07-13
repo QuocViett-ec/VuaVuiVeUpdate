@@ -197,7 +197,7 @@ function isAllowedOrigin(origin) {
   }
 
   // Auto-allow vercel.app domains for easy deployment (preview & production)
-  if (origin.endsWith(".vercel.app") || origin.includes("vercel.app")) {
+  if (origin.endsWith(".vercel.app")) {
     return true;
   }
 
