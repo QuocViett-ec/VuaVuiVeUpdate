@@ -58,6 +58,9 @@ Sau khi xác minh API/client hiển thị đủ 3 sản phẩm, đặt lại `SE
 Sau khi xác minh 95 sản phẩm, tắt `SEED_STAGING_CATALOG=false` rồi deploy. Không chạy seed local trên cloud:
 script local còn có thao tác xóa sản phẩm/đơn hàng và tạo tài khoản.
 
+Deployment context dùng tên file ASCII và Build Output API `overrides` để giữ URL ảnh tiếng Việt,
+tránh thiếu ảnh khi upload CLI từ Windows. Nội dung ảnh và URL lưu trên sản phẩm được giữ nguyên.
+
 ## 2. ML staging
 
 Root Directory: `ml/VuaVuiVe_Recommender`; Language Python3. Health `/health`; Auto-Deploy Off.

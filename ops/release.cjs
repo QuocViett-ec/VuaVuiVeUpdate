@@ -134,7 +134,18 @@ function preparePortal(c, portal, dir, sha, contextRoot = '.qa-data/deploy') {
   const output = path.join(dest, '.vercel/output');
   fs.mkdirSync(output, { recursive: true });
   fs.cpSync(path.join(dir, portal), path.join(output, 'static'), { recursive: true });
-  fs.writeFileSync(path.join(output, 'config.json'), JSON.stringify({ version: 3, routes: [
+  const staticDir = path.join(output, 'static');
+  const overrides = {};
+  // Keep upload filenames ASCII; Vercel serves their original public URLs via overrides.
+  for (const name of files(staticDir).filter(name => /[^\x21-\x7e]/.test(name))) {
+    const target = 'assets/' + crypto.createHash('sha256').update(name).digest('hex') + path.extname(name);
+    fs.mkdirSync(path.join(staticDir, 'assets'), { recursive: true });
+    const sourcePath = path.resolve(staticDir, name), targetPath = path.resolve(staticDir, target);
+    assert([sourcePath, targetPath].every(value => value.startsWith(staticDir + path.sep)), 'Asset escaped deployment context');
+    fs.renameSync(sourcePath, targetPath);
+    overrides[target] = { path: name };
+  }
+  fs.writeFileSync(path.join(output, 'config.json'), JSON.stringify({ version: 3, overrides, routes: [
     { src: '/api/(.*)', dest: `${c.BACKEND_ORIGIN}/api/$1` },
     { src: '/uploads/(.*)', dest: `${c.BACKEND_ORIGIN}/uploads/$1` },
     { src: '/release-config.json', headers: { 'Cache-Control': 'no-store' }, continue: true },

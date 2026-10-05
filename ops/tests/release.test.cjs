@@ -82,10 +82,16 @@ test('Vercel preparation preserves tested JS, points API to the environment and 
     fs.mkdirSync(path.join(dir, 'source/customer'), { recursive: true });
     fs.writeFileSync(path.join(dir, 'source/customer/index.html'), '<app-root></app-root>');
     fs.writeFileSync(path.join(dir, 'source/customer/tested.js'), 'verified-by-ci');
+    fs.writeFileSync(path.join(dir, 'source/customer/ảnh sản phẩm.jpg'), 'fixture-image-bytes');
     const c = release.config(fixtureConfig);
     const output = release.preparePortal(c, 'customer', path.join(dir, 'source'), sha, path.join(dir, 'deploy'));
     assert.equal(fs.readFileSync(path.join(output, '.vercel/output/static/tested.js'), 'utf8'), 'verified-by-ci');
     const routes = JSON.parse(fs.readFileSync(path.join(output, '.vercel/output/config.json'))).routes;
+    const overrides = JSON.parse(fs.readFileSync(path.join(output, '.vercel/output/config.json'))).overrides;
+    const [asset, override] = Object.entries(overrides)[0];
+    assert.match(asset, /^assets\/[a-f0-9]+\.jpg$/);
+    assert.equal(override.path, 'ảnh sản phẩm.jpg');
+    assert.equal(fs.readFileSync(path.join(output, '.vercel/output/static', asset), 'utf8'), 'fixture-image-bytes');
     assert.deepEqual(routes[0], { src: '/api/(.*)', dest: c.BACKEND_ORIGIN + '/api/$1' });
     assert.deepEqual(routes.at(-1), { src: '/(.*)', dest: '/index.html' });
     const runtime = JSON.parse(fs.readFileSync(path.join(output, '.vercel/output/static/release-config.json')));
