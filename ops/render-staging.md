@@ -37,9 +37,11 @@ Runtime Node/Docker hiện có phải dùng Node24 theo backend/CI. Nếu dùng 
 
 Ảnh upload staging sẽ mất khi service restart/redeploy/sleep; đánh dấu giới hạn này trong portfolio. Để kiểm persistent storage thật cần storage bền vững; production không chấp nhận ephemeral mode. Không đặt `STORAGE_PASSED=true` bằng kết quả thử lưu ảnh tạm.
 
-Database mới cần required indexes trước readiness; chạy dry-run `backend/scripts/check-production-indexes.js` đối với staging URI qua cấu hình local được bảo vệ. Script hiện có cần quyền operator và cờ explicit để apply, không có migration/seed tự động trong pipeline. Không chạy nó bằng URI trong export cũ. Chưa thực thi indexes trên cloud trong phiên này.
+Database mới cần required indexes trước readiness; chạy dry-run `backend/scripts/check-production-indexes.js` đối với staging URI qua cấu hình local được bảo vệ. Script hiện có cần quyền operator và cờ explicit để apply, không có migration/seed tự động trong pipeline. Không chạy nó bằng URI trong export cũ.
 
 Khi operator đã cho phép tạo indexes trên staging, đặt `ALLOW_INDEX_CHANGES=true` riêng trên service Docker staging rồi deploy. Container chạy `node scripts/check-production-indexes.js --apply --staging-only` trước server; chỉ chấp nhận `APP_ENV=staging` và DB có hậu tố `_staging`, kiểm tra duplicate payment rồi tạo indexes Order/Shipment đã khai báo. Nếu script thất bại, server không khởi động. Sau khi xác nhận indexes và health đạt, đặt lại `ALLOW_INDEX_CHANGES=false` rồi redeploy để kết thúc quyền sửa indexes. Mặc định container chỉ chạy server.
+
+Đã xác minh trên Render ngày 2026-10-05 sau khi chủ sở hữu phê duyệt: `vuavuive-backend-staging`, commit `0705c56c2f7b63891e50b28aaf6ba9efd0767f10`, log `duplicatePaymentGroups=0`, `Declared order/shipment indexes created` và `server.ready`. Đã đặt lại `ALLOW_INDEX_CHANGES=false`; deploy `dep-db1j0ee0tbcc73b2l4e0` đạt `live`. GET `https://vuavuive-backend-staging.onrender.com/api/health` đạt HTTP 200, `status=ok`, `environment=staging`, `db.ready=true` và đúng revision. Xác minh này chỉ bao gồm indexes, startup và health; các luồng nghiệp vụ end-to-end chưa được chạy trong lần xử lý này.
 
 Các secrets Google/mail có trong export chưa được dùng để gửi email/request trong phiên. Đối với staging, chủ sở hữu chọn tài khoản test và authorized origins tương ứng; không copy API/mail credentials production để chạy test gây tác dụng thật. Gateway credential variables cũ có thể để ngoài staging vì hai flags đều false; không xóa callback/source code.
 
