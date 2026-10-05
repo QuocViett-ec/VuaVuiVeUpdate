@@ -60,6 +60,10 @@ test.each([26, undefined])("startup logs identify index failures without exposin
   };
   await require("vm").runInNewContext(source.slice(source.indexOf("async function startServer()"), source.indexOf("async function shutdown()")) + "\nstartServer()", context);
   expect(log).toHaveBeenCalledWith("error", "server.startup_failed", { stage: "database.indexes", code: code ?? null });
+  if (!code) expect(log).toHaveBeenCalledWith("error", "database.indexes_missing", {
+    indexes: ["userId_1_idempotencyKey_1", "payment.gateway_1_payment.transactionId_1"],
+    environment: "production", stagingDatabase: false,
+  });
   expect(JSON.stringify(log.mock.calls)).not.toContain("private database details");
   expect(context.startupReady).not.toBe(true);
 });

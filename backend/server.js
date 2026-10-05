@@ -395,7 +395,13 @@ async function startServer() {
       startupStage = "database.indexes";
       const indexes = await require("./models/Order.model").collection.indexes();
       const required = ["userId_1_idempotencyKey_1", "payment.gateway_1_payment.transactionId_1"];
-      if (required.some((name) => !indexes.some((i) => i.name === name && i.unique))) {
+      const missing = required.filter((name) => !indexes.some((i) => i.name === name && i.unique));
+      if (missing.length) {
+        log("error", "database.indexes_missing", {
+          indexes: missing,
+          environment: process.env.APP_ENV || "production",
+          stagingDatabase: /_staging$/.test(mongoose.connection.name || ""),
+        });
         throw new Error("Required order uniqueness indexes are missing.");
       }
     }
