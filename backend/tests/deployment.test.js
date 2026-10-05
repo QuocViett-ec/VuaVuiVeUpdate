@@ -4,6 +4,47 @@ const connectDB = require("../config/db");
 const { uploadDirectory } = require("../config/uploads");
 const { proxyTrust } = require("../config/proxy");
 const keys = ["NODE_ENV", "APP_ENV", "UPLOAD_STORAGE_MODE", "UPLOAD_DIR", "MONGO_URI"];
+
+test("Flash Sale fixtures refuse production and preserve existing staging products on rerun", async () => {
+  const source = require("fs").readFileSync(require("path").join(__dirname, "../scripts/seed-staging-flash-sale.js"), "utf8");
+  const documents = new Map();
+  const db = { connect: jest.fn(), disconnect: jest.fn() };
+  const product = { updateOne: jest.fn(async (filter, update, options) => {
+    expect(options).toEqual({ upsert: true, runValidators: true });
+    expect(Object.keys(update)).toEqual(["$setOnInsert"]);
+    const exists = documents.has(filter._id);
+    if (!exists) documents.set(filter._id, { ...update.$setOnInsert });
+    return { upsertedCount: exists ? 0 : 1 };
+  }) };
+  async function run(environment, database, approval) {
+    const context = {
+      URL, process: { env: { APP_ENV: environment, MONGO_URI: `mongodb://127.0.0.1:27019/${database}`,
+        SEED_STAGING_FLASH_SALE: approval } },
+      console: { log: jest.fn(), error: jest.fn() },
+      require: name => name === "mongoose" ? db : product,
+    };
+    await require("vm").runInNewContext(source, context);
+    return context;
+  }
+  for (const [environment, database, approval] of [
+    ["production", "shop_staging", "true"], ["staging", "shop", "true"], ["staging", "shop_staging", "false"],
+  ]) {
+    expect((await run(environment, database, approval)).process.exitCode).toBe(1);
+    expect(db.connect).not.toHaveBeenCalled();
+    expect(product.updateOne).not.toHaveBeenCalled();
+  }
+  expect((await run("staging", "shop_staging", "true")).process.exitCode).toBeUndefined();
+  expect(documents.size).toBe(3);
+  for (const fixture of documents.values()) {
+    expect(fixture.originalPrice).toBeGreaterThan(fixture.price);
+    expect(fixture.stock).toBeGreaterThan(0);
+  }
+  documents.values().next().value.price = 11000;
+  await run("staging", "shop_staging", "true");
+  expect(documents.size).toBe(3);
+  expect(documents.values().next().value.price).toBe(11000);
+  expect(db.disconnect).toHaveBeenCalledTimes(2);
+});
 let previous;
 beforeEach(() => { previous = Object.fromEntries(keys.map(key => [key, process.env[key]])); });
 afterEach(() => {

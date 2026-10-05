@@ -45,6 +45,14 @@ Khi operator đã cho phép tạo indexes trên staging, đặt `ALLOW_INDEX_CHA
 
 Các secrets Google/mail có trong export chưa được dùng để gửi email/request trong phiên. Đối với staging, chủ sở hữu chọn tài khoản test và authorized origins tương ứng; không copy API/mail credentials production để chạy test gây tác dụng thật. Gateway credential variables cũ có thể để ngoài staging vì hai flags đều false; không xóa callback/source code.
 
+### Dữ liệu Flash Sale dùng thử
+
+Khi operator yêu cầu thêm sản phẩm mẫu, bật `SEED_STAGING_FLASH_SALE=true` trên backend staging và deploy.
+Container chạy `scripts/seed-staging-flash-sale.js` trước server, chỉ chấp nhận `APP_ENV=staging` và database `*_staging`.
+Script thêm 3 sản phẩm có tên `[Staging]`, giá gốc lớn hơn giá bán, tồn kho và ảnh tĩnh trên client.
+ID cố định và `$setOnInsert` tránh tạo trùng hoặc ghi đè chỉnh sửa của admin khi chạy lại; không xóa dữ liệu.
+Sau khi xác minh API/client hiển thị đủ 3 sản phẩm, đặt lại `SEED_STAGING_FLASH_SALE=false` rồi deploy.
+
 ## 2. ML staging
 
 Root Directory: `ml/VuaVuiVe_Recommender`; Language Python3. Health `/health`; Auto-Deploy Off.
