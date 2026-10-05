@@ -42,3 +42,24 @@ test("Render proxy hop count is a number so secure cookies work behind the proxy
   expect(proxyTrust("false", true)).toBe(false);
   expect(proxyTrust(undefined, true)).toBe(1);
 });
+
+test.each([26, undefined])("startup logs identify index failures without exposing database errors (code %s)", async code => {
+  const source = require("fs").readFileSync(require("path").join(__dirname, "../server.js"), "utf8");
+  const log = jest.fn();
+  const context = {
+    process: { env: { NODE_ENV: "production" } },
+    app: { listen: jest.fn() }, PORT: 10000, configErrors: [], startupErrors: [], log,
+    connectDB: async () => {},
+    mongoose: { connection: { db: { admin: () => ({ command: async () => ({ setName: "qa" }) }) } } },
+    require: name => name === "./config/origins" ? { configuredOrigins: () => [] } : {
+      collection: { indexes: async () => {
+        if (code) throw Object.assign(new Error("private database details"), { code });
+        return [];
+      } },
+    },
+  };
+  await require("vm").runInNewContext(source.slice(source.indexOf("async function startServer()"), source.indexOf("async function shutdown()")) + "\nstartServer()", context);
+  expect(log).toHaveBeenCalledWith("error", "server.startup_failed", { stage: "database.indexes", code: code ?? null });
+  expect(JSON.stringify(log.mock.calls)).not.toContain("private database details");
+  expect(context.startupReady).not.toBe(true);
+});

@@ -385,17 +385,21 @@ async function startServer() {
     log("error", "server.configuration_invalid", { count: configErrors.length });
     return;
   }
+  let startupStage = "database.connect";
   try {
     await connectDB();
     if (process.env.NODE_ENV === "production") {
+      startupStage = "database.transactions";
       const hello = await mongoose.connection.db.admin().command({ hello: 1 });
       if (!hello.setName && hello.msg !== "isdbgrid") throw new Error("Transactions require a replica set or sharded cluster.");
+      startupStage = "database.indexes";
       const indexes = await require("./models/Order.model").collection.indexes();
       const required = ["userId_1_idempotencyKey_1", "payment.gateway_1_payment.transactionId_1"];
       if (required.some((name) => !indexes.some((i) => i.name === name && i.unique))) {
         throw new Error("Required order uniqueness indexes are missing.");
       }
     }
+    startupStage = "session.initialize";
     initializeSessionMiddlewares();
     if (!customerSession || !adminSession) throw new Error("Session store unavailable.");
     expiryTimer = setInterval(async () => {
@@ -408,9 +412,12 @@ async function startServer() {
     expiryTimer.unref();
     startupReady = true;
     log("info", "server.ready");
-  } catch {
+  } catch (err) {
     startupErrors.push("Database or required indexes unavailable.");
-    log("error", "server.startup_failed");
+    log("error", "server.startup_failed", {
+      stage: startupStage,
+      code: Number.isInteger(err?.code) ? err.code : null,
+    });
   }
 }
 
