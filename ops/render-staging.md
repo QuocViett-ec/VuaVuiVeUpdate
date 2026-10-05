@@ -30,7 +30,7 @@ Runtime Node/Docker hiện có phải dùng Node24 theo backend/CI. Nếu dùng 
 | RECOMMENDER_API                          | Origin ML staging                                                                                      |
 | ML_API_TOKEN                             | Cùng token ngẫu nhiên ít nhất32 ký tự với service ML; nhập trong secret store                          |
 | MOMO_ENABLED / VNPAY_ENABLED             | false                                                                                                  |
-
+| UPLOAD_STORAGE_MODE | ephemeral — chỉ dành cho demo/staging Render Free |
 | UPLOAD_DIR | /tmp/vuavuive-staging-uploads |
 | ALLOW_TEST_DATA | false trên service đang chạy; tạo fixtures là bước operator riêng |
 | PORT | Giữ biến PORT do Render cấp; không hard-code port trong command |
