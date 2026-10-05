@@ -237,6 +237,18 @@ const SUBCATEGORY_OPTIONS: Record<string, CategoryOption[]> = {
                 />
               </div>
               <div class="field">
+                <label for="product-old-price">Giá gốc trước giảm (đ, để trống hoặc 0 nếu không giảm)</label
+                ><input
+                  [(ngModel)]="form.oldPrice"
+                  (ngModelChange)="onNonNegativeChange('oldPrice', $event)"
+                  name="oldPrice"
+                  id="product-old-price"
+                  type="number"
+                  min="0"
+                  class="input"
+                />
+              </div>
+              <div class="field">
                 <label>Đơn vị</label
                 ><input
                   [(ngModel)]="form.unit"
@@ -405,7 +417,7 @@ export class AdminProductsComponent implements OnInit, OnDestroy {
     }
   }
 
-  onNonNegativeChange(field: 'price' | 'stock', value: number | string | null): void {
+  onNonNegativeChange(field: 'price' | 'stock' | 'oldPrice', value: number | string | null): void {
     const numericValue = Number(value);
     this.form[field] = Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
   }
@@ -423,6 +435,11 @@ export class AdminProductsComponent implements OnInit, OnDestroy {
 
     this.form.price = Math.max(0, Number(this.form.price ?? 0));
     this.form.stock = Math.max(0, Number(this.form.stock ?? 0));
+
+    if (this.form.oldPrice && this.form.oldPrice <= this.form.price) {
+      this.toast.error('Giá gốc trước giảm phải lớn hơn giá bán.');
+      return;
+    }
 
     const isNew = !this.editingId();
     const obs = isNew

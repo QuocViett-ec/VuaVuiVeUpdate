@@ -47,7 +47,7 @@
   <div class="container">
     <div class="flash-panel">
       <div class="title">
-        <h2>Ưu đãi</h2>
+        <h2>Flash Sale</h2>
       </div>
 
       @if (loading()) {
@@ -56,12 +56,14 @@
             <div class="skeleton-card"></div>
           }
         </div>
-      } @else {
+      } @else if (flashProducts().length) {
         <div class="grid flash-grid">
           @for (p of flashProducts(); track p.id) {
             <app-product-card [product]="p" [flashMode]="true" />
           }
         </div>
+      } @else {
+        <p>Hiện chưa có sản phẩm giảm giá. Bạn có thể xem các sản phẩm bên dưới.</p>
       }
     </div>
   </div>

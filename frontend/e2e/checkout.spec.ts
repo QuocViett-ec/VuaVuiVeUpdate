@@ -36,6 +36,20 @@ test('checkout offers COD and hides inactive gateways', async ({ page }) => {
   await expect(page.getByText('MoMo', { exact: true })).toHaveCount(0);
 });
 
+test('flash sale shows genuine discounts and explains an empty offer list', async ({ page }) => {
+  await page.goto('/products');
+  const flash = page.locator('#flashsale');
+  await expect(flash.getByRole('heading', { name: 'Flash Sale' })).toBeVisible();
+  await expect(flash.getByText('Hiện chưa có sản phẩm giảm giá.', { exact: false })).toBeVisible();
+  await page.route('**/api/products*', route => route.fulfill({ json: {
+    success: true, data: [{ ...product, originalPrice: 100000 }],
+  } }));
+  await page.reload();
+  await expect(flash.getByRole('link', { name: 'QA product', exact: true })).toBeVisible();
+  await expect(flash.getByText('-50%', { exact: true })).toBeVisible();
+  await expect(flash.getByText('Hiện chưa có sản phẩm giảm giá.', { exact: false })).toHaveCount(0);
+});
+
 test('the same build boots with staging portal configuration and keeps gateways inactive', async ({ page }) => {
   await page.route('**/release-config.json', route => route.fulfill({ json: {
     releaseSha: 'a'.repeat(40), customerPortalBase: 'https://customer-staging.example.invalid',

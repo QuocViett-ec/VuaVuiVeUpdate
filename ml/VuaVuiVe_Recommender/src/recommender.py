@@ -12,8 +12,63 @@ import pickle
 from pathlib import Path
 from typing import List, Tuple, Optional
 
-import numpy as np
-from scipy.sparse import load_npz, csr_matrix
+from array import array
+from math import log1p
+
+
+def load_basket_neighbors(path):
+    """Read one product at a time and pack the 50 neighbors used by serving."""
+    decoder = json.JSONDecoder()
+    result = {}
+    with open(path, encoding='utf-8') as stream:
+        buffer = ''
+
+        def peek():
+            nonlocal buffer
+            while not buffer.strip():
+                buffer = stream.read(65536)
+                if not buffer:
+                    raise ValueError('Incomplete basket neighbor artifact')
+            buffer = buffer.lstrip()
+            return buffer[0]
+
+        def consume(character):
+            nonlocal buffer
+            if peek() != character:
+                raise ValueError('Invalid basket neighbor artifact')
+            buffer = buffer[1:]
+
+        def decode():
+            nonlocal buffer
+            peek()
+            while True:
+                try:
+                    value, end = decoder.raw_decode(buffer)
+                    buffer = buffer[end:]
+                    return value
+                except json.JSONDecodeError:
+                    chunk = stream.read(65536)
+                    if not chunk:
+                        raise
+                    buffer += chunk
+
+        consume('{')
+        if peek() != '}':
+            while True:
+                key = decode()
+                if not isinstance(key, str):
+                    raise ValueError('Basket keys must be strings')
+                consume(':')
+                neighbors = decode()[:50]
+                result[int(key)] = (array('q', (pair[0] for pair in neighbors)),
+                                    array('q', (pair[1] for pair in neighbors)))
+                if peek() == '}':
+                    break
+                consume(',')
+        consume('}')
+        if buffer.strip() or any(chunk.strip() for chunk in iter(lambda: stream.read(65536), '')):
+            raise ValueError('Trailing data in basket neighbor artifact')
+    return result
 
 class HybridRecommender:
     """Hybrid recommender: CF + Basket + Popular"""
@@ -42,6 +97,7 @@ class HybridRecommender:
         
         # 1) CF artifacts (optional in low-memory deployment)
         if self.enable_cf:
+            from scipy.sparse import load_npz
             model_path = self.models_dir / "nmf_model.pkl"
             if not model_path.exists():
                 raise FileNotFoundError(
@@ -72,9 +128,7 @@ class HybridRecommender:
             print("  ✓ Low-memory mode: skip loading CF artifacts (NMF + user_item_matrix)")
         
         # 4) Basket neighbors
-        with open(self.features_dir / "cooccurrence_neighbors.json", "r", encoding="utf-8") as f:
-            neighbors = json.load(f)
-            self.basket_neighbors = {int(k): v for k, v in neighbors.items()}
+        self.basket_neighbors = load_basket_neighbors(self.features_dir / "cooccurrence_neighbors.json")
         
         # 5) Popularity
         with open(self.features_dir / "popularity.json", "r", encoding="utf-8") as f:
@@ -114,6 +168,7 @@ class HybridRecommender:
 
         # 1) CF recommendations (NMF-based)
         if w_cf > 0 and user_id in self.user2idx and self.item_factors is not None:
+            import numpy as np
             user_idx = self.user2idx[user_id]
             
             # Check if user_idx trong phạm vi (có thể bị sample)
@@ -137,9 +192,9 @@ class HybridRecommender:
         if cart_items:
             for cart_prod in cart_items:
                 if cart_prod in self.basket_neighbors:
-                    for neighbor_prod, co_count in self.basket_neighbors[cart_prod][:50]:
+                    for neighbor_prod, co_count in zip(*self.basket_neighbors[cart_prod]):
                         # Normalize (log scale)
-                        score_basket = np.log1p(co_count) / 10.0
+                        score_basket = log1p(co_count) / 10.0
                         candidates[neighbor_prod] = candidates.get(neighbor_prod, 0) + w_basket * score_basket
 
         # 3) Popular fallback
@@ -173,8 +228,8 @@ class HybridRecommender:
             # Fallback: popular
             return [(pid, float(cnt)) for pid, cnt in self.popular_global[:n]]
 
-        neighbors = self.basket_neighbors[product_id][:n]
-        return [(int(pid), float(cnt)) for pid, cnt in neighbors]
+        product_ids, counts = self.basket_neighbors[product_id]
+        return [(pid, float(count)) for pid, count in zip(product_ids[:n], counts[:n])]
 
 
 def main():
