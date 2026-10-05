@@ -22,7 +22,7 @@ jobs:
           cd .qa-data/actionlint
           curl --fail --silent --show-error --location --output actionlint_1.7.12_linux_amd64.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
           curl --fail --silent --show-error --location --output checksums.txt https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_checksums.txt
-          rg '  actionlint_1.7.12_linux_amd64.tar.gz$' checksums.txt | sha256sum --check
+          awk '$2 == "actionlint_1.7.12_linux_amd64.tar.gz"' checksums.txt | sha256sum --check
           tar -xzf actionlint_1.7.12_linux_amd64.tar.gz actionlint
           cd ../..
           .qa-data/actionlint/actionlint -shellcheck= .github/workflows/quality.yml .github/workflows/release.yml
