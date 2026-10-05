@@ -4,7 +4,7 @@
 
 **Đã triển khai trong repository:** quality CI cho backend, ML HTTP guards, customer, admin; đóng gói frontend đã kiểm thử; CD staging; production có reviewer và release gates; rollback ứng dụng theo bản ghi phát hành; smoke chỉ đọc sau deploy/rollback.
 
-**Chưa xác minh trên cloud:** quyền GitHub/hosting, môi trường và secrets, build ML thực, persistent disk, vận hành staging/production. Workflow mới phải được đưa lên `main` trước khi GitHub nhận diện. Không xem một bản build local là bằng chứng đã deploy thành công.
+**Đã xác minh trên cloud ngày 2026-10-05:** Quality gates run [37275268515](https://github.com/QuocViett-ec/VuaVuiVeUpdate/actions/runs/37275268515) đạt; backend, ML, customer và admin staging cùng revision `ffa504dfcd874f1be31e7841831f2818b45ca606`, smoke đạt. Các deployment này được thực hiện bằng MCP/CLI. Fullstack release run [37275502546](https://github.com/QuocViett-ec/VuaVuiVeUpdate/actions/runs/37275502546) **Skipped**; chưa có bằng chứng CD GitHub hoặc rollback cloud thành công. GitHub Environment secrets/variables và bảo vệ phát hành còn cần cấu hình/xác minh. [Execution hiện tại](../qa-portfolio/reports/2026-10-05-devops.md).
 
 MoMo/VNPay giữ tắt ở frontend và backend. Chưa có sandbox keys thì `PAYMENT_SANDBOX_PASSED` chưa được đặt `true`; production tiếp tục NO GO theo yêu cầu phát hành đã thống nhất.
 
@@ -53,7 +53,7 @@ Production thêm `APPROVED_RELEASE_SHA` bằng SHA 40 ký tự của bản đang
 
 Backend: repo hiện tại, root directory `backend`, Docker runtime dùng `backend/Dockerfile`, health check `/api/health`, **Auto-Deploy Off**. Image chạy user `node`; persistent upload mount cần quyền ghi UID 1000. Đặt các cấu hình theo `backend/.env.example` trong Render secret store: Mongo replica set, session secret, exact customer/admin origins, `UPLOAD_DIR` tuyệt đối, ML endpoint/token; `MOMO_ENABLED=false`, `VNPAY_ENABLED=false`. Dùng `RENDER_GIT_COMMIT` tự động để health trả revision. Không chạy seed/migration trong build/start/CD.
 
-ML: root `ml/VuaVuiVe_Recommender`, health `/health`, **Auto-Deploy Off**, `ML_ENV=production`, strong `ML_API_TOKEN`, absolute `VVV_DATA_DIR` với snapshot tin cậy và mapping đã kiểm chứng. Gunicorn26.2.0 đã được chủ sở hữu phê duyệt và thêm vào requirements. Start Command: `gunicorn --config gunicorn.conf.py src.wsgi:app`. Đã kiểm real WSGI trên Linux bằng tiny synthetic artifacts; deployment/model/mapping thật trên Render vẫn Not Run, gate `ML_PASSED` chưa tự đóng. Hướng dẫn dựa trên hai Render exports: [render-staging.md](render-staging.md).
+ML: root `ml/VuaVuiVe_Recommender`, health `/health`, **Auto-Deploy Off**, `ML_ENV=production`, strong `ML_API_TOKEN`, absolute `VVV_DATA_DIR` với snapshot tin cậy và mapping đã kiểm chứng. Gunicorn26.2.0 đã được chủ sở hữu phê duyệt và thêm vào requirements. Start Command: `gunicorn --config gunicorn.conf.py src.wsgi:app`. WSGI Linux synthetic và deployment/health staging trên Render đã đạt. Snapshot nghiệp vụ và mapping Mongo sang legacy IDs chưa xác minh; gate `ML_PASSED` chưa đóng. [Cấu hình staging](render-staging.md).
 
 Tắt Auto-Deploy trước khi đưa workflow lên remote. Render API deploy đúng commit và rollback không tự tắt auto-deploy; script kiểm service metadata trước deploy. [Render deploy](https://api-docs.render.com/reference/create-deploy), [Render rollback](https://api-docs.render.com/reference/rollback-deploy).
 
@@ -81,4 +81,12 @@ Rollback code không đảo ngược giao dịch đã ghi, không restore databa
 
 Tại root: `node --test ops/tests/*.test.cjs`; `docker build --tag vuavuive-backend:ci backend`; `docker compose -p vuavuive-qa -f ops/compose.qa.yml up -d --wait`; `node ops/restore-drill.cjs`. Backend: `npm test -- --runInBand --silent` với explicit loopback `MONGO_TEST_URI`. Frontend: `npm run build:customer`, `npm run build:admin`, `npm run test:e2e`. Python: `python -m unittest discover -s ml/VuaVuiVe_Recommender/tests -v` trong environment Flask test.
 
-Các lệnh local trên đã chạy; execution cloud deploy/promote/rollback **Not Run**. Xem report `qa-portfolio/reports/2026-10-04-cicd.md` để biết kết quả và giới hạn.
+Các lệnh local trên đã chạy. Report `qa-portfolio/reports/2026-10-04-cicd.md` giữ nguyên kết quả lịch sử; kết quả cloud và các kiểm tra mới nằm trong [report ngày 2026-10-05](../qa-portfolio/reports/2026-10-05-devops.md).
+
+## Health staging và cảnh báo
+
+`staging-health.yml` dùng `node ops/monitor-staging.cjs`, tái sử dụng smoke release: readiness, cùng SHA trên bốn thành phần, payment tắt, API rewrites và guest orders bị từ chối. Chỉ GET, không cần hosting secrets. Ba lượt kiểm tra cách nhau 15 giây hỗ trợ dịch vụ staging đang ngủ; sau đó job thất bại thật nếu hệ thống chưa khỏe. JSON kết quả giữ 7 ngày, không ghi response hay credentials.
+
+Sau khi điền bốn origin trong Environment `staging`, chạy workflow thủ công bình thường. Chạy thêm với `alert_drill=true`: health phải đạt trước, rồi một step cố ý thất bại để kiểm thông báo GitHub Actions; không làm gián đoạn ứng dụng. Chủ sở hữu bật thông báo Actions thất bại trong GitHub notification settings và xác nhận đã nhận thông báo. Job đỏ chỉ chứng minh phát hiện lỗi, chưa chứng minh email đã đến.
+
+Sau khi kiểm chứng, đặt repository variable `STAGING_MONITOR_ENABLED=true` để chạy mỗi 6 giờ. Đây là kiểm tra staging định kỳ, không phải giám sát realtime/SLA hoặc cơ chế giữ Render Free luôn thức. Workflow dùng chung concurrency `fullstack-staging` với release để tránh kiểm giữa lúc deploy.

@@ -1,0 +1,47 @@
+name: Staging health
+on:
+  schedule:
+    # A periodic staging check, not an uptime SLA or a service keep-alive.
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      alert_drill:
+        description: Deliberately fail after healthy checks to test Actions failure notifications
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: fullstack-staging
+  cancel-in-progress: false
+jobs:
+  health:
+    if: github.event_name == 'workflow_dispatch' || vars.STAGING_MONITOR_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    env:
+      BACKEND_ORIGIN: ${{ vars.BACKEND_ORIGIN }}
+      ML_ORIGIN: ${{ vars.ML_ORIGIN }}
+      CUSTOMER_ORIGIN: ${{ vars.CUSTOMER_ORIGIN }}
+      ADMIN_ORIGIN: ${{ vars.ADMIN_ORIGIN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node ops/monitor-staging.cjs
+      - name: Intentional alert drill (does not interrupt staging)
+        if: inputs.alert_drill == true
+        run: |
+          echo '::error::Intentional staging alert drill. Verify the owner received the Actions failure notification.'
+          exit 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: staging-health
+          path: .qa-data/monitor-result.json
+          retention-days: 7
+          if-no-files-found: warn

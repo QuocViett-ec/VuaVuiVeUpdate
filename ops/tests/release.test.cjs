@@ -7,6 +7,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const release = require('../release.cjs');
 const { validateRun } = require('../validate-release-run.cjs');
+const { checkStaging } = require('../monitor-staging.cjs');
 const sha = 'a'.repeat(40);
 const fixtureConfig = {
   TARGET_ENVIRONMENT: 'staging', RENDER_API_KEY: 'fixture-not-a-real-key', VERCEL_TOKEN: 'fixture-not-a-real-token',
@@ -99,6 +100,18 @@ test('Vercel preparation preserves tested JS, points API to the environment and 
     assert.throws(() => release.preparePortal(c, 'customer', path.join(dir, 'source'), sha, path.join(dir, 'deploy')), /must be new/);
   } finally { fs.rmSync(dir, { recursive: true }); }
 });
+test('prebuilt CLI link uses the verified project without inheriting its repository root or secrets', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vvv-link-'));
+  try {
+    await release.linkVercel(fixtureConfig, 'prj_customer', dir,
+      async () => json({ id: 'prj_customer', name: 'customer-staging', rootDirectory: 'frontend', env: ['private'] }));
+    assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, '.vercel/project.json'))), {
+      orgId: fixtureConfig.VERCEL_ORG_ID, projectId: 'prj_customer', projectName: 'customer-staging', projectRootDirectory: '.',
+    });
+    await assert.rejects(release.linkVercel(fixtureConfig, 'prj_customer', dir,
+      async () => json({ id: 'prj_wrong', name: 'wrong' })), /metadata mismatch/);
+  } finally { fs.rmSync(dir, { recursive: true }); }
+});
 test('smoke checks both portal proxies, wrong revision, disabled payments and unauthenticated order access', async () => {
   const c = release.config(fixtureConfig);
   let errorMode = '';
@@ -118,10 +131,12 @@ test('smoke checks both portal proxies, wrong revision, disabled payments and un
   };
   const portals = { customer: c.CUSTOMER_ORIGIN, admin: c.ADMIN_ORIGIN };
   await release.smoke(c, sha, portals, fetcher);
+  assert.deepEqual(await checkStaging(c, fetcher), { status: 'Passed', environment: 'staging', sha });
   assert(seen.includes(`${c.ADMIN_ORIGIN}/api/health`) && seen.includes(`${c.CUSTOMER_ORIGIN}/api/health`));
   for (const mode of ['revision', 'payments', 'authorization', 'environment']) {
     errorMode = mode;
     await assert.rejects(release.smoke(c, sha, portals, fetcher));
+    await assert.rejects(checkStaging(c, fetcher));
   }
 });
 test('rollback rejects mismatched services, projects, environments and mixed backend/ML versions', () => {

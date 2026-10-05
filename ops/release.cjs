@@ -119,11 +119,24 @@ function candidate(value) {
   'Invalid Vercel deployment URL');
   return parsed.origin;
 }
+async function linkVercel(c, project, cwd, fetcher = fetch) {
+  const metadata = await request(`https://api.vercel.com/v9/projects/${project}?teamId=${encodeURIComponent(c.VERCEL_ORG_ID)}`,
+    { headers: { Authorization: `Bearer ${c.VERCEL_TOKEN}` } }, fetcher);
+  assert(metadata.id === project && typeof metadata.name === 'string' && metadata.name.length > 0,
+    'Vercel project metadata mismatch');
+  fs.mkdirSync(path.join(cwd, '.vercel'), { recursive: true });
+  // This directory contains CI's prebuilt output, not the repository's frontend root.
+  fs.writeFileSync(path.join(cwd, '.vercel/project.json'), JSON.stringify({
+    orgId: c.VERCEL_ORG_ID, projectId: project, projectName: metadata.name, projectRootDirectory: '.',
+  }));
+}
 async function vercel(c, project, args, cwd) {
+  await linkVercel(c, project, cwd);
   try {
     const result = await runFile('vercel', [...args, '--token', c.VERCEL_TOKEN, '--scope', c.VERCEL_ORG_ID], {
       cwd, timeout: 600000, maxBuffer: 1024 * 1024,
-      env: { ...process.env, VERCEL_ORG_ID: c.VERCEL_ORG_ID, VERCEL_PROJECT_ID: project },
+      // Environment IDs make the CLI bypass the local prebuilt project link.
+      env: { ...process.env, VERCEL_ORG_ID: '', VERCEL_PROJECT_ID: '' },
     });
     return result.stdout.trim();
   } catch { throw new Error('Vercel command failed (credential-bearing output omitted)'); }
@@ -318,4 +331,4 @@ if (require.main === module) {
   })().catch(error => { console.error(error.message); process.exitCode = 1; });
 }
 module.exports = { assert, origin, config, productionGates, files, packageRelease, verifyRelease,
-  request, waitRender, candidate, preparePortal, smoke, rollbackTargets, gates, targets };
+  request, waitRender, candidate, preparePortal, linkVercel, smoke, rollbackTargets, gates, targets };

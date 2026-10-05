@@ -2,7 +2,7 @@
 
 Thay đổi chuẩn bị production và QA đã được kiểm tra local; **chưa phát hành production**. Xem [hướng dẫn vận hành](ops/production.md), [điều kiện mở production](ops/release-gates.md) và [QA portfolio](qa-portfolio/README.md). MoMo/VNPay giữ tắt đến khi có key và sandbox đạt.
 
-CI/CD fullstack đã thêm tại [quality.yml](.github/workflows/quality.yml) và [release.yml](.github/workflows/release.yml): CI kiểm thử/build backend, customer, admin và ML guards; CD deploy staging từ commit đã đạt, production có reviewer/gates và rollback theo artifact. Xem [cấu hình GitHub–Render–Vercel](ops/cicd.md) và [staging theo Render exports](ops/render-staging.md) để điền environment secrets/variables. Gunicorn đã thêm và kiểm WSGI Linux bằng synthetic artifacts; deploy/rollback cloud và model/mapping staging thật vẫn **Not Run**.
+CI/CD fullstack có tại [quality.yml](.github/workflows/quality.yml) và [release.yml](.github/workflows/release.yml). Ngày 2026-10-05, CI GitHub đã đạt và bốn thành phần staging đã deploy qua MCP/CLI, smoke đạt; workflow CD GitHub gần nhất vẫn **Skipped**, rollback cloud và restore Atlas/uploads chưa chạy. Xem [cấu hình GitHub–Render–Vercel](ops/cicd.md), [staging](ops/render-staging.md) và [bằng chứng DevOps](qa-portfolio/reports/2026-10-05-devops.md). ML health đạt chưa chứng minh chất lượng model/mapping.
 
 Hướng dẫn seed bên dưới chỉ dành cho môi trường test/staging: DB phải có hậu tố `_test`/`_staging`, `ALLOW_TEST_DATA=true`, `NODE_ENV` khác production và `QA_FIXTURE_PASSWORD` được inject trước khi tạo tài khoản. Không dùng dữ liệu hoặc tài khoản mẫu trên production.
 
