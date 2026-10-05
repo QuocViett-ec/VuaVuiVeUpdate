@@ -1,4 +1,5 @@
 "use strict";
+const User = require("../models/User.model");
 
 const clients = new Map();
 let clientSeq = 0;
@@ -25,7 +26,24 @@ function registerClient({ req, res, userId, role }) {
     timestamp: new Date().toISOString(),
   });
 
-  const keepAlive = setInterval(() => {
+  const sessionVersion = Number(req.session?.sessionVersion || 0);
+  const expiresAt = new Date(req.session?.cookie?.expires || Date.now() + 604800000).getTime();
+  let checking = false;
+  const keepAlive = setInterval(async () => {
+    if (checking) return;
+    checking = true;
+    try {
+      const user = await User.findById(userId).select("isActive role sessionVersion").lean();
+      if (!user?.isActive || user.role !== role || Number(user.sessionVersion || 0) !== sessionVersion || Date.now() >= expiresAt) {
+        res.end();
+        cleanup();
+        return;
+      }
+    } catch {
+      res.end();
+      cleanup();
+      return;
+    } finally { checking = false; }
     if (!res.writableEnded) {
       res.write(": keep-alive\n\n");
     }
@@ -38,6 +56,7 @@ function registerClient({ req, res, userId, role }) {
 
   req.on("close", cleanup);
   req.on("aborted", cleanup);
+  res.on("close", cleanup);
 
   return cleanup;
 }
@@ -62,7 +81,12 @@ function publishToUser(userId, event, payload) {
 }
 
 function publishToCustomers(event, payload) {
-  publish(event, payload, (client) => client.role !== "admin");
+  publish(event, payload, (client) => client.role === "user");
+}
+
+function closeAll() {
+  for (const client of clients.values()) client.res.end();
+  clients.clear();
 }
 
 module.exports = {
@@ -70,4 +94,5 @@ module.exports = {
   publish,
   publishToUser,
   publishToCustomers,
+  closeAll,
 };

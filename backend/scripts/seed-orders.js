@@ -186,6 +186,7 @@ function buildDemoOrders(users, products) {
 
 async function seedOrders() {
   try {
+    require("./test-data-guard").assertTestDatabase();
     await mongoose.connect(process.env.MONGO_URI);
 
     const users = await User.find({ role: "user", isActive: true })

@@ -1,0 +1,147 @@
+name: Fullstack release
+on:
+  workflow_run:
+    workflows: [Quality gates]
+    types: [completed]
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        default: staging
+      action:
+        description: Deploy a CI artifact or restore the previous application release
+        type: choice
+        options: [deploy, rollback]
+        default: deploy
+      source_run_id:
+        description: Quality gates run ID for deploy; Fullstack release run ID for rollback
+        type: string
+        required: true
+      staging_run_id:
+        description: Successful staging release run ID (required for production deploy)
+        type: string
+        required: false
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: fullstack-${{ inputs.environment || 'staging' }}
+  cancel-in-progress: false
+jobs:
+  release:
+    if: >-
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') &&
+      (github.event_name == 'workflow_dispatch' ||
+       (vars.CD_ENABLED == 'true' && github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    environment: ${{ inputs.environment || 'staging' }}
+    env:
+      TARGET_ENVIRONMENT: ${{ inputs.environment || 'staging' }}
+      RELEASE_ACTION: ${{ inputs.action || 'deploy' }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id || github.event.workflow_run.id }}
+      STAGING_RUN_ID: ${{ inputs.staging_run_id }}
+    steps:
+      # Deployment code always comes from the trusted default branch, never from downloaded artifacts.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate source run and production protection
+        id: source
+        run: node ops/validate-release-run.cjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_ENVIRONMENT_READ_TOKEN: ${{ secrets.GH_ENVIRONMENT_READ_TOKEN }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.RELEASE_ACTION == 'rollback' && 'release-baseline' || 'fullstack-release' }}
+          path: .qa-data/source
+          run-id: ${{ steps.source.outputs.source_run_id }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        if: env.TARGET_ENVIRONMENT == 'production' && env.RELEASE_ACTION == 'deploy'
+        with:
+          name: release-result
+          path: .qa-data/staging-evidence
+          run-id: ${{ env.STAGING_RUN_ID }}
+          github-token: ${{ github.token }}
+      - name: Verify targets and capture the previous application release
+        if: env.RELEASE_ACTION == 'deploy'
+        run: node ops/release.cjs preflight .qa-data/source "$RELEASE_SHA"
+        env:
+          RELEASE_SHA: ${{ steps.source.outputs.sha }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_BACKEND_SERVICE_ID: ${{ vars.RENDER_BACKEND_SERVICE_ID }}
+          RENDER_ML_SERVICE_ID: ${{ vars.RENDER_ML_SERVICE_ID }}
+          BACKEND_ORIGIN: ${{ vars.BACKEND_ORIGIN }}
+          ML_ORIGIN: ${{ vars.ML_ORIGIN }}
+          CUSTOMER_ORIGIN: ${{ vars.CUSTOMER_ORIGIN }}
+          ADMIN_ORIGIN: ${{ vars.ADMIN_ORIGIN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_CUSTOMER_PROJECT_ID: ${{ vars.VERCEL_CUSTOMER_PROJECT_ID }}
+          VERCEL_ADMIN_PROJECT_ID: ${{ vars.VERCEL_ADMIN_PROJECT_ID }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          APPROVED_RELEASE_SHA: ${{ vars.APPROVED_RELEASE_SHA }}
+          P0_CLOSED: ${{ vars.P0_CLOSED }}
+          PAYMENT_SANDBOX_PASSED: ${{ vars.PAYMENT_SANDBOX_PASSED }}
+          LOAD_PASSED: ${{ vars.LOAD_PASSED }}
+          RESTORE_PASSED: ${{ vars.RESTORE_PASSED }}
+          CREDENTIALS_REVIEWED: ${{ vars.CREDENTIALS_REVIEWED }}
+          STORAGE_PASSED: ${{ vars.STORAGE_PASSED }}
+          ML_PASSED: ${{ vars.ML_PASSED }}
+          ROLLBACK_PASSED: ${{ vars.ROLLBACK_PASSED }}
+      - uses: actions/upload-artifact@v4
+        if: env.RELEASE_ACTION == 'deploy'
+        with:
+          name: release-baseline
+          path: .qa-data/release-result.json
+          include-hidden-files: true
+          retention-days: 90
+          if-no-files-found: error
+      - name: Install pinned deployment CLI
+        run: npm install --global vercel@62.2.0
+      - name: Deploy or rollback and run read-only smoke checks
+        run: node ops/release.cjs "$RELEASE_ACTION" .qa-data/source "$RELEASE_SHA"
+        env:
+          RELEASE_SHA: ${{ steps.source.outputs.sha }}
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_BACKEND_SERVICE_ID: ${{ vars.RENDER_BACKEND_SERVICE_ID }}
+          RENDER_ML_SERVICE_ID: ${{ vars.RENDER_ML_SERVICE_ID }}
+          BACKEND_ORIGIN: ${{ vars.BACKEND_ORIGIN }}
+          ML_ORIGIN: ${{ vars.ML_ORIGIN }}
+          CUSTOMER_ORIGIN: ${{ vars.CUSTOMER_ORIGIN }}
+          ADMIN_ORIGIN: ${{ vars.ADMIN_ORIGIN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_CUSTOMER_PROJECT_ID: ${{ vars.VERCEL_CUSTOMER_PROJECT_ID }}
+          VERCEL_ADMIN_PROJECT_ID: ${{ vars.VERCEL_ADMIN_PROJECT_ID }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+          APPROVED_RELEASE_SHA: ${{ vars.APPROVED_RELEASE_SHA }}
+          P0_CLOSED: ${{ vars.P0_CLOSED }}
+          PAYMENT_SANDBOX_PASSED: ${{ vars.PAYMENT_SANDBOX_PASSED }}
+          LOAD_PASSED: ${{ vars.LOAD_PASSED }}
+          RESTORE_PASSED: ${{ vars.RESTORE_PASSED }}
+          CREDENTIALS_REVIEWED: ${{ vars.CREDENTIALS_REVIEWED }}
+          STORAGE_PASSED: ${{ vars.STORAGE_PASSED }}
+          ML_PASSED: ${{ vars.ML_PASSED }}
+          ROLLBACK_PASSED: ${{ vars.ROLLBACK_PASSED }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.RELEASE_ACTION == 'rollback' && 'rollback-result' || 'release-result' }}
+          path: .qa-data/${{ env.RELEASE_ACTION == 'rollback' && 'rollback-result' || 'release-result' }}.json
+          include-hidden-files: true
+          retention-days: 90
+          if-no-files-found: warn

@@ -89,7 +89,7 @@ shipmentSchema.index(
   {
     unique: true,
     partialFilterExpression: {
-      trackingNumber: { $exists: true, $type: "string", $ne: "" },
+      trackingNumber: { $type: "string" },
     },
   },
 );

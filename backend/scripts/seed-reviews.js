@@ -75,6 +75,7 @@ function pickFallbackKey(
 
 async function seedReviews() {
   try {
+    require("./test-data-guard").assertTestDatabase();
     await mongoose.connect(process.env.MONGO_URI);
 
     const [products, deliveredOrders, users] = await Promise.all([

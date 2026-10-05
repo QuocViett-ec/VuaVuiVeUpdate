@@ -10,6 +10,7 @@
 
 const crypto = require("crypto");
 const https = require("https");
+const { log } = require("../services/logger");
 const Order = require("../models/Order.model");
 const { publishToUser } = require("../services/realtime-bus");
 
@@ -21,11 +22,7 @@ const { publishToUser } = require("../services/realtime-bus");
  *               signatureValid, amountExpected, amountActual,
  *               idempotentHit, source, event
  */
-function payLog(event, fields = {}) {
-  console.log(
-    JSON.stringify({ ts: new Date().toISOString(), event, ...fields }),
-  );
-}
+function payLog(event, fields = {}) { log("info", event, fields); }
 
 // ─── VNPay utilities ──────────────────────────────────────────────────────────
 
@@ -91,43 +88,7 @@ function publishOrderStatusUpdated(order, source) {
   });
 }
 
-async function markOrderPaidWithGateway(order, payload) {
-  if (!order.payment) order.payment = {};
-
-  const wasPaid = order.payment.status === "paid";
-  const canPromoteStatus = shouldPromoteOrderStatusAfterPaid(order);
-
-  if (wasPaid && !canPromoteStatus) {
-    return {
-      updated: false,
-      order,
-      paymentUpdated: false,
-      statusUpdated: false,
-    };
-  }
-
-  if (!wasPaid) {
-    order.payment.status = "paid";
-    order.payment.gateway = payload.gateway;
-    order.payment.transactionId = payload.transactionId || "";
-    order.payment.transactionTime = payload.transactionTime || new Date();
-    order.payment.amount = Number(payload.amount || order.totalAmount || 0);
-    order.payment.gatewayResponse = payload.gatewayResponse || null;
-  }
-
-  if (canPromoteStatus) {
-    order.status = "confirmed";
-  }
-
-  await order.save();
-
-  return {
-    updated: true,
-    order,
-    paymentUpdated: !wasPaid,
-    statusUpdated: canPromoteStatus,
-  };
-}
+const { markOrderPaidWithGateway } = require("../services/payment-state");
 
 function getBackendOrigin(req) {
   const configured = process.env.BACKEND_PUBLIC_URL;
@@ -314,6 +275,11 @@ exports.createVNPayUrl = async (req, res) => {
         message: "Đơn hàng không dùng phương thức VNPay",
       });
     }
+    if (!["pending", "confirmed"].includes(order.status) ||
+        (order.paymentExpiresAt && new Date(order.paymentExpiresAt) <= new Date())) {
+      return res.status(409).json({ success: false, message: "Order is no longer payable." });
+    }
+
     if (order.payment?.status === "paid") {
       return res.status(409).json({
         success: false,
@@ -377,7 +343,7 @@ exports.createVNPayUrl = async (req, res) => {
       data: paymentUrl,
     });
   } catch (err) {
-    console.error("[VNPay create] error:", err.message);
+    payLog("payment.error", { errorName: err.name, requestId: req.requestId });
     return res
       .status(500)
       .json({ success: false, message: "Không tạo được link VNPay" });
@@ -471,7 +437,7 @@ exports.vnpayReturn = async (req, res) => {
 
     const isDevSigBypassEnabled =
       process.env.NODE_ENV !== "production" &&
-      String(process.env.VNPAY_DEV_ALLOW_RETURN_SIG_BYPASS || "true") !==
+      String(process.env.VNPAY_DEV_ALLOW_RETURN_SIG_BYPASS || "false") !==
         "false";
 
     if (isDevSigBypassEnabled && code === "00" && orderId) {
@@ -634,7 +600,7 @@ exports.vnpayReturn = async (req, res) => {
       amount: paidAmount,
     });
   } catch (err) {
-    console.error("[VNPay return] error:", err.message);
+    payLog("payment.error", { errorName: err.name, requestId: req.requestId });
     return res.status(500).json({
       success: false,
       code: "99",
@@ -753,7 +719,7 @@ exports.vnpayIPN = async (req, res) => {
     }
     return res.json({ RspCode: "00", Message: "Confirm Success" });
   } catch (err) {
-    console.error("[VNPay IPN] error:", err.message);
+    payLog("payment.error", { errorName: err.name, requestId: req.requestId });
     return res.json({ RspCode: "99", Message: "Internal error" });
   }
 };
@@ -848,6 +814,11 @@ exports.createMoMoUrl = async (req, res) => {
         message: "Đơn hàng không dùng phương thức MoMo",
       });
     }
+    if (!["pending", "confirmed"].includes(order.status) ||
+        (order.paymentExpiresAt && new Date(order.paymentExpiresAt) <= new Date())) {
+      return res.status(409).json({ success: false, message: "Order is no longer payable." });
+    }
+
     if (order.payment?.status === "paid") {
       return res.status(409).json({
         success: false,
@@ -984,18 +955,19 @@ exports.createMoMoUrl = async (req, res) => {
       });
     });
 
+    momoReq.setTimeout(12000, () => momoReq.destroy(new Error("Payment provider timeout")));
     momoReq.on("error", (err) => {
-      console.error("[MoMo] request error:", err.message);
+      payLog("payment.error", { errorName: err.name, requestId: req.requestId });
       return res.status(500).json({
         success: false,
-        message: "Không kết nối được MoMo: " + err.message,
+        message: "Không kết nối được MoMo. Vui lòng thử lại sau.",
       });
     });
 
     momoReq.write(requestBody);
     momoReq.end();
   } catch (err) {
-    console.error("[MoMo create] error:", err.message);
+    payLog("payment.error", { errorName: err.name, requestId: req.requestId });
     return res
       .status(500)
       .json({ success: false, message: "Không tạo được link MoMo" });
@@ -1080,7 +1052,7 @@ exports.momoReturn = async (req, res) => {
 
       const isDevSigBypassEnabled =
         process.env.NODE_ENV !== "production" &&
-        String(process.env.MOMO_DEV_ALLOW_RETURN_SIG_BYPASS || "true") !==
+        String(process.env.MOMO_DEV_ALLOW_RETURN_SIG_BYPASS || "false") !==
           "false";
 
       if (isDevSigBypassEnabled && Number(resultCode) === 0 && orderId) {
@@ -1242,7 +1214,7 @@ exports.momoReturn = async (req, res) => {
       amount: paidAmount,
     });
   } catch (err) {
-    console.error("[MoMo return] error:", err.message);
+    payLog("payment.error", { errorName: err.name, requestId: req.requestId });
     return res.status(500).json({
       success: false,
       code: "99",
@@ -1350,7 +1322,10 @@ exports.momoIPN = async (req, res) => {
     }
     return res.json({ status: 0, message: "success" });
   } catch (err) {
-    console.error("[MoMo IPN] error:", err.message);
+    payLog("payment.error", { errorName: err.name, requestId: req.requestId });
     return res.status(500).json({ status: 1, message: "Internal error" });
   }
 };
+
+exports.verifyMoMoSignature = verifyMoMoSignature;
+exports.isOrderAmountMatched = isOrderAmountMatched;

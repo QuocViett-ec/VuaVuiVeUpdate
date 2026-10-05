@@ -419,7 +419,7 @@ exports.updateUser = async (req, res, next) => {
     if (role !== undefined) update.role = role;
     if (isActive !== undefined) update.isActive = isActive;
 
-    const user = await User.findByIdAndUpdate(req.params.id, update, {
+    const user = await User.findByIdAndUpdate(req.params.id, { $set: update, $inc: { sessionVersion: 1 } }, {
       new: true,
       runValidators: true,
     });
@@ -454,7 +454,7 @@ exports.deleteUser = async (req, res, next) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.id,
-      { isActive: false },
+      { $set: { isActive: false }, $inc: { sessionVersion: 1 } },
       { new: true },
     );
     if (!user) {

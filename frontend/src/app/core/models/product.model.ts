@@ -83,6 +83,7 @@ export interface Order {
   };
   status: OrderStatus;
   createdAt: string;
+  deliveredAt?: string;
   updatedAt?: string;
   paidAt?: string;
   vnpayTxnRef?: string;
@@ -108,6 +109,9 @@ export interface VoucherResult {
 }
 
 export interface Recommendation {
+  stock?: number;
+  rating?: number;
+  reviewCount?: number;
   product_id: string | number;
   score: number;
   name: string;

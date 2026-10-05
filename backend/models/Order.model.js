@@ -32,6 +32,17 @@ const orderSchema = new mongoose.Schema(
       required: true,
     },
     items: { type: [orderItemSchema], required: true },
+    idempotencyKey: { type: String },
+    requestHash: { type: String },
+    paymentExpiresAt: { type: Date, default: null },
+    stockReleased: { type: Boolean, default: false },
+    refund: {
+      reference: { type: String },
+      note: { type: String },
+      amount: { type: Number, min: 0 },
+      recordedAt: { type: Date },
+      recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    },
     delivery: {
       name: { type: String, required: true },
       phone: { type: String, required: true },
@@ -111,7 +122,14 @@ const orderSchema = new mongoose.Schema(
 );
 
 orderSchema.index({ userId: 1, createdAt: -1 });
+orderSchema.index({ userId: 1, idempotencyKey: 1 }, {
+  unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } },
+});
+orderSchema.index({ status: 1, "payment.status": 1, paymentExpiresAt: 1 });
 orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ "payment.status": 1, createdAt: -1 });
+orderSchema.index({ "payment.gateway": 1, "payment.transactionId": 1 }, {
+  unique: true, partialFilterExpression: { "payment.transactionId": { $type: "string", $gt: "" } },
+});
 
 module.exports = mongoose.model("Order", orderSchema);

@@ -1,5 +1,11 @@
 ## HƯỚNG DẪN KHỞI ĐỘNG DỰ ÁN VuaVuiVe
 
+Thay đổi chuẩn bị production và QA đã được kiểm tra local; **chưa phát hành production**. Xem [hướng dẫn vận hành](ops/production.md), [điều kiện mở production](ops/release-gates.md) và [QA portfolio](qa-portfolio/README.md). MoMo/VNPay giữ tắt đến khi có key và sandbox đạt.
+
+CI/CD fullstack đã thêm tại [quality.yml](.github/workflows/quality.yml) và [release.yml](.github/workflows/release.yml): CI kiểm thử/build backend, customer, admin và ML guards; CD deploy staging từ commit đã đạt, production có reviewer/gates và rollback theo artifact. Xem [cấu hình GitHub–Render–Vercel](ops/cicd.md) và [staging theo Render exports](ops/render-staging.md) để điền environment secrets/variables. Gunicorn đã thêm và kiểm WSGI Linux bằng synthetic artifacts; deploy/rollback cloud và model/mapping staging thật vẫn **Not Run**.
+
+Hướng dẫn seed bên dưới chỉ dành cho môi trường test/staging: DB phải có hậu tố `_test`/`_staging`, `ALLOW_TEST_DATA=true`, `NODE_ENV` khác production và `QA_FIXTURE_PASSWORD` được inject trước khi tạo tài khoản. Không dùng dữ liệu hoặc tài khoản mẫu trên production.
+
 Tài liệu này đã đối chiếu với script thực tế trong `backend`, `frontend`, `payment/vnpay_nodejs`, `ml/VuaVuiVe_Recommender`.
 
 Giả định bạn đang mở terminal tại thư mục gốc dự án (nơi chứa `backend`, `frontend`, `ml`, `payment`).
@@ -63,6 +69,24 @@ pip install -r ..\requirements.txt
 ---
 
 ### 4) Cấu hình environment
+
+#### Tạm ngưng MoMo và VNPay
+
+Hiện checkout chỉ bật thanh toán khi nhận hàng (COD). Code MoMo/VNPay được giữ lại.
+Backend mặc định tắt hai cổng nếu chưa đặt `MOMO_ENABLED=true` / `VNPAY_ENABLED=true`.
+Khi tắt, API từ chối tạo đơn mới bằng cổng đó và từ chối tạo link thanh toán, kể cả cho đơn cũ.
+Return/IPN vẫn hoạt động để tiếp nhận kết quả giao dịch đã khởi tạo trước khi tắt.
+
+Để mở lại từng cổng sau khi được cấp key:
+
+1. Cấu hình key, endpoint đúng môi trường và URL return/IPN trên hosting backend.
+2. Đặt `MOMO_ENABLED=true` hoặc `VNPAY_ENABLED=true` trên backend rồi khởi động lại/redeploy.
+3. Đặt cổng tương ứng trong `onlinePayments` thành `true` tại
+   `frontend/src/environments/environment.prod.ts` (và `environment.ts` nếu cần chạy local).
+4. Build/redeploy frontend và kiểm thử sandbox trước khi nhận thanh toán thật.
+
+Để tắt lại, đặt flag backend thành `false` và flag frontend tương ứng thành `false` rồi redeploy.
+Các flag frontend là cấu hình build; chỉ thay đổi backend không làm hiện tùy chọn trên giao diện.
 
 Backend cần file `.env`.
 
@@ -166,29 +190,9 @@ Thứ tự khuyến nghị:
 
 ---
 
-### 8) Tài khoản mặc định sau seed
+### 8) Test accounts
 
-Admin:
-
-- Email: `admin@vuavuive.vn`
-- Password: `Admin@123`
-
-Customer test chính:
-
-- Email: `user.test@vuavuive.vn`
-- Password: `User@123`
-
-Thêm tài khoản staff/audit:
-
-- `staff@vuavuive.vn` / `Staff@123`
-- `audit@vuavuive.vn` / `Audit@123`
-
-Lưu ý:
-
-- Seed tạo thêm nhiều customer demo trong `backend/scripts/seed.js`.
-- Customer demo dùng mật khẩu mặc định `User@123`.
-
----
+Inject `QA_FIXTURE_PASSWORD` from your local test configuration (at least 12 characters). Do not use demo accounts on production. Seed is permitted only for `_test`/`_staging` databases, with `ALLOW_TEST_DATA=true` and a non-production NODE_ENV.
 
 ### 9) Kiểm tra nhanh sau khi chạy
 

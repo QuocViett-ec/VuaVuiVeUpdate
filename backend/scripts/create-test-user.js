@@ -1,3 +1,4 @@
+const { fixturePassword } = require("./test-data-guard");
 /**
  * Script tạo user test cho môi trường development
  * Chạy: node scripts/create-test-user.js
@@ -13,7 +14,7 @@ const TEST_USER = {
   name: "User Test",
   email: "user.test@vuavuive.vn",
   phone: "0912345678",
-  password: "User@123",
+  password: fixturePassword(),
   role: "user",
   address: "123 Đường Test, Quận 1, TP.HCM",
   isActive: true,
@@ -36,11 +37,11 @@ async function main() {
 
   const user = await User.create(TEST_USER);
   console.log(" Tạo user test thành công:");
-  console.log(`   Tên   : ${user.name}`);
-  console.log(`   Email : ${user.email}`);
-  console.log(`   SĐT   : ${user.phone}`);
+  console.log("Fixture personal data: [REDACTED]");
+  console.log("Fixture personal data: [REDACTED]");
+  console.log("Fixture personal data: [REDACTED]");
   console.log(`   Role  : ${user.role}`);
-  console.log(`   Pass  : User@123`);
+  console.log(`   Pass  : [REDACTED]`);
 
   await mongoose.disconnect();
   process.exit(0);

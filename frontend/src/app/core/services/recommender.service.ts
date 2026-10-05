@@ -56,13 +56,14 @@ export class RecommenderService {
       id: String(rec.product_id),
       name: rec.name,
       price: Number(rec.price ?? 0),
-      stock: 999,
+      stock: Number(rec.stock ?? 0),
       cat: cat || 'other',
       sub: sub || 'all',
       img: img || '/images/brand/LogoVVV.png',
       description: rec.reason,
       unit: '',
-      rating: Math.min(5, Math.max(0, Number(rec.score ?? 0) / 20)),
+      rating: Number(rec.rating ?? 0),
+      reviewCount: Number(rec.reviewCount ?? 0),
     };
   }
 
@@ -120,7 +121,7 @@ export class RecommenderService {
       )
       .pipe(
         map((res) => res?.data?.similar_items ?? []),
-        catchError(() =>
+        catchError(() => environment.production ? of([]) :
           this.http
             .post<{
               similar_items: Recommendation[];

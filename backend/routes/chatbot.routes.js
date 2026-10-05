@@ -1,8 +1,10 @@
 "use strict";
 
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 
 const router = express.Router();
+router.use(rateLimit({ windowMs: 60000, limit: 10, standardHeaders: true, legacyHeaders: false }));
 
 const GEMINI_API_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent";
@@ -48,7 +50,7 @@ router.post("/", async (req, res) => {
     });
   }
 
-  if (!userMessage) {
+  if (!userMessage || userMessage.length > 2000) {
     return res.status(400).json({
       success: false,
       message: "Message is required",
@@ -84,11 +86,10 @@ router.post("/", async (req, res) => {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
       return res.status(response.status).json({
         success: false,
         message: "Gemini request failed",
-        detail: errorText,
+        requestId: req.requestId,
       });
     }
 
@@ -111,7 +112,7 @@ router.post("/", async (req, res) => {
     return res.status(isAbort ? 504 : 500).json({
       success: false,
       message: isAbort ? "Gemini request timed out" : "Gemini request error",
-      detail: error instanceof Error ? error.message : String(error),
+      requestId: req.requestId,
     });
   } finally {
     clearTimeout(timeoutId);

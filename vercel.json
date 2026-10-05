@@ -1,5 +1,10 @@
 {
+  "git": { "deploymentEnabled": false },
   "rewrites": [
+    {
+      "source": "/uploads/(.*)",
+      "destination": "https://vuavuive-backend.onrender.com/uploads/$1"
+    },
     {
       "source": "/api/(.*)",
       "destination": "https://vuavuive-backend.onrender.com/api/$1"
