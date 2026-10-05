@@ -158,7 +158,10 @@
           "builder": "@angular/build:application",
           "options": {
             "browser": "src/main.admin.ts",
-            "index": "src/index.admin.html",
+            "index": {
+              "input": "src/index.admin.html",
+              "output": "index.html"
+            },
             "tsConfig": "tsconfig.admin.json",
             "inlineStyleLanguage": "scss",
             "assets": [

@@ -323,7 +323,7 @@ export class OrderDetailPageComponent implements OnInit, OnDestroy {
   canRetryPayment(order: Order): boolean {
     const isPendingPayment = String(order.paymentStatus || '') === 'pending';
     const method = String(order.paymentMethod || '');
-    return isPendingPayment && (method === 'vnpay' || method === 'momo');
+    return isPendingPayment && this.paymentSvc.isGatewayEnabled(method);
   }
 
   async retryPayment(): Promise<void> {

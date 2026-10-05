@@ -1,5 +1,6 @@
 export const environment = {
   production: true,
+  onlinePayments: { vnpay: false, momo: false },
   chatbotEnabled: true,
   apiBase: '',
   chatbotApi: '/api/chatbot',

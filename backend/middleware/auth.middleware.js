@@ -1,4 +1,5 @@
 "use strict";
+const User = require("../models/User.model");
 
 const ROLE_PERMISSIONS = {
   admin: ["*"],
@@ -23,13 +24,24 @@ function hasPermission(role, permission) {
   return list.includes("*") || list.includes(permission);
 }
 
-exports.requireAuth = (req, res, next) => {
+exports.requireAuth = async (req, res, next) => {
   if (!req.session || !req.session.userId) {
     return res
       .status(401)
       .json({ success: false, message: "Bạn chưa đăng nhập" });
   }
-  next();
+  try {
+    const user = req.authenticatedUser || await User.findById(req.session.userId)
+      .select("role isActive sessionVersion").lean();
+    const invalidScope = req.sessionScope === "admin" && !["admin", "staff", "audit"].includes(user?.role);
+    if (!user || !user.isActive || invalidScope || user.role !== req.session.role ||
+        Number(user.sessionVersion || 0) !== Number(req.session.sessionVersion || 0)) {
+      req.session.destroy(() => {});
+      return res.status(401).json({ success: false, message: "Phiên đăng nhập đã hết hạn hoặc bị thu hồi." });
+    }
+    req.authenticatedUser = user;
+    next();
+  } catch (err) { next(err); }
 };
 
 exports.requireAdmin = (req, res, next) => {

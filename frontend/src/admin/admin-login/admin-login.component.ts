@@ -6,7 +6,6 @@ import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'admin-login',
-  standalone: true,
   imports: [FormsModule],
   templateUrl: './admin-login.component.html',
   styleUrl: './admin-login.component.scss',
@@ -17,8 +16,8 @@ export class AdminLoginComponent {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
-  credential = 'admin@vuavuive.vn';
-  password = 'Admin@123';
+  credential = '';
+  password = '';
   loading = signal(false);
   error = signal('');
   customerPortalUrl = environment.customerPortalBase;

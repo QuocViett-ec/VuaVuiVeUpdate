@@ -1,4 +1,5 @@
 "use strict";
+const { isAllowedOrigin } = require("../config/origins");
 
 /**
  * CSRF protection via custom request header check.
@@ -13,6 +14,10 @@
 exports.csrfProtection = (req, res, next) => {
   const safeMethods = ["GET", "HEAD", "OPTIONS"];
   if (safeMethods.includes(req.method)) return next();
+
+  if (req.headers.origin && !isAllowedOrigin(req.headers.origin)) {
+    return res.status(403).json({ success: false, message: "Origin không được phép." });
+  }
 
   // Public auth endpoints are already protected by CORS and do not require
   // an existing authenticated session, so skip the custom header check here.

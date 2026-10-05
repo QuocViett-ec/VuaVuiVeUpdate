@@ -1,15 +1,15 @@
-import { Component, ChangeDetectionStrategy, inject, signal, OnInit } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { OrderService } from '../../../core/services/order.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { Order } from '../../../core/models/product.model';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-admin-orders',
-  standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
     <div class="admin-section">
@@ -212,6 +212,9 @@ import { Order } from '../../../core/models/product.model';
                       }
                     </select>
                     <button class="btn btn-ghost btn--xs" (click)="openDetail(o)">Chi tiết</button>
+                    @if (canRecordCod(o)) {
+                      <button class="btn btn--xs btn--outline" (click)="recordCodPayment(o)">Đã thu COD</button>
+                    }
 
                     @if (o.status === 'return_requested') {
                       <button class="btn btn--xs btn--outline" (click)="approveReturn(o)">
@@ -226,12 +229,9 @@ import { Order } from '../../../core/models/product.model';
                       <button class="btn btn--xs btn--outline" (click)="markReturned(o)">
                         Đã nhận trả
                       </button>
-                      <button class="btn btn--xs btn-search" (click)="markRefunded(o)">
-                        Hoàn tiền
-                      </button>
                     }
 
-                    @if (o.status === 'returned') {
+                    @if (canRefund() && (o.status === 'returned' || o.status === 'cancelled') && o.paymentStatus === 'paid') {
                       <button class="btn btn--xs btn-search" (click)="markRefunded(o)">
                         Hoàn tiền
                       </button>
@@ -370,13 +370,10 @@ import { Order } from '../../../core/models/product.model';
                 <button class="btn btn--outline" (click)="markReturned(detailOrder()!)">
                   Đã nhận hàng trả
                 </button>
-                <button class="btn btn-search" (click)="markRefunded(detailOrder()!)">
-                  Hoàn tiền ngay
-                </button>
               </div>
             }
 
-            @if (detailOrder()!.status === 'returned') {
+            @if (canRefund() && (detailOrder()!.status === 'returned' || detailOrder()!.status === 'cancelled') && detailOrder()!.paymentStatus === 'paid') {
               <div class="return-actions">
                 <button class="btn btn-search" (click)="markRefunded(detailOrder()!)">
                   Hoàn tiền
@@ -396,6 +393,12 @@ import { Order } from '../../../core/models/product.model';
 })
 export class AdminOrdersComponent implements OnInit {
   private orderSvc = inject(OrderService);
+  private auth = inject(AuthService);
+  readonly canRefund = computed(() => this.auth.currentUser()?.role === 'admin');
+  canRecordCod(order: Order): boolean {
+    return !!order.deliveredAt && ['delivered', 'return_requested', 'return_approved', 'return_rejected', 'returned'].includes(order.status) &&
+      order.paymentMethod === 'cod' && order.paymentStatus === 'pending';
+  }
   private toast = inject(ToastService);
   private router = inject(Router);
 
@@ -431,11 +434,11 @@ export class AdminOrdersComponent implements OnInit {
     pending: ['confirmed', 'cancelled'],
     confirmed: ['shipping', 'cancelled'],
     shipping: ['delivered'],
-    delivered: ['return_requested'],
-    return_requested: ['return_approved', 'return_rejected'],
-    return_approved: ['returned', 'refunded'],
+    delivered: [],
+    return_requested: [],
+    return_approved: ['returned'],
     return_rejected: [],
-    returned: ['refunded'],
+    returned: [],
     refunded: [],
     cancelled: [],
   };
@@ -673,17 +676,32 @@ export class AdminOrdersComponent implements OnInit {
   }
 
   markRefunded(order: Order): void {
-    const confirmed = window.confirm(`Xác nhận hoàn tiền cho đơn ${order.id}?`);
+    const confirmed = window.confirm(`Bạn đã hoàn ${order.totalAmount.toLocaleString('vi-VN')}đ cho đơn ${order.id} và muốn ghi nhận bằng chứng?`);
     if (!confirmed) return;
-
-    this.orderSvc.markRefunded(order.id).subscribe({
+    const reference = window.prompt('Mã giao dịch hoàn tiền hoặc mã biên nhận:')?.trim();
+    if (!reference || reference.length < 6) return;
+    const note = window.prompt('Ghi chú xác nhận đã hoàn tiền:')?.trim();
+    if (!note || note.length < 5) return;
+    this.orderSvc.markRefunded(order.id, { reference, note, amount: order.totalAmount }).subscribe({
       next: (updated) => {
         this.applyOrderUpdate(updated);
-        this.toast.success('Đã hoàn tiền cho đơn hàng.');
+        this.toast.success('Đã ghi nhận bằng chứng hoàn tiền.');
       },
       error: (err) => {
         this.toast.error(err?.error?.message || 'Không thể hoàn tiền đơn hàng.');
       },
+    });
+  }
+
+  recordCodPayment(order: Order): void {
+    const transactionId = window.prompt('Mã biên nhận xác nhận đã thu tiền COD:')?.trim();
+    if (!transactionId || transactionId.length < 6) return;
+    this.orderSvc.markOrderPaid(order.id, { gateway: 'cod', transactionId }).subscribe({
+      next: (updated) => {
+        this.applyOrderUpdate(updated);
+        this.toast.success('Đã ghi nhận thu tiền COD.');
+      },
+      error: (err) => this.toast.error(err?.error?.message || 'Không thể ghi nhận thu tiền.'),
     });
   }
 

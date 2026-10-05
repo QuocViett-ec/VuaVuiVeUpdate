@@ -121,6 +121,7 @@
           [product]="p"
           (productClick)="onProductClick('similar', $event.id)"
           (addToCartClick)="onAddToCart('similar', $event)"
+          [externalCartHandling]="true"
         />
       }
     </div>
@@ -155,6 +156,7 @@
           [product]="p"
           (productClick)="onProductClick('trending', $event.id)"
           (addToCartClick)="onAddToCart('trending', $event)"
+          [externalCartHandling]="true"
         />
       }
     </div>

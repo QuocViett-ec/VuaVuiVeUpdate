@@ -43,11 +43,6 @@ type PromoBanner = {
 const FLASH_SALE_COUNT = 10;
 const LS_RECENT_PRODUCT_SEARCH = 'vvv_recent_product_search';
 
-function hashSeed(value: string): number {
-  return String(value || '')
-    .split('')
-    .reduce((sum, ch, idx) => sum + ch.charCodeAt(0) * (idx + 1), 0);
-}
 
 /** Chuẩn hóa chuỗi tiếng Việt: bỏ dấu, lowercase, trim */
 function vn(s: string): string {
@@ -93,10 +88,7 @@ export class ProductListComponent implements OnInit, OnDestroy {
   recentSearches = signal<string[]>([]);
 
   // Flash sale
-  flashSlot = signal<'morning' | 'afternoon'>('morning');
   flashProducts = signal<Product[]>([]);
-  countdown = signal('--:--:--');
-  private _cd: ReturnType<typeof setInterval> | null = null;
   activePromo = signal(0);
   private promoTimer: ReturnType<typeof setInterval> | null = null;
   private preloadedBannerIndexes = new Set<number>();
@@ -186,8 +178,6 @@ export class ProductListComponent implements OnInit, OnDestroy {
     }
     this.preloadBannerWindow(0);
 
-    this.tickCd();
-    this._cd = setInterval(() => this.tickCd(), 1000);
     if (isPlatformBrowser(this.platformId)) {
       this.loadRecentSearches();
       document.addEventListener('visibilitychange', this.onVisibilityChange);
@@ -195,7 +185,6 @@ export class ProductListComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this._cd) clearInterval(this._cd);
     if (this.promoTimer) clearInterval(this.promoTimer);
     if (this.refreshTimer) clearTimeout(this.refreshTimer);
     if (isPlatformBrowser(this.platformId)) {
@@ -384,42 +373,11 @@ export class ProductListComponent implements OnInit, OnDestroy {
     localStorage.setItem(LS_RECENT_PRODUCT_SEARCH, JSON.stringify(next));
   }
 
-  onSlotChange(slot: 'morning' | 'afternoon'): void {
-    this.flashSlot.set(slot);
-    this.updateFlash(this.allProducts());
-  }
 
   private updateFlash(ps: Product[]): void {
-    const withDiscount = ps.filter((p) => p.oldPrice && p.oldPrice > p.price);
-    const base = withDiscount.length >= FLASH_SALE_COUNT ? withDiscount : ps;
-    const startIndex = this.flashSlot() === 'morning' ? 0 : FLASH_SALE_COUNT;
-    const selected = base.slice(startIndex, startIndex + FLASH_SALE_COUNT).map((p, index) => {
-      const seed = hashSeed(`${p.id}-${startIndex + index}`);
-      const oldPrice =
-        p.oldPrice && p.oldPrice > p.price
-          ? p.oldPrice
-          : Math.round((p.price * (1.25 + (seed % 3) * 0.08)) / 1000) * 1000;
-      const soldCount = Number(p.soldCount && p.soldCount > 0 ? p.soldCount : 80 + (seed % 320));
-      return {
-        ...p,
-        oldPrice,
-        soldCount,
-      };
-    });
-    this.flashProducts.set(selected);
+    this.flashProducts.set(ps.filter((p) => p.oldPrice && p.oldPrice > p.price).slice(0, FLASH_SALE_COUNT));
   }
 
-  private tickCd(): void {
-    const now = new Date();
-    const endH = this.flashSlot() === 'morning' ? 8 : 18;
-    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), endH, 0, 0);
-    if (end <= now) end.setDate(end.getDate() + 1);
-    const diff = end.getTime() - now.getTime();
-    const hh = String(Math.floor(diff / 3600000)).padStart(2, '0');
-    const mm = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
-    const ss = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
-    this.countdown.set(`${hh}:${mm}:${ss}`);
-  }
 
   onImgErr(event: Event, fallback: string): void {
     const img = event.target as HTMLImageElement;

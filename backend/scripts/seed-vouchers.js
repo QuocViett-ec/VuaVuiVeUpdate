@@ -93,7 +93,8 @@ async function seedVouchers() {
     throw new Error("Thiếu biến môi trường MONGO_URI");
   }
 
-  await mongoose.connect(process.env.MONGO_URI);
+  require("./test-data-guard").assertTestDatabase();
+    await mongoose.connect(process.env.MONGO_URI);
   console.log("MongoDB kết nối thành công");
 
   let created = 0;

@@ -115,6 +115,7 @@ const DESCRIPTIONS = {
 
 async function run() {
   try {
+    require("./test-data-guard").assertTestDatabase();
     await mongoose.connect(process.env.MONGO_URI);
     console.log("✅ MongoDB kết nối thành công");
 

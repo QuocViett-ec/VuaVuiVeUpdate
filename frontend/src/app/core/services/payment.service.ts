@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { map, Observable } from 'rxjs';
+import { map, Observable, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 type Gateway = 'vnpay' | 'momo';
@@ -46,7 +46,14 @@ export class PaymentService {
 
   constructor(private readonly http: HttpClient) {}
 
+  isGatewayEnabled(gateway: string): boolean {
+    return (gateway === 'vnpay' || gateway === 'momo') && environment.onlinePayments[gateway];
+  }
+
   createGatewayUrl(gateway: Gateway, payload: PaymentCreatePayload): Observable<PaymentUrlResult> {
+    if (!this.isGatewayEnabled(gateway)) {
+      return throwError(() => new Error('Phương thức thanh toán này đang tạm ngưng.'));
+    }
     return this.http
       .post<RawPaymentResponse>(`${this.base}/${gateway}/create`, payload, this.writeOptions)
       .pipe(

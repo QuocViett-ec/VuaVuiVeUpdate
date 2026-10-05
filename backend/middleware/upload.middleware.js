@@ -2,26 +2,35 @@
 
 const multer = require("multer");
 const path = require("path");
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/products/"),
-  filename: (req, file, cb) =>
-    cb(null, Date.now() + "-" + file.originalname.replace(/\s+/g, "_")),
-});
-
-function fileFilter(req, file, cb) {
-  const allowed = /jpeg|jpg|png|webp/;
-  const extname = allowed.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowed.test(file.mimetype);
-  if (extname && mimetype) {
+const fs = require("fs/promises");
+const crypto = require("crypto");
+const { uploadDirectory } = require("../config/uploads");
+const types = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp" };
+const receive = multer({
+  storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  fileFilter(req, file, cb) {
+    if (!types[file.mimetype]) return cb(Object.assign(new Error("Chỉ chấp nhận ảnh JPEG, PNG, WebP."), { status: 400 }));
     cb(null, true);
-  } else {
-    cb(new Error("Chỉ chấp nhận file ảnh (jpeg, jpg, png, webp)"));
-  }
+  },
+}).single("image");
+
+function hasImageSignature(buffer, mime) {
+  if (mime === "image/jpeg") return buffer.length >= 3 && buffer.subarray(0, 3).equals(Buffer.from([255, 216, 255]));
+  if (mime === "image/png") return buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  return mime === "image/webp" && buffer.length >= 12 && buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP";
 }
 
-exports.uploadImage = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter,
-}).single("image");
+exports.uploadImage = (req, res, next) => receive(req, res, async (err) => {
+  if (err) return next(err);
+  if (!req.file) return next();
+  try {
+    if (!hasImageSignature(req.file.buffer, req.file.mimetype)) throw Object.assign(new Error("Nội dung file không phải ảnh hợp lệ."), { status: 400 });
+    const directory = path.join(uploadDirectory(), "products");
+    await fs.mkdir(directory, { recursive: true });
+    req.file.filename = crypto.randomUUID() + types[req.file.mimetype];
+    await fs.writeFile(path.join(directory, req.file.filename), req.file.buffer, { flag: "wx" });
+    delete req.file.buffer;
+    next();
+  } catch (error) { next(error); }
+});
+exports.hasImageSignature = hasImageSignature;

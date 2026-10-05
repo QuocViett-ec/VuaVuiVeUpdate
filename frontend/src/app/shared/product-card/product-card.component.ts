@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { Product } from '../../core/models/product.model';
@@ -8,37 +8,37 @@ import { inject } from '@angular/core';
 
 @Component({
   selector: 'app-product-card',
-  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterLink],
   template: `
-    <div class="product-card" [class.product-card--flash]="flashMode">
-      <a [routerLink]="['/products', product.id]" class="card-img-wrap" (click)="onProductClick()">
+    <div class="product-card" [class.product-card--flash]="flashMode()">
+      <a [routerLink]="['/products', product().id]" class="card-img-wrap" (click)="onProductClick()">
         <img
-          [src]="product.img || fallbackImg"
+          [src]="product().img || fallbackImg"
           (error)="onImageError($event)"
-          [alt]="product.name"
+          [alt]="product().name"
           class="card-img"
           loading="lazy"
         />
-        @if (product.oldPrice && product.oldPrice > product.price) {
+        @if ((product().oldPrice ?? 0) > product().price) {
           <span class="badge-sale">-{{ discountPct() }}%</span>
         }
       </a>
       <div class="card-body">
-        @if (flashMode) {
-          <p class="card-brand">FLASH DEAL</p>
+        @if (flashMode()) {
+          <p class="card-brand">ƯU ĐÃI</p>
         }
-        <a [routerLink]="['/products', product.id]" class="card-name" (click)="onProductClick()">{{
-          product.name
+        <a [routerLink]="['/products', product().id]" class="card-name" (click)="onProductClick()">{{
+          product().name
         }}</a>
         <div class="card-price">
-          <span class="price-current">{{ product.price | number }}đ</span>
-          @if (product.oldPrice && product.oldPrice > product.price) {
-            <span class="price-old">{{ product.oldPrice | number }}đ</span>
+          <span class="price-current">{{ product().price | number }}đ</span>
+          @if ((product().oldPrice ?? 0) > product().price) {
+            <span class="price-old">{{ product().oldPrice | number }}đ</span>
           }
         </div>
-        @if (product.unit) {
-          <p class="card-unit">/ {{ product.unit }}</p>
+        @if (product().unit) {
+          <p class="card-unit">/ {{ product().unit }}</p>
         }
         <div class="card-rating" aria-label="Đánh giá trung bình">
           <span class="card-rating__star">★</span>
@@ -46,7 +46,7 @@ import { inject } from '@angular/core';
           <span class="card-rating__count">({{ reviewCount() }})</span>
           <span class="card-sold">Đã bán {{ soldCount() }}</span>
         </div>
-        @if (flashMode) {
+        @if (flashMode()) {
           <div class="card-sale-row" aria-label="Tiến độ bán hàng">
             <div class="card-sale-progress">
               <span class="card-sale-progress__bar" [style.width.%]="saleProgressPct()"></span>
@@ -55,8 +55,8 @@ import { inject } from '@angular/core';
           </div>
         }
         <div class="card-actions">
-          <button class="btn-add" (click)="add()" [disabled]="product.stock === 0">
-            @if (product.stock === 0) {
+          <button class="btn-add" (click)="add()" [disabled]="product().stock === 0">
+            @if (product().stock === 0) {
               Hết hàng
             } @else {
               Thêm vào giỏ
@@ -69,58 +69,55 @@ import { inject } from '@angular/core';
   styleUrl: './product-card.component.scss',
 })
 export class ProductCardComponent {
-  @Input({ required: true }) product!: Product;
-  @Input() flashMode = false;
-  @Output() productClick = new EventEmitter<Product>();
-  @Output() addToCartClick = new EventEmitter<Product>();
+  product = input.required<Product>();
+  flashMode = input(false);
+  externalCartHandling = input(false);
+  productClick = output<Product>();
+  addToCartClick = output<Product>();
   private cart = inject(CartService);
   private toast = inject(ToastService);
   readonly fallbackImg = '/images/brand/LogoVVV.png';
   discountPct() {
-    if (!this.product.oldPrice) return 0;
-    return Math.round((1 - this.product.price / this.product.oldPrice) * 100);
+    const product = this.product();
+    if (!product.oldPrice) return 0;
+    return Math.round((1 - product.price / product.oldPrice) * 100);
   }
 
   soldCount() {
-    const sold = Number(this.product.soldCount ?? 0);
+    const sold = Number(this.product().soldCount ?? 0);
     if (Number.isFinite(sold) && sold > 0) return Math.round(sold);
-    const seed = String(this.product.id || '')
-      .split('')
-      .reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
-    return 80 + (seed % 300);
+    return 0;
   }
 
   saleProgressPct() {
     const sold = this.soldCount();
-    const stock = Math.max(0, Number(this.product.stock ?? 0));
-    if (!stock) return Math.min(95, Math.max(22, Math.round((sold % 100) + 20)));
-    const pct = Math.round((sold / (sold + stock)) * 100);
-    return Math.min(95, Math.max(12, pct));
+    const stock = Math.max(0, Number(this.product().stock ?? 0));
+    return sold + stock > 0 ? Math.round((sold / (sold + stock)) * 100) : 0;
   }
 
   reviewCount() {
-    const count = Number(this.product.reviewCount ?? 0);
+    const count = Number(this.product().reviewCount ?? 0);
     if (Number.isFinite(count) && count > 0) return Math.round(count);
-    return 40 + (this.soldCount() % 220);
+    return 0;
   }
 
   averageRating() {
-    const rating = Number(this.product.rating ?? 0);
-    if (!Number.isFinite(rating) || rating <= 0 || rating < 1) return '4.5';
+    const rating = Number(this.product().rating ?? 0);
+    if (!Number.isFinite(rating) || rating < 1) return 'Chưa có đánh giá';
     return rating.toFixed(1);
   }
 
   add() {
-    const hasExternalHandler = this.addToCartClick.observers.length > 0;
-    this.addToCartClick.emit(this.product);
+    const hasExternalHandler = this.externalCartHandling();
+    this.addToCartClick.emit(this.product());
     if (!hasExternalHandler) {
-      this.cart.addToCart(this.product);
+      this.cart.addToCart(this.product());
       this.toast.success('Đã thêm vào giỏ hàng');
     }
   }
 
   onProductClick() {
-    this.productClick.emit(this.product);
+    this.productClick.emit(this.product());
   }
 
   onImageError(event: Event): void {

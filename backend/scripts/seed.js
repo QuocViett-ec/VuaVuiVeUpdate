@@ -1,3 +1,4 @@
+const { fixturePassword } = require("./test-data-guard");
 "use strict";
 
 /**
@@ -1210,126 +1211,126 @@ const DEMO_CUSTOMERS = [
     name: "Nguyen Minh Chau",
     phone: "0900000001",
     email: "chau.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "12 Nguyen Van Cu, Quan 5, TP.HCM",
   },
   {
     name: "Tran Quoc Bao",
     phone: "0900000002",
     email: "bao.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "81 Le Van Sy, Quan 3, TP.HCM",
   },
   {
     name: "Le Hoai Thu",
     phone: "0900000003",
     email: "thu.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "24 Phan Xich Long, Phu Nhuan, TP.HCM",
   },
   {
     name: "Pham Gia Han",
     phone: "0900000004",
     email: "han.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "56 Cach Mang Thang 8, Quan 10, TP.HCM",
   },
   {
     name: "Vo Duc Khang",
     phone: "0900000005",
     email: "khang.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "102 Quang Trung, Go Vap, TP.HCM",
   },
   {
     name: "Bui Ngoc Anh",
     phone: "0900000006",
     email: "anh.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "35 Xa Lo Ha Noi, Thu Duc, TP.HCM",
   },
   {
     name: "Dang Tuan Kiet",
     phone: "0900000007",
     email: "kiet.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "88 Nguyen Huu Tho, Nha Be, TP.HCM",
   },
   {
     name: "Hoang My Linh",
     phone: "0900000008",
     email: "linh.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "17 Ly Thuong Kiet, Tan Binh, TP.HCM",
   },
   {
     name: "Nguyen Van A",
     phone: "0900000009",
     email: "vana.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "22 Pham Van Dong, Binh Thanh, TP.HCM",
   },
   {
     name: "Le Thi B",
     phone: "0900000010",
     email: "thib.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "15 Nguyen Dinh Chieu, Quan 3, TP.HCM",
   },
   {
     name: "Tran Van C",
     phone: "0900000011",
     email: "vanc.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "99 Huynh Tan Phat, Quan 7, TP.HCM",
   },
   {
     name: "Phan Thi D",
     phone: "0900000012",
     email: "thid.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "12R Truong Chinh, Tan Binh, TP.HCM",
   },
   {
     name: "Doan Van E",
     phone: "0900000013",
     email: "vane.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "7 Nguyen Hue, Quan 1, TP.HCM",
   },
   {
     name: "Vo Thi F",
     phone: "0900000014",
     email: "thif.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "123 Ba Thang Hai, Quan 10, TP.HCM",
   },
   {
     name: "Bui Van G",
     phone: "0900000015",
     email: "vang.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "45 Le Duan, Quan 1, TP.HCM",
   },
   {
     name: "Hoang Thi H",
     phone: "0900000016",
     email: "thih.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "67 Pasteur, Quan 3, TP.HCM",
   },
   {
     name: "Truong Van I",
     phone: "0900000017",
     email: "vani.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "89 Dien Bien Phu, Binh Thanh, TP.HCM",
   },
   {
     name: "Lam Thi K",
     phone: "0900000018",
     email: "thik.demo@vuavuive.vn",
-    password: "User@123",
+    password: fixturePassword(),
     address: "2 Vo Van Ngan, Thu Duc, TP.HCM",
   },
 ];
@@ -1496,6 +1497,7 @@ function buildDemoOrders(users, products) {
 
 async function seed() {
   try {
+    require("./test-data-guard").assertTestDatabase();
     await mongoose.connect(process.env.MONGO_URI);
     console.log(" MongoDB kết nối thành công");
 
@@ -1508,7 +1510,7 @@ async function seed() {
       name: "Admin VuaVuiVe",
       phone: "0901234567",
       email: "admin@vuavuive.vn",
-      password: "Admin@123",
+      password: fixturePassword(),
       role: "admin",
     };
 
@@ -1516,7 +1518,7 @@ async function seed() {
       name: "User Test VuaVuiVe",
       phone: "0912345678",
       email: "user.test@vuavuive.vn",
-      password: "User@123",
+      password: fixturePassword(),
       role: "user",
       address: "45 Tran Hung Dao, Quan 1, TP.HCM",
     };
@@ -1525,7 +1527,7 @@ async function seed() {
       name: "Nhân Viên VuaVuiVe",
       phone: "0923456789",
       email: "staff@vuavuive.vn",
-      password: "Staff@123",
+      password: fixturePassword(),
       role: "staff",
       address: "12 Nguyen Hue, Quan 1, TP.HCM",
     };
@@ -1534,7 +1536,7 @@ async function seed() {
       name: "Kiểm Toán VuaVuiVe",
       phone: "0934567890",
       email: "audit@vuavuive.vn",
-      password: "Audit@123",
+      password: fixturePassword(),
       role: "audit",
       address: "88 Le Loi, Quan 1, TP.HCM",
     };
@@ -1553,22 +1555,22 @@ async function seed() {
 
     console.log(
       adminResult.created
-        ? " Admin tạo mới: admin@vuavuive.vn / Admin@123"
+        ? " Admin tạo mới: admin@vuavuive.vn / [REDACTED]"
         : " Admin đã được cập nhật lại thông tin đăng nhập mẫu",
     );
     console.log(
       staffResult.created
-        ? " Staff tạo mới: staff@vuavuive.vn / Staff@123"
+        ? " Staff tạo mới: staff@vuavuive.vn / [REDACTED]"
         : " Staff đã được cập nhật lại thông tin đăng nhập mẫu",
     );
     console.log(
       auditResult.created
-        ? " Audit tạo mới: audit@vuavuive.vn / Audit@123"
+        ? " Audit tạo mới: audit@vuavuive.vn / [REDACTED]"
         : " Audit đã được cập nhật lại thông tin đăng nhập mẫu",
     );
     console.log(
       userResult.created
-        ? " User test tạo mới: user.test@vuavuive.vn / User@123"
+        ? " User test tạo mới: user.test@vuavuive.vn / [REDACTED]"
         : " User test đã được cập nhật lại thông tin đăng nhập mẫu",
     );
 

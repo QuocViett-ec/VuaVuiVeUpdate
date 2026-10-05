@@ -34,6 +34,8 @@ export class CheckoutPageComponent implements OnInit {
   private router = inject(Router);
   private geoSvc = inject(GeolocationService);
   private paymentSvc = inject(PaymentService);
+  readonly vnpayEnabled = this.paymentSvc.isGatewayEnabled('vnpay');
+  readonly momoEnabled = this.paymentSvc.isGatewayEnabled('momo');
 
   // Form fields
   name = '';
@@ -46,6 +48,7 @@ export class CheckoutPageComponent implements OnInit {
   voucherCode = '';
   private voucherReloadTimer: ReturnType<typeof setTimeout> | null = null;
   private voucherRequestSeq = 0;
+  private orderRequest: { fingerprint: string; key: string } | null = null;
 
   slots = signal<DeliverySlot[]>([]);
   voucherResult = signal<VoucherResult | null>(null);
@@ -264,7 +267,14 @@ export class CheckoutPageComponent implements OnInit {
   }
 
   async placeOrder(): Promise<void> {
+    if (this.loading()) return;
     this.slotError.set('');
+
+    if (this.paymentMethod !== 'cod' && !this.paymentSvc.isGatewayEnabled(this.paymentMethod)) {
+      this.toast.warning('Phương thức thanh toán này đang tạm ngưng. Vui lòng chọn thanh toán khi nhận hàng.');
+      this.paymentMethod = 'cod';
+      return;
+    }
 
     if (!this.auth.isLoggedIn()) {
       this.toast.error('Vui lòng đăng nhập để đặt hàng.');
@@ -338,11 +348,28 @@ export class CheckoutPageComponent implements OnInit {
         voucherCode: this.voucherCode || undefined,
       };
 
-      const order = await firstValueFrom(this.orderSvc.createOrder(payload));
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload)));
+      const fingerprint = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+      if (!this.orderRequest) {
+        try {
+          const previous: unknown = JSON.parse(sessionStorage.getItem('vvv_checkout_attempt') || 'null');
+          if (previous && typeof previous === 'object' && 'fingerprint' in previous && 'key' in previous &&
+              typeof previous.fingerprint === 'string' && typeof previous.key === 'string') {
+            this.orderRequest = { fingerprint: previous.fingerprint, key: previous.key };
+          }
+        } catch { /* Storage may be unavailable; keep the in-memory retry key. */ }
+      }
+      if (this.orderRequest?.fingerprint !== fingerprint) {
+        this.orderRequest = { fingerprint, key: crypto.randomUUID() };
+      }
+      try { sessionStorage.setItem('vvv_checkout_attempt', JSON.stringify(this.orderRequest)); } catch { /* See above. */ }
+      const order = await firstValueFrom(this.orderSvc.createOrder(payload, this.orderRequest.key));
       const orderId = String(order?.orderId ?? order?._id ?? '').trim();
       if (!orderId) {
         throw new Error('ORDER_ID_MISSING');
       }
+      try { sessionStorage.removeItem('vvv_checkout_attempt'); } catch { /* See above. */ }
+      this.orderRequest = null;
 
       const selected = this.selectedIds();
       if (selected && selected.size > 0) {
@@ -365,7 +392,7 @@ export class CheckoutPageComponent implements OnInit {
               'Không tạo được link VNPay. Đơn hàng đã lưu, vui lòng thanh toán sau.',
           );
         } catch {
-          this.toast.warning('Không kết nối được VNPay. Đơn hàng đã lưu với phương thức COD.');
+          this.toast.warning('Không kết nối được VNPay. Đơn hàng đang chờ thanh toán và sẽ hết hạn nếu chưa trả.');
         }
       } else if (this.paymentMethod === 'momo') {
         try {

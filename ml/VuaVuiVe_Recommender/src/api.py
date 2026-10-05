@@ -7,7 +7,7 @@ warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', message='.*unpickle.*')
 
 from flask import Flask, request, jsonify
-from flask_cors import CORS
+import hmac
 from pathlib import Path
 import sys
 import os
@@ -28,7 +28,28 @@ from vvv_adapter import VVVInstacartAdapter
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app)  # Enable CORS cho frontend gọi được
+app.config['MAX_CONTENT_LENGTH'] = 65536
+PRODUCTION = os.getenv('ML_ENV') == 'production'
+ML_API_TOKEN = os.getenv('ML_API_TOKEN', '')
+if PRODUCTION and len(ML_API_TOKEN) < 32:
+    raise RuntimeError('Production ML requires ML_API_TOKEN with at least 32 characters')
+
+@app.before_request
+def authorize_internal_api():
+    if request.path == '/health':
+        return None
+    if ML_API_TOKEN and not hmac.compare_digest(request.headers.get('X-ML-Token', ''), ML_API_TOKEN):
+        return jsonify({'error': 'Unauthorized'}), 401
+    if request.method == 'POST':
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            return jsonify({'error': 'JSON object required'}), 400
+        n = data.get('n', 10)
+        if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= 20:
+            return jsonify({'error': 'n must be an integer between 1 and 20'}), 400
+        if request.path == '/api/batch-recommend':
+            if not isinstance(data.get('user_ids'), list) or len(data['user_ids']) > 50:
+                return jsonify({'error': 'Maximum 50 user IDs'}), 400
 
 # Load recommender (chỉ load 1 lần khi start server)
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -49,6 +70,8 @@ def is_valid_vvv_data_dir(path: Path) -> bool:
 
 def resolve_vvv_data_dir(project_root: Path) -> Path:
     env_dir = os.getenv('VVV_DATA_DIR', '').strip()
+    if PRODUCTION and (not env_dir or not Path(env_dir).is_absolute() or not is_valid_vvv_data_dir(Path(env_dir))):
+        raise RuntimeError('Production requires an absolute VVV_DATA_DIR with a trusted snapshot')
     if env_dir:
         candidate = Path(env_dir)
         if is_valid_vvv_data_dir(candidate):
@@ -90,10 +113,13 @@ else:
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
+    revision = os.environ.get('RENDER_GIT_COMMIT') or os.environ.get('RELEASE_SHA') or ''
     return jsonify({
         'status': 'ok',
         'message': 'Recommendation API is running',
         'adapter_ready': ADAPTER_READY,
+        'environment': os.getenv('APP_ENV', 'production' if PRODUCTION else 'local'),
+        'revision': revision if len(revision) == 40 and all(c in '0123456789abcdef' for c in revision) else None,
     })
 
 
@@ -505,9 +531,8 @@ def get_recommendations():
         })
         
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        app.logger.error('Recommendation failed: %s', type(e).__name__)
+        return jsonify({'error': 'Recommendation service error'}), 500
 
 
 @app.route('/api/similar', methods=['POST'])
@@ -637,7 +662,7 @@ def get_similar_items():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Recommendation service error'}), 500
 
 
 @app.route('/api/batch-recommend', methods=['POST'])
@@ -678,15 +703,17 @@ def batch_recommendations():
                     for pid, score in recs
                 ]
             except Exception as e:
-                results[str(user_id)] = {'error': str(e)}
+                results[str(user_id)] = {'error': 'Recommendation service error'}
         
         return jsonify({'results': results})
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Recommendation service error'}), 500
 
 
 if __name__ == '__main__':
+    if PRODUCTION:
+        raise RuntimeError('Use a production WSGI server with src.wsgi:app')
     # Run development server
     print("\n" + "="*50)
     print(" Recommendation API Server")
