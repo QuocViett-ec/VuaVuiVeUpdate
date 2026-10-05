@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const Shipment = require("../models/Shipment.model");
 const Order = require("../models/Order.model");
 const { publishToUser } = require("../services/realtime-bus");
-const { createAuditLog } = require("./user.controller");
+const lifecycle = require("../services/shipment-lifecycle");
 
 const SHIPMENT_STATUSES = [
   "pending",
@@ -28,137 +28,15 @@ function buildShipmentQuery(id) {
       };
 }
 
-function mapShipmentsToOrderStatus(shipments, fallback) {
-  const statuses = (Array.isArray(shipments) ? shipments : [])
-    .map((item) => String(item.currentStatus || "").toLowerCase())
-    .filter(Boolean);
-
-  if (!statuses.length) return fallback || "pending";
-  if (statuses.every((status) => status === "cancelled")) return "cancelled";
-  if (statuses.every((status) => status === "delivered")) return "delivered";
-  if (
-    statuses.some(
-      (status) =>
-        status === "in_transit" ||
-        status === "shipped" ||
-        status === "packed" ||
-        status === "picked",
-    )
-  ) {
-    return "shipping";
-  }
-  if (statuses.some((status) => status === "returned")) return "returned";
-  return fallback || "confirmed";
-}
-
-async function syncOrderStatusFromShipments(orderId) {
-  const order = await Order.findById(orderId);
-  if (!order) return null;
-
-  const shipments = await Shipment.find({ orderId })
-    .select("currentStatus deliveredAt")
-    .lean();
-  if (!shipments.length) return order;
-
-  const nextOrderStatus = mapShipmentsToOrderStatus(
-    shipments,
-    String(order.status || "pending"),
-  );
-  if (nextOrderStatus !== order.status) {
-    order.status = nextOrderStatus;
-  }
-
-  if (nextOrderStatus === "delivered") {
-    const deliveredAt = shipments
-      .map((row) => (row.deliveredAt ? new Date(row.deliveredAt).getTime() : 0))
-      .filter(Boolean)
-      .sort((a, b) => b - a)[0];
-    if (deliveredAt) {
-      order.deliveredAt = order.deliveredAt || new Date(deliveredAt);
-      order.payment = order.payment || {};
-      if (order.payment.status !== "refunded") {
-        order.payment.status = "paid";
-      }
-    }
-  }
-
-  await order.save();
-  return order;
-}
-
 exports.createShipmentForOrder = async (req, res, next) => {
   try {
-    const { orderId, carrier, trackingNumber, eta, shippingFee, note } =
-      req.body || {};
-
-    if (!mongoose.Types.ObjectId.isValid(String(orderId || ""))) {
-      return res
-        .status(400)
-        .json({ success: false, message: "orderId không hợp lệ" });
+    if (!mongoose.Types.ObjectId.isValid(String(req.body?.orderId || ""))) {
+      return res.status(400).json({ success: false, message: "orderId không hợp lệ." });
     }
-
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Không tìm thấy đơn hàng" });
-    }
-
-    const shipment = await Shipment.create({
-      orderId: order._id,
-      customerId: order.userId,
-      carrier: String(carrier || "internal")
-        .trim()
-        .toLowerCase(),
-      trackingNumber:
-        String(trackingNumber || "")
-          .trim()
-          .toUpperCase() || null,
-      eta: eta ? new Date(eta) : null,
-      shippingFee: Math.max(0, Number(shippingFee ?? 0)),
-      deliverySnapshot: {
-        name: String(order.delivery?.name || ""),
-        phone: String(order.delivery?.phone || ""),
-        address: String(order.delivery?.address || ""),
-        slot: String(order.delivery?.slot || ""),
-      },
-      statusHistory: [
-        {
-          status: "pending",
-          actorId: req.session?.userId || null,
-          source: "admin_create",
-          note: String(note || "Created by admin").slice(0, 500),
-        },
-      ],
-    });
-
-    const shipmentIds = Array.isArray(order.shipmentIds)
-      ? order.shipmentIds.map((id) => String(id))
-      : [];
-    if (!shipmentIds.includes(String(shipment._id))) {
-      order.shipmentIds = [...shipmentIds, String(shipment._id)];
-      await order.save();
-    }
-
-    await createAuditLog({
-      adminId: req.session?.userId,
-      action: "shipment.create",
-      target: `Shipment:${shipment._id}`,
-      details: {
-        orderId: String(order._id),
-        orderCode: String(order.orderId || ""),
-        carrier: shipment.carrier,
-        trackingNumber: shipment.trackingNumber || "",
-      },
-      ip: req.ip,
-    });
-
-    return res.status(201).json({ success: true, data: shipment });
-  } catch (err) {
-    next(err);
-  }
+    const shipment = await lifecycle.createShipment(req.body, { userId: req.session.userId, ip: req.ip });
+    res.status(201).json({ success: true, data: shipment });
+  } catch (err) { next(err); }
 };
-
 exports.listMyShipments = async (req, res, next) => {
   try {
     const page = Math.max(1, Number.parseInt(req.query?.page, 10) || 1);
@@ -301,88 +179,11 @@ exports.listShipmentsAdmin = async (req, res, next) => {
 
 exports.updateShipment = async (req, res, next) => {
   try {
-    const shipment = await Shipment.findOne(buildShipmentQuery(req.params.id));
-    if (!shipment) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Không tìm thấy shipment" });
-    }
-
-    const nextStatus = req.body?.currentStatus
-      ? String(req.body.currentStatus).trim().toLowerCase()
-      : null;
-    if (nextStatus && !SHIPMENT_STATUSES.includes(nextStatus)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "currentStatus không hợp lệ" });
-    }
-
-    const previousStatus = shipment.currentStatus;
-
-    if (req.body?.carrier !== undefined) {
-      shipment.carrier = String(req.body.carrier || "internal")
-        .trim()
-        .toLowerCase();
-    }
-    if (req.body?.trackingNumber !== undefined) {
-      shipment.trackingNumber =
-        String(req.body.trackingNumber || "")
-          .trim()
-          .toUpperCase() || null;
-    }
-    if (req.body?.eta !== undefined) {
-      shipment.eta = req.body.eta ? new Date(req.body.eta) : null;
-    }
-    if (req.body?.shippingFee !== undefined) {
-      shipment.shippingFee = Math.max(0, Number(req.body.shippingFee || 0));
-    }
-
-    if (nextStatus && nextStatus !== shipment.currentStatus) {
-      shipment.currentStatus = nextStatus;
-      if (nextStatus === "delivered") {
-        shipment.deliveredAt = shipment.deliveredAt || new Date();
-      }
-      shipment.statusHistory = Array.isArray(shipment.statusHistory)
-        ? shipment.statusHistory
-        : [];
-      shipment.statusHistory.push({
-        status: nextStatus,
-        actorId: req.session?.userId || null,
-        source: "admin_update",
-        note: String(req.body?.note || "").slice(0, 500),
-      });
-    }
-
-    await shipment.save();
-    const order = await syncOrderStatusFromShipments(shipment.orderId);
-
-    await createAuditLog({
-      adminId: req.session?.userId,
-      action: "shipment.update",
-      target: `Shipment:${shipment._id}`,
-      details: {
-        previousStatus,
-        nextStatus: shipment.currentStatus,
-        orderId: String(shipment.orderId || ""),
-        trackingNumber: shipment.trackingNumber || "",
-      },
-      ip: req.ip,
+    const { shipment, order } = await lifecycle.updateShipment(buildShipmentQuery(req.params.id), req.body || {}, { userId: req.session.userId, ip: req.ip });
+    publishToUser(order.userId, "order.status_updated", {
+      orderId: order.orderId, dbId: String(order._id), status: order.status,
+      paymentStatus: order.payment.status, updatedAt: order.updatedAt, source: "shipment_update",
     });
-
-    if (order) {
-      publishToUser(order.userId, "order.status_updated", {
-        orderId: String(order.orderId || ""),
-        dbId: String(order._id),
-        userId: String(order.userId || ""),
-        status: order.status,
-        paymentStatus: String(order.payment?.status || "pending"),
-        updatedAt: order.updatedAt,
-        source: "shipment_update",
-      });
-    }
-
-    return res.json({ success: true, data: shipment });
-  } catch (err) {
-    next(err);
-  }
+    res.json({ success: true, data: shipment });
+  } catch (err) { next(err); }
 };

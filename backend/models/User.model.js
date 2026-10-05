@@ -41,6 +41,7 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
     isActive: { type: Boolean, default: true },
+    sessionVersion: { type: Number, default: 0 },
     resetPasswordToken: { type: String, select: false },
     resetPasswordExpires: { type: Date, select: false },
     passwordResetOtpHash: { type: String, select: false },
@@ -53,6 +54,7 @@ const userSchema = new mongoose.Schema(
 // Hash password before save (only for local provider)
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password") || !this.password) return next();
+  this.sessionVersion = Number(this.sessionVersion || 0) + 1;
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
   next();

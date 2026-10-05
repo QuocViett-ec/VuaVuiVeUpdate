@@ -15,7 +15,7 @@ import { RouterLink } from '@angular/router';
               <path d="M5 18H3c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2h-1M5 18c0 1.1.9 2 2 2s2-.9 2-2M5 18c0-1.1-.9-2-2-2s-2 .9-2 2M17 18c0 1.1.9 2 2 2s2-.9 2-2M17 18c0-1.1-.9-2-2-2s-2 .9-2 2m5-3V9h4l3 3v3h-7z"/>
             </svg>
             <div class="text">
-              <strong>Freeship > 299k</strong>
+              <strong>Freeship t? 300k</strong>
               <small>Giao hàng trong ngày</small>
             </div>
           </div>

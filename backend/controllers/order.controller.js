@@ -7,8 +7,10 @@ const Review = require("../models/Review.model");
 const Voucher = require("../models/Voucher.model");
 const Shipment = require("../models/Shipment.model");
 const { publishToUser } = require("../services/realtime-bus");
-const { createAuditLog } = require("./user.controller");
-const { validateVoucher, markVoucherUsed } = require("./voucher.controller");
+const { validateVoucher } = require("./voucher.controller");
+const { isPaymentMethodEnabled } = require("../config/payment");
+const lifecycle = require("../services/order-lifecycle");
+const { fail: lifecycleError } = require("../services/order-rules");
 
 const VALID_STATUSES = [
   "pending",
@@ -22,24 +24,10 @@ const VALID_STATUSES = [
   "returned",
   "refunded",
 ];
-const CANCELLABLE_STATUSES = ["pending", "confirmed"];
 const RETURN_WINDOW_DAYS = Math.max(
   1,
   Number.parseInt(process.env.ORDER_RETURN_WINDOW_DAYS || "7", 10) || 7,
 );
-const ALLOWED_TRANSITIONS = {
-  pending: ["confirmed", "cancelled"],
-  confirmed: ["shipping", "cancelled"],
-  shipping: ["delivered"],
-  delivered: ["return_requested"],
-  cancelled: [],
-  return_requested: ["return_approved", "return_rejected"],
-  return_approved: ["returned", "refunded"],
-  return_rejected: [],
-  returned: ["refunded"],
-  refunded: [],
-};
-
 function buildOrderQuery(id) {
   const isObjectId = /^[a-f\d]{24}$/i.test(id);
   return isObjectId ? { $or: [{ _id: id }, { orderId: id }] } : { orderId: id };
@@ -80,15 +68,6 @@ function enrichOrderItemsWithProduct(order, productMap) {
   };
 }
 
-function mapOrderStatusToShipmentStatus(orderStatus) {
-  const normalized = String(orderStatus || "").toLowerCase();
-  if (normalized === "shipping") return "in_transit";
-  if (normalized === "delivered") return "delivered";
-  if (normalized === "cancelled") return "cancelled";
-  if (normalized === "returned" || normalized === "refunded") return "returned";
-  return "pending";
-}
-
 function withShipmentData(order, shipmentMapByOrderId) {
   const orderId = String(order?._id || "");
   const shipments = shipmentMapByOrderId.get(orderId) || [];
@@ -127,90 +106,6 @@ async function attachShipmentsToOrders(orders) {
   return list.map((order) => withShipmentData(order, shipmentMapByOrderId));
 }
 
-async function ensureInitialShipmentForOrder(order, source = "order_create") {
-  if (!order?._id || !order?.userId) return null;
-
-  const existing = await Shipment.findOne({ orderId: order._id })
-    .sort({ createdAt: 1 })
-    .lean();
-  if (existing) {
-    if (!Array.isArray(order.shipmentIds) || !order.shipmentIds.length) {
-      order.shipmentIds = [existing._id];
-      await order.save();
-    }
-    return existing;
-  }
-
-  const mappedStatus = mapOrderStatusToShipmentStatus(order.status);
-  const shipment = await Shipment.create({
-    orderId: order._id,
-    customerId: order.userId,
-    shippingFee: Number(order.shippingFee || 0),
-    currentStatus: mappedStatus,
-    deliveredAt:
-      mappedStatus === "delivered" ? order.deliveredAt || new Date() : null,
-    deliverySnapshot: {
-      name: String(order.delivery?.name || ""),
-      phone: String(order.delivery?.phone || ""),
-      address: String(order.delivery?.address || ""),
-      slot: String(order.delivery?.slot || ""),
-    },
-    statusHistory: [
-      {
-        status: mappedStatus,
-        actorId: null,
-        source,
-        note: `Initialized from order status: ${String(order.status || "pending")}`,
-      },
-    ],
-  });
-
-  order.shipmentIds = [shipment._id];
-  await order.save();
-  return shipment.toObject();
-}
-
-async function syncShipmentsForOrderStatus(order, options = {}) {
-  if (!order?._id) return;
-
-  const actorId = options.actorId || null;
-  const source = String(options.source || "order_status_sync");
-  const note = String(options.note || "");
-  const nextShipmentStatus = mapOrderStatusToShipmentStatus(order.status);
-
-  const shipments = await Shipment.find({ orderId: order._id });
-  if (!shipments.length) {
-    await ensureInitialShipmentForOrder(order, source);
-    return;
-  }
-
-  await Promise.all(
-    shipments.map(async (shipment) => {
-      if (shipment.currentStatus === nextShipmentStatus) return;
-
-      shipment.currentStatus = nextShipmentStatus;
-      if (nextShipmentStatus === "delivered") {
-        shipment.deliveredAt =
-          shipment.deliveredAt || order.deliveredAt || new Date();
-      }
-      shipment.statusHistory = Array.isArray(shipment.statusHistory)
-        ? shipment.statusHistory
-        : [];
-      shipment.statusHistory.push({
-        status: nextShipmentStatus,
-        at: new Date(),
-        actorId:
-          actorId && mongoose.Types.ObjectId.isValid(String(actorId))
-            ? actorId
-            : null,
-        source,
-        note,
-      });
-      await shipment.save();
-    }),
-  );
-}
-
 function isWithinReturnWindow(order) {
   const baseDate = order?.deliveredAt || order?.updatedAt || order?.createdAt;
   if (!baseDate) return false;
@@ -241,25 +136,6 @@ function estimateVoucherDiscount(voucher, subtotal, shippingFee) {
     return cap > 0 ? Math.min(discount, cap) : discount;
   }
   return 0;
-}
-
-async function restockOrderItemsIdempotent(order) {
-  order.returnRequest = order.returnRequest || {};
-  if (order.returnRequest.stockRestocked) {
-    return false;
-  }
-
-  const items = Array.isArray(order.items) ? order.items : [];
-  await Promise.all(
-    items.map((item) =>
-      Product.findByIdAndUpdate(item.productId, {
-        $inc: { stock: Math.max(0, Number(item.quantity || 0)) },
-      }),
-    ),
-  );
-
-  order.returnRequest.stockRestocked = true;
-  return true;
 }
 
 /**
@@ -323,7 +199,7 @@ exports.submitOrderReviews = async (req, res, next) => {
     }
 
     const status = String(order.status || "");
-    if (status !== "delivered" && status !== "confirmed") {
+    if (status !== "delivered") {
       return res.status(400).json({
         success: false,
         message: "Chỉ có thể đánh giá khi đơn hàng đã xác nhận hoặc đã giao",
@@ -550,173 +426,31 @@ exports.validateVoucherForCheckout = async (req, res, next) => {
  */
 exports.createOrder = async (req, res, next) => {
   try {
-    const {
-      items,
-      delivery,
-      payment,
-      voucherCode,
-      shippingFee,
-      discount,
-      subtotal,
-      totalAmount,
-      note,
-    } = req.body;
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Đơn hàng phải có ít nhất một sản phẩm",
-      });
+    const body = req.body || {};
+    const method = body.payment?.method ?? "cod";
+    if (!["cod", "vnpay", "momo"].includes(method)) {
+      return res.status(400).json({ success: false, message: "Phương thức thanh toán không hợp lệ." });
     }
-
-    const invalidIdItem = items.find(
-      (item) => !mongoose.Types.ObjectId.isValid(String(item?.productId || "")),
-    );
-    if (invalidIdItem) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Giỏ hàng có sản phẩm không hợp lệ. Vui lòng cập nhật lại giỏ hàng.",
-      });
+    if (!isPaymentMethodEnabled(method)) {
+      return res.status(503).json({ success: false, message: "Phương thức thanh toán này đang tạm ngưng. Vui lòng chọn thanh toán khi nhận hàng." });
     }
-
-    const productIds = items.map((item) => String(item.productId));
-    const uniqueProductIds = [...new Set(productIds)];
-    const foundCount = await Product.countDocuments({
-      _id: { $in: uniqueProductIds },
-    });
-    if (foundCount !== uniqueProductIds.length) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Một số sản phẩm không còn tồn tại. Vui lòng tải lại giỏ hàng.",
-      });
+    if (!Array.isArray(body.items) || !body.items.length || body.items.length > 100) {
+      return res.status(400).json({ success: false, message: "Đơn hàng phải có ít nhất một sản phẩm" });
     }
-
-    const products = await Product.find({ _id: { $in: uniqueProductIds } })
-      .select("name stock isActive")
-      .lean();
-    const productMap = new Map(products.map((p) => [String(p._id), p]));
-
-    const quantityByProductId = new Map();
-    for (const item of items) {
-      const id = String(item.productId);
-      const qty = Math.max(1, Number(item.quantity || 0));
-      quantityByProductId.set(id, (quantityByProductId.get(id) || 0) + qty);
+    if (body.items.some((i) => !i || !mongoose.Types.ObjectId.isValid(String(i.productId || "")))) {
+      return res.status(400).json({ success: false, message: "Sản phẩm không hợp lệ." });
     }
-
-    for (const [productId, quantity] of quantityByProductId.entries()) {
-      const product = productMap.get(productId);
-      if (!product || product.isActive === false) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Một số sản phẩm đang tạm ngưng bán. Vui lòng cập nhật giỏ hàng.",
-        });
-      }
-      if (Number(product.stock || 0) < quantity) {
-        return res.status(400).json({
-          success: false,
-          message: `Sản phẩm \"${product.name}\" chỉ còn ${Math.max(0, Number(product.stock || 0))} trong kho.`,
-        });
-      }
+    if (!body.delivery || ["name", "phone", "address"].some((field) =>
+      typeof body.delivery[field] !== "string" || !body.delivery[field].trim() || body.delivery[field].length > 500)) {
+      return res.status(400).json({ success: false, message: "Thông tin giao hàng không hợp lệ." });
     }
-
-    if (!delivery || !delivery.name || !delivery.phone || !delivery.address) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Thông tin giao hàng không đầy đủ" });
+    if (!/^0[3-9]\d{8}$/.test(body.delivery.phone.trim())) {
+      return res.status(400).json({ success: false, message: "Số điện thoại giao hàng không hợp lệ." });
     }
-
-    if (subtotal === undefined || totalAmount === undefined) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Thiếu thông tin tổng tiền" });
-    }
-
-    let validatedDiscount = Number(discount ?? 0);
-    let normalizedVoucherCode = String(voucherCode || "")
-      .trim()
-      .toUpperCase();
-    let voucherId = null;
-
-    if (normalizedVoucherCode) {
-      const voucherResult = await validateVoucher({
-        code: normalizedVoucherCode,
-        subtotal: Number(subtotal),
-        shippingFee: Number(shippingFee ?? 0),
-      });
-
-      if (!voucherResult.ok) {
-        return res.status(400).json({
-          success: false,
-          message: voucherResult.message,
-        });
-      }
-      voucherId = voucherResult?.voucher?._id || null;
-
-      if (voucherResult.type === "ship") {
-        validatedDiscount = Number(shippingFee ?? 0);
-      } else if (voucherResult.type === "percent") {
-        const percentValue = Math.round(
-          (Number(subtotal) * Number(voucherResult.value || 0)) / 100,
-        );
-        const cap = Number(voucherResult.cap || 0);
-        validatedDiscount =
-          cap > 0 ? Math.min(percentValue, cap) : percentValue;
-      } else {
-        validatedDiscount = Number(voucherResult.value || 0);
-      }
-    }
-
-    const order = await Order.create({
-      userId: req.session.userId,
-      items,
-      delivery,
-      payment,
-      voucherId,
-      voucherCode: normalizedVoucherCode,
-      shippingFee: shippingFee ?? 0,
-      discount: validatedDiscount,
-      subtotal: Number(subtotal),
-      totalAmount: Math.max(
-        0,
-        Number(subtotal) + Number(shippingFee ?? 0) - validatedDiscount,
-      ),
-      note,
-    });
-
-    await ensureInitialShipmentForOrder(order, "order_create");
-
-    if (normalizedVoucherCode) {
-      await markVoucherUsed(normalizedVoucherCode);
-    }
-
-    // Giảm stock sau khi đặt hàng thành công
-    await Promise.all(
-      items.map((item) =>
-        Product.findByIdAndUpdate(item.productId, {
-          $inc: { stock: -Math.max(0, item.quantity) },
-        }),
-      ),
-    );
-
-    return res.status(201).json({
-      success: true,
-      message: "Đặt hàng thành công",
-      data: {
-        orderId: order.orderId,
-        _id: order._id,
-        shipmentIds: order.shipmentIds,
-        totalAmount: order.totalAmount,
-        subtotal: order.subtotal,
-      },
-    });
-  } catch (err) {
-    next(err);
-  }
+    const result = await lifecycle.createOrder(req.session.userId, body, req.get("Idempotency-Key"));
+    return res.status(result.replayed ? 200 : 201).json({ success: true, data: result.order, replayed: result.replayed });
+  } catch (err) { next(err); }
 };
-
 /**
  * GET /api/orders/me  (auth required)
  */
@@ -837,181 +571,34 @@ exports.getOrderById = async (req, res, next) => {
  */
 exports.updateStatus = async (req, res, next) => {
   try {
-    const { status } = req.body;
-    const id = req.params.id;
-
-    if (!status || !VALID_STATUSES.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Trạng thái không hợp lệ. Giá trị cho phép: ${VALID_STATUSES.join(", ")}`,
-      });
+    if (!["confirmed", "shipping", "delivered", "cancelled", "returned"].includes(req.body?.status)) {
+      return res.status(400).json({ success: false, message: "Use the dedicated return/refund workflow." });
     }
-
-    const isObjectId = /^[a-f\d]{24}$/i.test(id);
-    const query = isObjectId
-      ? { $or: [{ _id: id }, { orderId: id }] }
-      : { orderId: id };
-
-    const order = await Order.findOne(query);
-
-    if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Không tìm thấy đơn hàng" });
-    }
-
-    const previousStatus = String(order.status || "");
-    const previousPaymentStatus = String(order.payment?.status || "pending");
-
-    if (previousStatus === status) {
-      return res.json({
-        success: true,
-        message: "Đơn hàng đã ở trạng thái này",
-        data: order,
-      });
-    }
-
-    const allowedNext = ALLOWED_TRANSITIONS[previousStatus] || [];
-    if (!allowedNext.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Không thể chuyển từ ${previousStatus} sang ${status}`,
-      });
-    }
-
-    order.status = status;
-    if (status === "delivered") {
-      order.payment = order.payment || {};
-      order.payment.status = "paid";
-      order.deliveredAt = order.deliveredAt || new Date();
-    }
-    if (status === "returned") {
-      await restockOrderItemsIdempotent(order);
-    }
-    if (status === "refunded") {
-      await restockOrderItemsIdempotent(order);
-      order.payment = order.payment || {};
-      order.payment.status = "refunded";
-      order.returnRequest = order.returnRequest || {};
-      order.returnRequest.status = "refunded";
-      order.returnRequest.reviewedAt =
-        order.returnRequest.reviewedAt || new Date();
-      order.returnRequest.reviewedBy =
-        order.returnRequest.reviewedBy || req.session.userId;
-    }
-    await order.save();
-    await syncShipmentsForOrderStatus(order, {
-      actorId: req.session.userId,
-      source: "admin_status_update",
-      note: `Order status changed to ${status}`,
+    const order = await lifecycle.transition(req.params.id, req.body?.status, {
+      userId: req.session.userId, role: req.session.role, ip: req.ip,
     });
-
-    const paymentStatus = String(order.payment?.status || "pending");
-
-    await createAuditLog({
-      adminId: req.session.userId,
-      action: "order.update",
-      target: `Order:${order.orderId || order._id}`,
-      details: {
-        previousStatus,
-        nextStatus: order.status,
-        previousPaymentStatus,
-        nextPaymentStatus: paymentStatus,
-      },
-      ip: req.ip,
-    });
-
     publishToUser(order.userId, "order.status_updated", {
-      orderId: String(order.orderId || ""),
-      dbId: String(order._id),
-      userId: String(order.userId || ""),
-      status: order.status,
-      paymentStatus,
-      previousStatus,
-      previousPaymentStatus,
-      updatedAt: order.updatedAt,
-      source: "admin",
+      orderId: order.orderId, dbId: String(order._id), status: order.status,
+      paymentStatus: order.payment.status, updatedAt: order.updatedAt, source: "admin",
     });
-
-    return res.json({
-      success: true,
-      message: "Cập nhật trạng thái thành công",
-      data: order,
-    });
-  } catch (err) {
-    next(err);
-  }
+    res.json({ success: true, data: order });
+  } catch (err) { next(err); }
 };
-
 /**
  * PATCH /api/orders/:id/cancel  (auth: owner or admin)
  */
 exports.cancelOrder = async (req, res, next) => {
   try {
-    const id = req.params.id;
-    const isObjectId = /^[a-f\d]{24}$/i.test(id);
-    const query = isObjectId
-      ? { $or: [{ _id: id }, { orderId: id }] }
-      : { orderId: id };
-
-    const order = await Order.findOne(query);
-    if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "KhÃ´ng tÃ¬m tháº¥y Ä‘Æ¡n hÃ ng" });
-    }
-
-    const isOwner = order.userId.toString() === req.session.userId;
-    const isAdmin = req.session.role === "admin";
-    if (!isOwner && !isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: "KhÃ´ng cÃ³ quyá»n thá»±c hiá»‡n hÃ nh Ä‘á»™ng nÃ y",
-      });
-    }
-
-    if (order.status === "cancelled") {
-      return res.json({
-        success: true,
-        message: "ÄÆ¡n hÃ ng Ä‘Ã£ á»Ÿ tráº¡ng thÃ¡i há»§y",
-        data: order,
-      });
-    }
-
-    if (!CANCELLABLE_STATUSES.includes(order.status)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Chá»‰ cÃ³ thá»ƒ há»§y Ä‘Æ¡n khi Ä‘ang chá» xÃ¡c nháº­n hoáº·c Ä‘Ã£ xÃ¡c nháº­n",
-      });
-    }
-
-    order.status = "cancelled";
-    await order.save();
-    await syncShipmentsForOrderStatus(order, {
-      actorId: req.session.userId,
-      source: "order_cancel",
-      note: "Order was cancelled",
+    const order = await lifecycle.transition(req.params.id, "cancelled", {
+      userId: req.session.userId, role: req.session.role, ip: req.ip,
+    }, true);
+    publishToUser(order.userId, "order.status_updated", {
+      orderId: order.orderId, dbId: String(order._id), status: order.status,
+      paymentStatus: order.payment.status, updatedAt: order.updatedAt, source: "order_cancel",
     });
-
-    await Promise.all(
-      order.items.map((item) =>
-        Product.findByIdAndUpdate(item.productId, {
-          $inc: { stock: Math.max(0, item.quantity) },
-        }),
-      ),
-    );
-
-    return res.json({
-      success: true,
-      message: "Há»§y Ä‘Æ¡n hÃ ng thÃ nh cÃ´ng",
-      data: order,
-    });
-  } catch (err) {
-    next(err);
-  }
+    res.json({ success: true, data: order });
+  } catch (err) { next(err); }
 };
-
 /**
  * PATCH /api/orders/:id/paid  (admin/staff only — route-level guarded)
  * Đánh dấu đơn hàng đã thanh toán thủ công (internal/admin chỉnh sửa).
@@ -1020,326 +607,72 @@ exports.cancelOrder = async (req, res, next) => {
  */
 exports.markOrderPaid = async (req, res, next) => {
   try {
-    // route đã được bảo vệ bởi requireBackofficeRole("admin","staff")
-    // nhưng vẫn kiểm tra thêm để tránh nhầm lẫn
-    const isAdmin =
-      req.session.role === "admin" || req.session.role === "staff";
-    if (!isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Chỉ admin/staff mới có thể cập nhật trạng thái thanh toán thủ công",
-      });
-    }
-
-    const gateway = String(req.body?.gateway || "").trim();
-    const transactionId = String(req.body?.transactionId || "").trim();
-
-    if (!gateway) {
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu gateway (momo | vnpay | cod | ...)",
-      });
-    }
-    if (!transactionId) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Thiếu transactionId — không thể đánh dấu paid không có mã giao dịch",
-      });
-    }
-
-    const isObjectId = /^[a-f\d]{24}$/i.test(req.params.id);
-    const query = isObjectId
-      ? { $or: [{ _id: req.params.id }, { orderId: req.params.id }] }
-      : { orderId: req.params.id };
-
-    const order = await Order.findOne(query);
-    if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Không tìm thấy đơn hàng" });
-    }
-
-    if (order.payment?.status === "paid") {
-      return res.json({
-        success: true,
-        message: "Đơn hàng đã ở trạng thái thanh toán (idempotent)",
-        data: order,
-      });
-    }
-
-    const expectedMethod = String(order.payment?.method || "");
-    if (expectedMethod && expectedMethod !== gateway) {
-      return res.status(400).json({
-        success: false,
-        message: `Gateway không khớp: đơn dùng ${expectedMethod}, nhưng nhận ${gateway}`,
-      });
-    }
-
-    order.payment = order.payment || {};
-    order.payment.status = "paid";
-    order.payment.gateway = gateway;
-    order.payment.transactionId = transactionId;
-    order.payment.transactionTime = new Date();
-    order.payment.amount = Number(order.totalAmount || 0);
-    await order.save();
-
-    console.log(
-      JSON.stringify({
-        event: "admin.mark_paid",
-        gateway,
-        orderId: String(order.orderId || ""),
-        transactionId,
-        adminId: req.session.userId,
-        source: "admin_manual",
-      }),
-    );
-
-    publishToUser(order.userId, "order.status_updated", {
-      orderId: String(order.orderId || ""),
-      dbId: String(order._id),
-      userId: String(order.userId || ""),
-      status: order.status,
-      paymentStatus: "paid",
-      updatedAt: order.updatedAt,
-      source: "admin_manual",
-    });
-
-    return res.json({
-      success: true,
-      message: "Cập nhật trạng thái thanh toán thành công",
-      data: order,
-    });
-  } catch (err) {
-    next(err);
-  }
+    if (!["admin", "staff"].includes(req.session.role)) return res.status(403).json({ success: false });
+    if (req.body?.gateway !== "cod") return res.status(400).json({ success: false, message: "Online payments require a verified provider callback." });
+    const order = await lifecycle.recordCodPayment(req.params.id, req.body.transactionId, { userId: req.session.userId, ip: req.ip });
+    publishToUser(order.userId, "order.status_updated", { orderId: order.orderId, status: order.status, paymentStatus: order.payment.status });
+    res.json({ success: true, data: order });
+  } catch (err) { next(err); }
 };
-
 /**
  * POST /api/orders/:id/return-request (auth: owner)
  */
 exports.requestReturn = async (req, res, next) => {
   try {
-    const id = req.params.id;
-    const query = buildOrderQuery(id);
-    const order = await Order.findOne(query);
-    if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Không tìm thấy đơn hàng" });
-    }
-
-    const isOwner = String(order.userId) === String(req.session.userId);
-    if (!isOwner) {
-      return res.status(403).json({
-        success: false,
-        message: "Bạn không có quyền yêu cầu trả hàng cho đơn này",
-      });
-    }
-
-    if (String(order.status) !== "delivered") {
-      return res.status(400).json({
-        success: false,
-        message: "Chỉ có thể yêu cầu trả hàng khi đơn đã giao",
-      });
-    }
-
-    if (!isWithinReturnWindow(order)) {
-      return res.status(400).json({
-        success: false,
-        message: `Đơn đã quá thời hạn trả hàng (${RETURN_WINDOW_DAYS} ngày)`,
-      });
-    }
-
     const reason = String(req.body?.reason || "").trim();
-    const note = String(req.body?.note || "").trim();
-    const images = Array.isArray(req.body?.images)
-      ? req.body.images.map((item) => String(item || "").trim()).filter(Boolean)
-      : [];
-
-    if (reason.length < 5) {
-      return res.status(400).json({
-        success: false,
-        message: "Vui lòng nhập lý do trả hàng (ít nhất 5 ký tự)",
-      });
-    }
-
-    order.status = "return_requested";
-    order.returnRequest = {
-      status: "pending",
-      stockRestocked: false,
-      requestedAt: new Date(),
-      reason,
-      note,
-      images,
-      reviewedAt: null,
-      reviewedBy: null,
-      reviewNote: "",
-    };
-    await order.save();
-
-    publishToUser(order.userId, "order.status_updated", {
-      orderId: String(order.orderId || ""),
-      dbId: String(order._id),
-      userId: String(order.userId || ""),
-      status: order.status,
-      paymentStatus: String(order.payment?.status || "pending"),
-      updatedAt: order.updatedAt,
-      source: "customer_return_request",
+    if (reason.length < 5 || reason.length > 1000) return res.status(400).json({ success: false, message: "Return reason must contain 5-1000 characters." });
+    const order = await lifecycle.transaction(async (session) => {
+      const current = await Order.findOne(buildOrderQuery(req.params.id)).session(session);
+      if (!current) lifecycleError(404, "Order not found.");
+      if (String(current.userId) !== String(req.session.userId)) lifecycleError(403, "Order does not belong to this user.");
+      if (current.status !== "delivered" || !isWithinReturnWindow(current)) lifecycleError(409, "Order is outside the return window.");
+      current.returnRequest = {
+        status: "pending", requestedAt: new Date(), reason,
+        note: String(req.body?.note || "").slice(0, 1000),
+        images: Array.isArray(req.body?.images) ? req.body.images.filter((i) => typeof i === "string").slice(0, 5) : [],
+      };
+      return lifecycle.transitionInSession(current, "return_requested", { userId: req.session.userId, ip: req.ip }, session);
     });
-
-    return res.json({
-      success: true,
-      message: "Đã gửi yêu cầu trả hàng",
-      data: order,
-    });
-  } catch (err) {
-    next(err);
-  }
+    publishToUser(order.userId, "order.status_updated", { orderId: order.orderId, status: order.status, paymentStatus: order.payment.status });
+    res.json({ success: true, data: order });
+  } catch (err) { next(err); }
 };
-
 /**
  * PUT /api/orders/:id/return-review (admin/staff)
  */
 exports.reviewReturnRequest = async (req, res, next) => {
   try {
-    const order = await Order.findOne(buildOrderQuery(req.params.id));
-    if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Không tìm thấy đơn hàng" });
-    }
-
-    if (String(order.status) !== "return_requested") {
-      return res.status(400).json({
-        success: false,
-        message: "Đơn hàng chưa ở trạng thái chờ duyệt trả hàng",
-      });
-    }
-
-    const decision = String(req.body?.decision || "")
-      .trim()
-      .toLowerCase();
-    const reviewNote = String(req.body?.reviewNote || "").trim();
-
-    if (!["approve", "reject"].includes(decision)) {
-      return res.status(400).json({
-        success: false,
-        message: "decision phải là approve hoặc reject",
-      });
-    }
-
-    const nextStatus =
-      decision === "approve" ? "return_approved" : "return_rejected";
-    order.status = nextStatus;
-    order.returnRequest = order.returnRequest || {};
-    order.returnRequest.status =
-      decision === "approve" ? "approved" : "rejected";
-    order.returnRequest.reviewedAt = new Date();
-    order.returnRequest.reviewedBy = req.session.userId;
-    order.returnRequest.reviewNote = reviewNote;
-    await order.save();
-
-    await createAuditLog({
-      adminId: req.session.userId,
-      action: "order.return_review",
-      target: `Order:${order.orderId || order._id}`,
-      details: {
-        decision,
-        previousStatus: "return_requested",
-        nextStatus,
-      },
-      ip: req.ip,
+    const decision = req.body?.decision;
+    if (!["approve", "reject"].includes(decision)) return res.status(400).json({ success: false, message: "Invalid return decision." });
+    const order = await lifecycle.transaction(async (session) => {
+      const current = await Order.findOne(buildOrderQuery(req.params.id)).session(session);
+      if (!current) lifecycleError(404, "Order not found.");
+      if (current.status !== "return_requested") lifecycleError(409, "Return request was already reviewed.");
+      current.returnRequest.status = decision === "approve" ? "approved" : "rejected";
+      current.returnRequest.reviewedAt = new Date();
+      current.returnRequest.reviewedBy = req.session.userId;
+      current.returnRequest.reviewNote = String(req.body?.reviewNote || "").slice(0, 1000);
+      return lifecycle.transitionInSession(current, decision === "approve" ? "return_approved" : "return_rejected", { userId: req.session.userId, ip: req.ip }, session);
     });
-
-    publishToUser(order.userId, "order.status_updated", {
-      orderId: String(order.orderId || ""),
-      dbId: String(order._id),
-      userId: String(order.userId || ""),
-      status: order.status,
-      paymentStatus: String(order.payment?.status || "pending"),
-      updatedAt: order.updatedAt,
-      source: "admin_return_review",
-    });
-
-    return res.json({
-      success: true,
-      message: "Đã xử lý yêu cầu trả hàng",
-      data: order,
-    });
-  } catch (err) {
-    next(err);
-  }
+    publishToUser(order.userId, "order.status_updated", { orderId: order.orderId, status: order.status, paymentStatus: order.payment.status });
+    res.json({ success: true, data: order });
+  } catch (err) { next(err); }
 };
-
 /**
  * PATCH /api/orders/:id/refund (admin)
  */
 exports.markOrderRefunded = async (req, res, next) => {
   try {
-    const order = await Order.findOne(buildOrderQuery(req.params.id));
-    if (!order) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Không tìm thấy đơn hàng" });
-    }
-
-    if (!["return_approved", "returned"].includes(String(order.status))) {
-      return res.status(400).json({
-        success: false,
-        message: "Chỉ hoàn tiền cho đơn đã duyệt trả hoặc đã nhận hàng trả",
-      });
-    }
-
-    order.status = "refunded";
-    order.payment = order.payment || {};
-    order.payment.status = "refunded";
-    order.returnRequest = order.returnRequest || {};
-    await restockOrderItemsIdempotent(order);
-    order.returnRequest.status = "refunded";
-    order.returnRequest.reviewedAt =
-      order.returnRequest.reviewedAt || new Date();
-    order.returnRequest.reviewedBy =
-      order.returnRequest.reviewedBy || req.session.userId;
-    await order.save();
-    await syncShipmentsForOrderStatus(order, {
-      actorId: req.session.userId,
-      source: "admin_refund",
-      note: "Order refunded",
+    const order = await lifecycle.refund(req.params.id, req.body || {}, {
+      userId: req.session.userId, role: req.session.role, ip: req.ip,
     });
-
-    await createAuditLog({
-      adminId: req.session.userId,
-      action: "order.refund",
-      target: `Order:${order.orderId || order._id}`,
-      details: {
-        nextStatus: "refunded",
-        paymentStatus: "refunded",
-      },
-      ip: req.ip,
-    });
-
     publishToUser(order.userId, "order.status_updated", {
-      orderId: String(order.orderId || ""),
-      dbId: String(order._id),
-      userId: String(order.userId || ""),
-      status: order.status,
-      paymentStatus: "refunded",
-      updatedAt: order.updatedAt,
-      source: "admin_refund",
+      orderId: order.orderId, dbId: String(order._id), status: order.status,
+      paymentStatus: order.payment.status, updatedAt: order.updatedAt, source: "admin_refund",
     });
-
-    return res.json({
-      success: true,
-      message: "Đã đánh dấu hoàn tiền",
-      data: order,
-    });
-  } catch (err) {
-    next(err);
-  }
+    res.json({ success: true, message: "Đã ghi nhận bằng chứng hoàn tiền.", data: order });
+  } catch (err) { next(err); }
 };
-
 /**
  * GET /api/admin/orders  (admin only)
  * Query: ?status=&page=&limit=
@@ -1401,72 +734,25 @@ exports.getAllOrders = async (req, res, next) => {
  */
 exports.bulkUpdateStatus = async (req, res, next) => {
   try {
-    const { orderIds = [], status } = req.body || {};
-
-    if (!Array.isArray(orderIds) || orderIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Danh sách orderIds không hợp lệ",
-      });
+    const { orderIds, status } = req.body || {};
+    if (!Array.isArray(orderIds) || !orderIds.length || orderIds.length > 100 ||
+        orderIds.some((id) => typeof id !== "string") || !["confirmed", "shipping", "delivered", "cancelled", "returned"].includes(status)) {
+      return res.status(400).json({ success: false, message: "Danh sách đơn/trạng thái không hợp lệ." });
     }
-
-    if (!status || !VALID_STATUSES.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: `Trạng thái không hợp lệ. Giá trị cho phép: ${VALID_STATUSES.join(", ")}`,
-      });
-    }
-
-    const orders = await Order.find({ orderId: { $in: orderIds } });
-    let updatedCount = 0;
-
-    for (const order of orders) {
-      const previousStatus = String(order.status || "");
-      if (previousStatus === status) continue;
-      // Admin force bulk override: bypass strict step-by-step
-      // const allowedNext = ALLOWED_TRANSITIONS[previousStatus] || [];
-      // if (!allowedNext.includes(status)) continue;
-
-      const previousPaymentStatus = String(order.payment?.status || "pending");
-      order.status = status;
-      if (status === "delivered") {
-        order.payment = order.payment || {};
-        order.payment.status = "paid";
-        order.deliveredAt = order.deliveredAt || new Date();
+    const results = [];
+    for (const id of [...new Set(orderIds)]) {
+      try {
+        const order = await lifecycle.transition(id, status, { userId: req.session.userId, role: req.session.role, ip: req.ip });
+        results.push({ orderId: id, success: true });
+        publishToUser(order.userId, "order.status_updated", { orderId: order.orderId, status: order.status, paymentStatus: order.payment.status });
+      } catch (err) {
+        if (!err.status) throw err;
+        results.push({ orderId: id, success: false, message: err.message });
       }
-      await order.save();
-      await syncShipmentsForOrderStatus(order, {
-        actorId: req.session.userId,
-        source: "admin_bulk_status_update",
-        note: `Bulk status changed to ${status}`,
-      });
-      updatedCount += 1;
-
-      const nextPaymentStatus = String(order.payment?.status || "pending");
-      await createAuditLog({
-        adminId: req.session.userId,
-        action: "order.bulk_update",
-        target: `Order:${order.orderId || order._id}`,
-        details: {
-          previousStatus,
-          nextStatus: status,
-          previousPaymentStatus,
-          nextPaymentStatus,
-        },
-        ip: req.ip,
-      });
     }
-
-    return res.json({
-      success: true,
-      message: `Đã cập nhật ${updatedCount}/${orderIds.length} đơn hàng`,
-      data: { updatedCount, requested: orderIds.length },
-    });
-  } catch (err) {
-    next(err);
-  }
+    res.json({ success: true, data: { updatedCount: results.filter((r) => r.success).length, requested: orderIds.length, results } });
+  } catch (err) { next(err); }
 };
-
 /**
  * GET /api/admin/orders/export?status=&q=
  */

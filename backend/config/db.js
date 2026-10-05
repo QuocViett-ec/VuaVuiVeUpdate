@@ -9,10 +9,17 @@ async function connectDB(retries = MAX_RETRIES) {
   if (!process.env.MONGO_URI) {
     throw new Error("MONGO_URI is required");
   }
+  if (process.env.APP_ENV === "staging") {
+    const match = /^mongodb(?:\+srv)?:\/\/[^/]+\/([^?]+)/.exec(process.env.MONGO_URI);
+    if (!match || !/^[a-zA-Z0-9_-]+_staging$/.test(match[1])) {
+      throw new Error("Staging requires an explicit *_staging database in MONGO_URI.");
+    }
+  }
 
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI, {
       serverSelectionTimeoutMS: 5000,
+      autoIndex: process.env.NODE_ENV !== "production",
     });
     console.log(` MongoDB đã kết nối: ${conn.connection.host}`);
     return conn;

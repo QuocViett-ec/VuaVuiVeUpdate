@@ -30,7 +30,8 @@ async function main() {
     throw new Error("MONGO_URI is missing in backend/.env");
   }
 
-  await mongoose.connect(process.env.MONGO_URI);
+  require("./test-data-guard").assertTestDatabase();
+    await mongoose.connect(process.env.MONGO_URI);
 
   const [products, users] = await Promise.all([
     Product.find({ isActive: true }).select("_id").lean(),

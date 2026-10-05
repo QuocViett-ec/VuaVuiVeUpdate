@@ -3,6 +3,7 @@ const httpBase = `http://${browserHost}`;
 
 export const environment = {
   production: false,
+  onlinePayments: { vnpay: false, momo: false },
   chatbotEnabled: true,
   apiBase: `${httpBase}:3000`,
   chatbotApi: `${httpBase}:3000/api/chatbot`,

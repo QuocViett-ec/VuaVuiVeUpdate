@@ -1,6 +1,6 @@
 <div class="co-page container">
   <h1 class="page-title">
-    <span class="material-symbols-outlined g-icon">shopping_cart_checkout</span>
+    <span aria-hidden="true" class="material-symbols-outlined g-icon">shopping_cart_checkout</span>
     Thanh toán
   </h1>
 
@@ -16,21 +16,22 @@
         <h2>Thông tin giao hàng</h2>
         <div class="form-row">
           <div class="field">
-            <label>Họ tên *</label>
-            <input [(ngModel)]="name" type="text" placeholder="Nguyễn Văn A" class="input" />
+            <label for="checkout-name">Họ tên *</label>
+            <input id="checkout-name" [(ngModel)]="name" type="text" placeholder="Nguyễn Văn A" class="input" />
           </div>
           <div class="field">
-            <label>Số điện thoại *</label>
-            <input [(ngModel)]="phone" type="tel" placeholder="0912345678" class="input" />
+            <label for="checkout-phone">Số điện thoại *</label>
+            <input id="checkout-phone" [(ngModel)]="phone" type="tel" placeholder="0912345678" class="input" />
           </div>
         </div>
         <div class="field">
-          <label>Email</label>
-          <input [(ngModel)]="email" type="email" placeholder="email@gmail.com" class="input" />
+          <label for="checkout-email">Email</label>
+          <input id="checkout-email" [(ngModel)]="email" type="email" placeholder="email@gmail.com" class="input" />
         </div>
         <div class="field">
-          <label>Địa chỉ giao hàng *</label>
+          <label for="checkout-address">Địa chỉ giao hàng *</label>
           <textarea
+            id="checkout-address"
             [ngModel]="address"
             (ngModelChange)="onAddressChange($event)"
             rows="2"
@@ -49,24 +50,24 @@
               aria-label="Lấy vị trí hiện tại"
             >
               @if (isLocating()) {
-                <span class="material-symbols-outlined g-icon">hourglass_top</span>
+                <span aria-hidden="true" class="material-symbols-outlined g-icon">hourglass_top</span>
                 Đang xác định...
               } @else {
-                <span class="material-symbols-outlined g-icon">my_location</span>
+                <span aria-hidden="true" class="material-symbols-outlined g-icon">my_location</span>
                 Lấy vị trí hiện tại
               }
             </button>
             @if (locationError()) {
               <span class="field-error" role="alert"
-                ><span class="material-symbols-outlined g-icon">warning</span>
+                ><span aria-hidden="true" class="material-symbols-outlined g-icon">warning</span>
                 {{ locationError() }}</span
               >
             }
           </div>
         </div>
         <div class="field">
-          <label>Khung giờ giao hàng *</label>
-          <select [(ngModel)]="selectedSlotId" (ngModelChange)="slotError.set('')" class="input">
+          <label for="checkout-selectedSlotId">Khung giờ giao hàng *</label>
+          <select id="checkout-selectedSlotId" [(ngModel)]="selectedSlotId" (ngModelChange)="slotError.set('')" class="input">
             <option value="">-- Chọn khung giờ --</option>
             @for (slot of slots(); track slot.id) {
               <option [value]="slot.id">{{ slot.date }} | {{ slot.window }}</option>
@@ -82,8 +83,9 @@
           }
         </div>
         <div class="field">
-          <label>Ghi chú</label>
+          <label for="checkout-note">Ghi chú</label>
           <textarea
+            id="checkout-note"
             [(ngModel)]="note"
             rows="2"
             placeholder="Yêu cầu đặc biệt..."
@@ -95,19 +97,23 @@
         <div class="pay-methods">
           <label class="pay-option" [class.selected]="paymentMethod === 'cod'">
             <input type="radio" [(ngModel)]="paymentMethod" value="cod" />
-            <span class="material-symbols-outlined g-icon">payments</span>
+            <span aria-hidden="true" class="material-symbols-outlined g-icon">payments</span>
             Thanh toán khi nhận hàng
           </label>
-          <label class="pay-option" [class.selected]="paymentMethod === 'vnpay'">
-            <input type="radio" [(ngModel)]="paymentMethod" value="vnpay" />
-            <span class="material-symbols-outlined g-icon">account_balance</span>
-            VNPay (thẻ ATM/QR)
-          </label>
-          <label class="pay-option" [class.selected]="paymentMethod === 'momo'">
-            <input type="radio" [(ngModel)]="paymentMethod" value="momo" />
-            <span class="material-symbols-outlined g-icon">smartphone</span>
-            MoMo
-          </label>
+          @if (vnpayEnabled) {
+            <label class="pay-option" [class.selected]="paymentMethod === 'vnpay'">
+              <input type="radio" [(ngModel)]="paymentMethod" value="vnpay" />
+              <span aria-hidden="true" class="material-symbols-outlined g-icon">account_balance</span>
+              VNPay (thẻ ATM/QR)
+            </label>
+          }
+          @if (momoEnabled) {
+            <label class="pay-option" [class.selected]="paymentMethod === 'momo'">
+              <input type="radio" [(ngModel)]="paymentMethod" value="momo" />
+              <span aria-hidden="true" class="material-symbols-outlined g-icon">smartphone</span>
+              MoMo
+            </label>
+          }
         </div>
       </section>
 
@@ -191,6 +197,7 @@
 
         <div class="voucher-row">
           <input
+            aria-label="Mã giảm giá"
             [ngModel]="voucherCode"
             (ngModelChange)="onVoucherCodeChange($event)"
             type="text"
@@ -241,13 +248,13 @@
           @if (loading()) {
             Đang xử lý...
           } @else if (paymentMethod === 'vnpay') {
-            <span class="material-symbols-outlined g-icon">account_balance</span>
+            <span aria-hidden="true" class="material-symbols-outlined g-icon">account_balance</span>
             Thanh toán VNPay
           } @else if (paymentMethod === 'momo') {
-            <span class="material-symbols-outlined g-icon">smartphone</span>
+            <span aria-hidden="true" class="material-symbols-outlined g-icon">smartphone</span>
             Thanh toán MoMo
           } @else {
-            <span class="material-symbols-outlined g-icon">check_circle</span>
+            <span aria-hidden="true" class="material-symbols-outlined g-icon">check_circle</span>
             Đặt hàng
           }
         </button>

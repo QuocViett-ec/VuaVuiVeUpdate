@@ -6,6 +6,27 @@ const { requireAuth, requireAdmin } = require("../middleware/auth.middleware");
 const RecommendHistory = require("../models/RecommendHistory.model");
 const UserEvent = require("../models/UserEvent.model");
 const Product = require("../models/Product.model");
+const mongoose = require("mongoose");
+const { attachRatings } = require("../controllers/product.controller");
+const { log } = require("../services/logger");
+const { rateLimit } = require("express-rate-limit");
+router.use(rateLimit({ windowMs: 60000, limit: 60, standardHeaders: "draft-8", legacyHeaders: false }));
+function mlHeaders() {
+  return { "Content-Type": "application/json", ...(process.env.ML_API_TOKEN ? { "X-ML-Token": process.env.ML_API_TOKEN } : {}) };
+}
+async function enrichRecommendations(rows) {
+  const input = Array.isArray(rows) ? rows.slice(0, 20) : [];
+  const ids = input.map((r) => String(r.product_id ?? r.productId ?? ""));
+  const products = await attachRatings(await Product.find({ isActive: true, $or: [
+    { externalId: { $in: ids } }, { _id: { $in: ids.filter(mongoose.isValidObjectId) } },
+  ] }).lean());
+  const map = new Map();
+  for (const p of products) { map.set(String(p._id), p); if (p.externalId) map.set(String(p.externalId), p); }
+  return input.flatMap((r) => {
+    const p = map.get(String(r.product_id ?? r.productId ?? ""));
+    return p ? [{ ...toRecommendation(p, Number(r.score) || 0, String(r.reason || "")), product_id: String(p._id), stock: p.stock, rating: p.rating, reviewCount: p.reviewCount }] : [];
+  });
+}
 
 async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 4000) {
   const controller = new AbortController();
@@ -18,8 +39,7 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 4000) {
     });
 
     if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Upstream ${response.status}: ${text}`);
+      throw new Error(`Upstream ${response.status}`);
     }
 
     return await response.json();
@@ -111,26 +131,26 @@ router.post("/", async (req, res, next) => {
         `${recommenderApi}/api/recommend`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(req.body),
+          headers: mlHeaders(),
+          body: JSON.stringify({ user_id: req.session?.userId || null, n: Math.max(1, Math.min(20, Number(req.body?.n) || 10)), filter_purchased: req.body?.filter_purchased !== false }),
         },
         Number(process.env.RECOMMENDER_TIMEOUT_MS || 4000),
       );
     } catch (mlError) {
-      console.error(
-        "Recommender service unavailable, fallback local:",
-        mlError.message,
-      );
+      log("warn", "ml.fallback", { requestId: req.requestId, errorName: mlError.name });
       const n = Math.max(1, Math.min(20, Number(req.body?.n) || 10));
       const recommendations = await getLocalFallbackRecommendations(n);
       data = {
-        user_id: req.body?.user_id ?? null,
+        user_id: req.session?.userId ?? null,
         recommendations,
         count: recommendations.length,
         method: "local_fallback",
       };
     }
 
+    data.recommendations = await enrichRecommendations(data.recommendations);
+    data.user_id = req.session?.userId ?? null;
+    data.count = data.recommendations.length;
     // Lưu history nếu user đã login
     if (req.session && req.session.userId && data.recommendations) {
       const items = data.recommendations.map((r) => ({
@@ -506,16 +526,13 @@ router.post("/similar-ml", async (req, res, next) => {
         `${recommenderApi}/api/similar`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(req.body),
+          headers: mlHeaders(),
+          body: JSON.stringify({ product_id: String(req.body?.product_id || "").slice(0, 64), n: Math.max(1, Math.min(20, Number(req.body?.n) || 8)) }),
         },
         Number(process.env.RECOMMENDER_TIMEOUT_MS || 4000),
       );
     } catch (mlError) {
-      console.error(
-        "Recommender similar unavailable, fallback local:",
-        mlError.message,
-      );
+      log("warn", "ml.similar_fallback", { requestId: req.requestId, errorName: mlError.name });
       const n = Math.max(1, Math.min(20, Number(req.body?.n) || 8));
       const similarItems = await getLocalFallbackSimilarProducts(
         req.body?.product_id,
@@ -529,6 +546,8 @@ router.post("/similar-ml", async (req, res, next) => {
       };
     }
 
+    data.similar_items = await enrichRecommendations(data.similar_items);
+    data.count = data.similar_items.length;
     return res.json({ success: true, data });
   } catch (err) {
     next(err);

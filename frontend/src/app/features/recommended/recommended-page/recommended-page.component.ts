@@ -119,7 +119,7 @@ export class RecommendedPageComponent implements OnInit {
 
   personalAverageRating(productId: string | number): string {
     const rating = Number(this.personalRatingMap()[String(productId)] ?? 0);
-    if (!Number.isFinite(rating) || rating <= 0 || rating < 1) return '4.5';
+    if (!Number.isFinite(rating) || rating < 1) return 'Chưa có đánh giá';
     return rating.toFixed(1);
   }
 

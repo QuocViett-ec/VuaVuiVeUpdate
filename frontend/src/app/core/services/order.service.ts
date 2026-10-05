@@ -119,6 +119,7 @@ export class OrderService {
       returnRequest,
       status: raw?.status ?? 'pending',
       createdAt: raw?.createdAt ?? new Date().toISOString(),
+      deliveredAt: raw?.deliveredAt ?? undefined,
       updatedAt: raw?.updatedAt,
       paidAt: raw?.paidAt,
     } as Order;
@@ -255,8 +256,11 @@ export class OrderService {
   }
 
   // ─── Create order ─────────────────────────────────────────────────────────────
-  createOrder(payload: Partial<Order>): Observable<any> {
-    return this.http.post<any>(`${this.api}/api/orders`, payload, this.writeOptions).pipe(
+  createOrder(payload: Partial<Order>, idempotencyKey: string): Observable<any> {
+    return this.http.post<any>(`${this.api}/api/orders`, payload, {
+      ...this.writeOptions,
+      headers: { ...this.writeOptions.headers, 'Idempotency-Key': idempotencyKey },
+    }).pipe(
       map((res: any) => res?.data ?? res),
       catchError((err) => throwError(() => err)),
     );
@@ -264,7 +268,7 @@ export class OrderService {
 
   markOrderPaid(
     orderId: string,
-    payload?: { gateway?: 'vnpay' | 'momo'; transactionId?: string },
+    payload?: { gateway?: 'cod' | 'vnpay' | 'momo'; transactionId?: string },
   ): Observable<Order> {
     return this.http
       .patch<any>(`${this.api}/api/orders/${orderId}/paid`, payload ?? {}, this.writeOptions)
@@ -442,9 +446,9 @@ export class OrderService {
       .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
   }
 
-  markRefunded(id: string): Observable<Order> {
+  markRefunded(id: string, evidence: { reference: string; note: string; amount: number }): Observable<Order> {
     return this.http
-      .patch<any>(`${this.api}/api/orders/${id}/refund`, {}, this.writeOptions)
+      .patch<any>(`${this.api}/api/orders/${id}/refund`, evidence, this.writeOptions)
       .pipe(map((res: any) => this.normalizeOrder(res?.data ?? res)));
   }
 

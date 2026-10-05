@@ -1,0 +1,10 @@
+node_modules
+.env
+.env.*
+*.key
+*.pem
+google-loggin
+uploads
+tests
+coverage
+*.log

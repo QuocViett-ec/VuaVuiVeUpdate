@@ -7,89 +7,8 @@ const Order = require("../models/Order.model");
 const { publishToCustomers } = require("../services/realtime-bus");
 const { createAuditLog } = require("./user.controller");
 
-function fallbackRatingFromId(productId) {
-  const raw = String(productId || "");
-  if (!raw) return 4.5;
-
-  let sum = 0;
-  for (let i = 0; i < raw.length; i += 1) {
-    sum += raw.charCodeAt(i);
-  }
-
-  const min = 42;
-  const max = 49;
-  const score = min + (sum % (max - min + 1));
-  return Number((score / 10).toFixed(1));
-}
-
-function fallbackSoldCountFromId(productId) {
-  const raw = String(productId || "");
-  if (!raw) return 120;
-  let sum = 0;
-  for (let i = 0; i < raw.length; i += 1) {
-    sum += raw.charCodeAt(i) * (i + 3);
-  }
-  return 60 + (sum % 420);
-}
-
-function fallbackReviewCountFromId(productId) {
-  const raw = String(productId || "");
-  if (!raw) return 4;
-  let sum = 0;
-  for (let i = 0; i < raw.length; i += 1) {
-    sum += raw.charCodeAt(i);
-  }
-  return 4 + (sum % 2);
-}
-
-function buildMockReviews(product, existingCount = 0) {
-  const productId = String(product?._id || "");
-  const target = fallbackReviewCountFromId(productId);
-  const missing = Math.max(0, target - Number(existingCount || 0));
-  if (!missing) return [];
-
-  const comments = [
-    "Dong goi gon gang, san pham dung mo ta.",
-    "Chat luong on dinh, se tiep tuc ung ho.",
-    "Gia hop ly, nhan hang nhanh va de su dung.",
-    "Mui vi ok, gia dinh minh danh gia tot.",
-    "San pham dung nhu ky vong, nen mua thu.",
-  ];
-
-  const names = [
-    "Khach hang than thiet",
-    "Nguoi mua da xac minh",
-    "Thanh vien Vua Vui Ve",
-    "Khach hang moi",
-    "Khach hang quen",
-  ];
-
-  const rows = [];
-  for (let i = 0; i < missing; i += 1) {
-    const seed = (productId + String(i))
-      .split("")
-      .reduce((s, ch) => s + ch.charCodeAt(0), 0);
-    const rating = 4 + (seed % 2);
-    rows.push({
-      id: `mock-${productId}-${i}`,
-      userName: names[seed % names.length],
-      rating,
-      comment: `${comments[seed % comments.length]} (${String(product?.name || "San pham")})`,
-      createdAt: new Date(Date.now() - (i + 1) * 86400000).toISOString(),
-    });
-  }
-
-  return rows;
-}
-
 function attachRatingFallback(product) {
-  const id = String(product?._id || product?.id || "");
-  return {
-    ...product,
-    rating: fallbackRatingFromId(id),
-    reviewCount: fallbackReviewCountFromId(id),
-    soldCount: fallbackSoldCountFromId(id),
-  };
+  return { ...product, rating: 0, reviewCount: 0, soldCount: 0 };
 }
 
 async function attachRatings(products) {
@@ -134,7 +53,7 @@ async function attachRatings(products) {
       Order.aggregate([
         {
           $match: {
-            status: { $in: ["confirmed", "shipping", "delivered"] },
+            status: { $in: ["delivered", "return_requested", "return_rejected"] },
           },
         },
         { $unwind: "$items" },
@@ -178,15 +97,17 @@ async function attachRatings(products) {
         ...p,
         rating: stat.rating,
         reviewCount: stat.reviewCount,
-        soldCount: salesByProductId.get(id) || fallbackSoldCountFromId(id),
+        soldCount: salesByProductId.get(id) || 0,
       };
     }
     return {
       ...attachRatingFallback(p),
-      soldCount: salesByProductId.get(id) || fallbackSoldCountFromId(id),
+      soldCount: salesByProductId.get(id) || 0,
     };
   });
 }
+
+exports.attachRatings = attachRatings;
 
 function buildProductQuery(id) {
   const isObjectId = /^[a-f\d]{24}$/i.test(String(id || ""));
@@ -451,23 +372,8 @@ exports.getReviews = async (req, res, next) => {
       createdAt: row?.createdAt || null,
     }));
 
-    const reviewsWithFallback = [
-      ...reviews,
-      ...buildMockReviews(product, reviews.length),
-    ];
-
-    const fallbackCount = fallbackReviewCountFromId(product._id);
-    const reviewCount = Number(
-      stats[0]?.reviewCount || reviewsWithFallback.length || fallbackCount,
-    );
-    const avgFromReviews =
-      reviewsWithFallback.length > 0
-        ? reviewsWithFallback.reduce(
-            (sum, item) => sum + Number(item.rating || 0),
-            0,
-          ) / reviewsWithFallback.length
-        : fallbackRatingFromId(product._id);
-    const averageRating = Number(Number(avgFromReviews).toFixed(1));
+    const reviewCount = Number(stats[0]?.reviewCount || 0);
+    const averageRating = Number(Number(stats[0]?.averageRating || 0).toFixed(1));
 
     return res.json({
       success: true,
@@ -476,7 +382,7 @@ exports.getReviews = async (req, res, next) => {
         productName: String(product.name || ""),
         averageRating,
         reviewCount,
-        reviews: reviewsWithFallback,
+        reviews,
       },
     });
   } catch (err) {

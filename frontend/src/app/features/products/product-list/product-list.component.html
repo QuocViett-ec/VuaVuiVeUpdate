@@ -47,29 +47,7 @@
   <div class="container">
     <div class="flash-panel">
       <div class="title">
-        <h2>Flash Sale</h2>
-        <div class="flash-actions">
-          <button
-            class="pill"
-            [class.active]="flashSlot() === 'morning'"
-            (click)="onSlotChange('morning')"
-          >
-            06:00&ndash;08:00
-          </button>
-          <button
-            class="pill"
-            [class.active]="flashSlot() === 'afternoon'"
-            (click)="onSlotChange('afternoon')"
-          >
-            16:00&ndash;18:00
-          </button>
-        </div>
-      </div>
-      <div class="flash-banner">
-        Khung giờ đang xem:
-        <strong>{{ flashSlot() === 'morning' ? '6:00-8:00' : '16:00-18:00' }}</strong>
-        <span class="muted"> &#x2022; </span>
-        Còn lại: <span class="countdown">{{ countdown() }}</span>
+        <h2>Ưu đãi</h2>
       </div>
 
       @if (loading()) {

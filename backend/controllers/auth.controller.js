@@ -5,6 +5,7 @@ const { OAuth2Client } = require("google-auth-library");
 const User = require("../models/User.model");
 const { createAuditLog } = require("./user.controller");
 const { sendPasswordResetOtpEmail } = require("../services/mail.service");
+const { establishSession } = require("../services/session.service");
 
 const OTP_MAX_ATTEMPTS = 5;
 
@@ -16,7 +17,7 @@ function hashValue(value) {
 }
 
 function generateOtpCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(crypto.randomInt(100000, 1000000));
 }
 
 /**
@@ -115,7 +116,7 @@ exports.login = async (req, res, next) => {
         .json({ success: false, message: "Thông tin đăng nhập không đúng" });
     }
 
-    if (user.role === "admin") {
+    if (["admin", "staff", "audit"].includes(user.role)) {
       return res.status(403).json({
         success: false,
         message:
@@ -123,9 +124,7 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    req.session.userId = user._id.toString();
-    req.session.role = user.role;
-    req.session.name = user.name;
+    await establishSession(req, user);
 
     return res.json({
       success: true,
@@ -192,9 +191,7 @@ exports.adminLogin = async (req, res, next) => {
       });
     }
 
-    req.session.userId = user._id.toString();
-    req.session.role = user.role;
-    req.session.name = user.name;
+    await establishSession(req, user);
 
     await createAuditLog({
       adminId: user._id,
@@ -269,7 +266,7 @@ exports.me = async (req, res, next) => {
     const sessionRole = String(req.session?.role || "").toLowerCase();
     const scope = req.sessionScope === "admin" ? "admin" : "customer";
     const user = await User.findById(req.session.userId);
-    if (!user) {
+    if (!user || !user.isActive) {
       req.session.destroy(() => {});
       return res
         .status(401)
@@ -279,8 +276,8 @@ exports.me = async (req, res, next) => {
     const userRole = String(user.role || "").toLowerCase();
     const isRoleMismatch = sessionRole && sessionRole !== userRole;
     const isScopeMismatch =
-      (scope === "admin" && userRole !== "admin") ||
-      (scope === "customer" && userRole === "admin");
+      (scope === "admin" && !["admin", "staff", "audit"].includes(userRole)) ||
+      (scope === "customer" && ["admin", "staff", "audit"].includes(userRole));
 
     if (isRoleMismatch || isScopeMismatch) {
       req.session.destroy(() => {});
@@ -398,6 +395,8 @@ exports.changePassword = async (req, res, next) => {
     user.password = newPassword;
     await user.save();
 
+    await establishSession(req, user);
+
     return res.json({ success: true, message: "Đổi mật khẩu thành công" });
   } catch (err) {
     next(err);
@@ -433,6 +432,8 @@ exports.setLocalPassword = async (req, res, next) => {
 
     user.password = newPassword;
     await user.save();
+
+    await establishSession(req, user);
 
     return res.json({
       success: true,
@@ -733,7 +734,7 @@ exports.googleLogin = async (req, res, next) => {
         .json({ success: false, message: "Tài khoản đã bị vô hiệu hóa" });
     }
 
-    if (user.role === "admin") {
+    if (["admin", "staff", "audit"].includes(user.role)) {
       return res.status(403).json({
         success: false,
         message:
@@ -741,9 +742,7 @@ exports.googleLogin = async (req, res, next) => {
       });
     }
 
-    req.session.userId = user._id.toString();
-    req.session.role = user.role;
-    req.session.name = user.name;
+    await establishSession(req, user);
 
     return res.json({
       success: true,

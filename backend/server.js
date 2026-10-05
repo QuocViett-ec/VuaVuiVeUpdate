@@ -4,11 +4,11 @@
  */
 "use strict";
 
-require("dotenv").config();
+if (process.env.NODE_ENV !== "test") require("dotenv").config();
 
 const express = require("express");
 const helmet = require("helmet");
-const morgan = require("morgan");
+const crypto = require("crypto");
 const cors = require("cors");
 const session = require("express-session");
 const MongoStore = require("connect-mongo");
@@ -31,17 +31,21 @@ const adminChatbotRoutes = require("./routes/adminChatbot.routes");
 const shipmentRoutes = require("./routes/shipment.routes");
 const errorHandler = require("./middleware/error.middleware");
 const { csrfProtection } = require("./middleware/csrf.middleware");
+const { requireAuth } = require("./middleware/auth.middleware");
+const { log } = require("./services/logger");
+const { uploadDirectory } = require("./config/uploads");
+const { expireUnpaidOrders } = require("./services/order-lifecycle");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || undefined;
-const SESSION_SECRET = process.env.SESSION_SECRET;
+const SESSION_SECRET = process.env.SESSION_SECRET || (process.env.NODE_ENV !== "production" ? crypto.randomBytes(32).toString("hex") : "");
 
 const startupErrors = [];
 const configErrors = [];
 
 if (process.env.NODE_ENV === "production") {
-  if (!SESSION_SECRET) {
+  if (!SESSION_SECRET || SESSION_SECRET.length < 32) {
     configErrors.push("SESSION_SECRET is required in production. Please set the SESSION_SECRET environment variable.");
     startupErrors.push("SESSION_SECRET is required in production. Please set the SESSION_SECRET environment variable.");
   }
@@ -59,6 +63,7 @@ if (!process.env.MONGO_URI) {
 const SESSION_TTL_MS = parseInt(process.env.SESSION_MAX_AGE_MS || "604800000");
 let customerSession = null;
 let adminSession = null;
+let startupReady = false;
 
 // Fallback session middlewares using MemoryStore so the server never crashes on session operations if MongoDB is not ready.
 const memoryStore = new session.MemoryStore();
@@ -129,7 +134,7 @@ function resolveSessionScope(req) {
 function createSessionMiddleware(cookieName, store) {
   return session({
     name: cookieName,
-    secret: SESSION_SECRET || "vvv_secret",
+    secret: SESSION_SECRET || crypto.randomBytes(32).toString("hex"),
     resave: false,
     saveUninitialized: false,
     store,
@@ -173,64 +178,28 @@ function getCookieNames(req) {
     .filter(Boolean);
 }
 
-function isAllowedOrigin(origin) {
-  if (!origin) return true;
-
-  const originList = process.env.CLIENT_ORIGINS || process.env.CLIENT_ORIGIN;
-  const configuredOrigins = (
-    originList || "http://localhost:4200,http://localhost:4201"
-  )
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-
-  if (configuredOrigins.includes(origin)) return true;
-
-  // Support wildcard matching (e.g. *.vercel.app or *)
-  for (const pattern of configuredOrigins) {
-    if (pattern === "*") return true;
-    if (pattern.includes("*")) {
-      const regexStr = pattern.replace(/\./g, "\\.").replace(/\*/g, ".*");
-      const regex = new RegExp(`^${regexStr}$`, "i");
-      if (regex.test(origin)) return true;
-    }
-  }
-
-  // Auto-allow vercel.app domains for easy deployment (preview & production)
-  if (origin.endsWith(".vercel.app")) {
-    return true;
-  }
-
-  if (process.env.NODE_ENV === "production") {
-    return false;
-  }
-
-  try {
-    const { hostname, protocol } = new URL(origin);
-    const isHttp = protocol === "http:" || protocol === "https:";
-    const isLoopback = hostname === "localhost" || hostname === "127.0.0.1";
-    const isPrivateLan =
-      /^10\./.test(hostname) ||
-      /^192\.168\./.test(hostname) ||
-      /^172\.(1[6-9]|2\d|3[0-1])\./.test(hostname);
-
-    return isHttp && (isLoopback || isPrivateLan);
-  } catch {
-    return false;
-  }
-}
+const { isAllowedOrigin } = require("./config/origins");
 
 if (process.env.TRUST_PROXY) {
   app.set(
-    "trust proxy",
-    process.env.TRUST_PROXY === "true" ? 1 : process.env.TRUST_PROXY,
+      "trust proxy",
+      require("./config/proxy").proxyTrust(process.env.TRUST_PROXY, process.env.NODE_ENV === "production"),
   );
 } else if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
 
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
-app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+app.use((req, res, next) => {
+  req.requestId = crypto.randomUUID();
+  res.setHeader("X-Request-Id", req.requestId);
+  const started = Date.now();
+  const requestPath = req.path;
+  res.on("finish", () => log(res.statusCode >= 500 ? "error" : "info", "request.completed", {
+    requestId: req.requestId, method: req.method, path: requestPath, status: res.statusCode, durationMs: Date.now() - started,
+  }));
+  next();
+});
 
 app.use(
   cors({
@@ -249,6 +218,7 @@ app.use(
       "Authorization",
       "X-Requested-With",
       "X-Portal-Scope",
+      "Idempotency-Key",
     ],
   }),
 );
@@ -265,7 +235,7 @@ app.use((req, res, next) => {
         status: "error",
         service: "VuaVuiVe Backend API",
         timestamp: new Date().toISOString(),
-        errors: startupErrors,
+        errors: ["Service configuration or database unavailable."],
         db: {
           ready: false,
           state: mongoose.connection.readyState,
@@ -276,39 +246,19 @@ app.use((req, res, next) => {
       return res.status(503).json({
         success: false,
         message: "Service Unavailable: The server has configuration or connection errors.",
-        errors: startupErrors,
+        errors: ["Service configuration or database unavailable."],
       });
     }
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    return res.status(503).send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>VuaVuiVe Backend - Service Unavailable</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 40px; background: #f8f9fa; color: #343a40; line-height: 1.6; }
-          .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-top: 5px solid #dc3545; }
-          h1 { color: #dc3545; margin-top: 0; }
-          ul { padding-left: 20px; }
-          li { margin-bottom: 10px; }
-          .footer { margin-top: 30px; font-size: 0.85em; color: #6c757d; border-top: 1px solid #dee2e6; padding-top: 15px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>Hệ thống cấu hình chưa hoàn tất</h1>
-          <p>Backend Vựa Vui Vẻ đã khởi động thành công và mở cổng kết nối, nhưng phát hiện các lỗi sau:</p>
-          <ul>
-            ${startupErrors.map(err => `<li><strong>Lỗi:</strong> ${err}</li>`).join("")}
-          </ul>
-          <p>Vui lòng cấu hình đầy đủ các biến môi trường trong Render Dashboard và khởi động lại dịch vụ.</p>
-          <div class="footer">
-            VuaVuiVe Backend &bull; Status: 503 Service Unavailable &bull; ${new Date().toLocaleString()}
-          </div>
-        </div>
-      </body>
-      </html>
-    `);
+    return res.status(503).send("Service unavailable. Check server logs using the request ID.");
+  }
+  next();
+});
+
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV !== "test" && req.path.startsWith("/api/") &&
+      req.path !== "/api/health" && (mongoose.connection.readyState !== 1 || !customerSession || !adminSession)) {
+    return res.status(503).json({ success: false, message: "Service not ready.", requestId: req.requestId });
   }
   next();
 });
@@ -324,10 +274,19 @@ app.use((req, res, next) => {
   return middleware(req, res, next);
 });
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+try {
+  app.use("/uploads", express.static(uploadDirectory()));
+} catch (err) {
+  configErrors.push(err.message);
+  startupErrors.push(err.message);
+}
 app.use("/", express.static(path.join(__dirname, "../frontend/public")));
 
 app.use(csrfProtection);
+app.use((req, res, next) => {
+  if (req.session?.userId) return requireAuth(req, res, next);
+  next();
+});
 
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
@@ -360,13 +319,20 @@ app.get("/", (req, res) => {
 app.get("/api/health", (req, res) => {
   const dbState = Number(require("mongoose").connection.readyState || 0);
   const dbReady = dbState === 1;
-  const statusCode = dbReady ? 200 : 503;
+  const ready = dbReady && (startupReady || process.env.NODE_ENV === "test");
+  const statusCode = ready ? 200 : 503;
 
   res.status(statusCode).json({
-    status: "ok",
+    status: ready ? "ok" : "unavailable",
     service: "VuaVuiVe Backend API",
     timestamp: new Date().toISOString(),
     session: !!req.session?.userId,
+    environment: process.env.APP_ENV || (process.env.NODE_ENV === "production" ? "production" : "local"),
+    uploadStorage: process.env.UPLOAD_STORAGE_MODE || (process.env.NODE_ENV === "production" ? "persistent" : "ephemeral"),
+    revision: /^[a-f0-9]{40}$/.test(process.env.RENDER_GIT_COMMIT || process.env.RELEASE_SHA || "")
+      ? (process.env.RENDER_GIT_COMMIT || process.env.RELEASE_SHA) : null,
+    payments: { momo: require("./config/payment").isPaymentMethodEnabled("momo"),
+      vnpay: require("./config/payment").isPaymentMethodEnabled("vnpay") },
     db: {
       ready: dbReady,
       state: dbState,
@@ -384,12 +350,12 @@ if (process.env.NODE_ENV !== "production") {
         scope: req.sessionScope || "unknown",
         activeCookieName: req.sessionCookieName || "unknown",
         hasSession: !!req.session?.userId,
-        sessionId: req.sessionID || "",
-        userId: req.session?.userId || null,
+        sessionId: "[REDACTED]",
+        userId: req.session?.userId ? "[REDACTED]" : null,
         role: req.session?.role || null,
         origin: req.headers.origin || null,
-        referer: req.headers.referer || null,
-        path: req.originalUrl || req.url,
+        referer: "[REDACTED]",
+        path: req.path,
         cookieNames,
         hasAdminCookie: cookieNames.includes("vvv.admin.sid"),
         hasCustomerCookie: cookieNames.includes("vvv.customer.sid"),
@@ -401,40 +367,67 @@ if (process.env.NODE_ENV !== "production") {
 
 app.use(errorHandler);
 
-async function startServer() {
-  // Bind server immediately so that Render port scan succeeds
-  app.listen(PORT, () => {
-    console.log(`\nVuaVuiVe Backend chay tai http://localhost:${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV}`);
-    console.log(
-      `CORS config: ${process.env.CLIENT_ORIGINS || process.env.CLIENT_ORIGIN || "auto local dev"}`,
-    );
-  });
+let httpServer;
+let expiryTimer;
+let expiryRunning = false;
 
-  // If there are initial config errors, do not attempt to connect to MongoDB
-  if (configErrors.length > 0) {
-    console.error("\n[CRITICAL] Server started with configuration errors:");
-    configErrors.forEach(err => console.error(` - ${err}`));
+async function startServer() {
+  const { configuredOrigins } = require("./config/origins");
+  if (process.env.NODE_ENV === "production" && configuredOrigins().some((origin) => {
+    try { return new URL(origin).origin !== origin || !origin.startsWith("https://"); }
+    catch { return true; }
+  })) {
+    configErrors.push("Production origins must be exact HTTPS origins without wildcards.");
+    startupErrors.push("Invalid production origins.");
+  }
+  httpServer = app.listen(PORT, () => log("info", "server.listening", { port: PORT }));
+  if (configErrors.length) {
+    log("error", "server.configuration_invalid", { count: configErrors.length });
     return;
   }
-
-  // Connect to MongoDB in the background
-  console.log("Connecting to MongoDB in the background...");
-  connectDB()
-    .then(() => {
-      console.log("MongoDB connection established successfully.");
-      initializeSessionMiddlewares();
-    })
-    .catch((err) => {
-      console.error("MongoDB background connection failed:", err.message);
-      startupErrors.push(`MongoDB connection failed: ${err.message}`);
-      // Fallback is already initialized
-    });
+  try {
+    await connectDB();
+    if (process.env.NODE_ENV === "production") {
+      const hello = await mongoose.connection.db.admin().command({ hello: 1 });
+      if (!hello.setName && hello.msg !== "isdbgrid") throw new Error("Transactions require a replica set or sharded cluster.");
+      const indexes = await require("./models/Order.model").collection.indexes();
+      const required = ["userId_1_idempotencyKey_1", "payment.gateway_1_payment.transactionId_1"];
+      if (required.some((name) => !indexes.some((i) => i.name === name && i.unique))) {
+        throw new Error("Required order uniqueness indexes are missing.");
+      }
+    }
+    initializeSessionMiddlewares();
+    if (!customerSession || !adminSession) throw new Error("Session store unavailable.");
+    expiryTimer = setInterval(async () => {
+      if (expiryRunning) return;
+      expiryRunning = true;
+      try { await expireUnpaidOrders(); }
+      catch { log("error", "orders.expiry_failed"); }
+      finally { expiryRunning = false; }
+    }, 60000);
+    expiryTimer.unref();
+    startupReady = true;
+    log("info", "server.ready");
+  } catch {
+    startupErrors.push("Database or required indexes unavailable.");
+    log("error", "server.startup_failed");
+  }
 }
 
-startServer().catch((err) => {
-  console.error("Server startup failed:", err.message);
-  // Do not crash the process so port scanner succeeds and logs can be retrieved.
-});
+async function shutdown() {
+  startupReady = false;
+  clearInterval(expiryTimer);
+  require("./services/realtime-bus").closeAll();
+  const deadline = setTimeout(() => process.exit(1), 10000);
+  deadline.unref();
+  if (httpServer) await new Promise((resolve) => httpServer.close(resolve));
+  await mongoose.disconnect();
+  clearTimeout(deadline);
+}
 
+if (require.main === module) {
+  process.once("SIGTERM", () => shutdown().catch(() => process.exit(1)));
+  process.once("SIGINT", () => shutdown().catch(() => process.exit(1)));
+  startServer().catch(() => log("error", "server.startup_failed"));
+}
 module.exports = app;
