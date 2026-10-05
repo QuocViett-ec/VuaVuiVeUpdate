@@ -6,6 +6,10 @@ const Order = require("../models/Order.model");
 const Shipment = require("../models/Shipment.model");
 async function main() {
   if (!process.env.MONGO_URI) throw new Error("MONGO_URI must be injected by the operator");
+  if (process.argv.includes("--staging-only") && (process.env.APP_ENV !== "staging" ||
+      !/^[a-zA-Z0-9_-]+_staging$/.test(new URL(process.env.MONGO_URI).pathname.slice(1)))) {
+    throw new Error("Staging index repair requires APP_ENV=staging and an explicit *_staging database.");
+  }
   await mongoose.connect(process.env.MONGO_URI, { autoIndex: false });
   try {
     const duplicates = await Order.aggregate([

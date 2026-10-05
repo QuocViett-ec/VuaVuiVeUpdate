@@ -39,6 +39,8 @@ Runtime Node/Docker hiện có phải dùng Node24 theo backend/CI. Nếu dùng 
 
 Database mới cần required indexes trước readiness; chạy dry-run `backend/scripts/check-production-indexes.js` đối với staging URI qua cấu hình local được bảo vệ. Script hiện có cần quyền operator và cờ explicit để apply, không có migration/seed tự động trong pipeline. Không chạy nó bằng URI trong export cũ. Chưa thực thi indexes trên cloud trong phiên này.
 
+Khi operator đã cho phép tạo indexes trên staging, đặt `ALLOW_INDEX_CHANGES=true` riêng trên service Docker staging rồi deploy. Container chạy `node scripts/check-production-indexes.js --apply --staging-only` trước server; chỉ chấp nhận `APP_ENV=staging` và DB có hậu tố `_staging`, kiểm tra duplicate payment rồi tạo indexes Order/Shipment đã khai báo. Nếu script thất bại, server không khởi động. Sau khi xác nhận indexes và health đạt, đặt lại `ALLOW_INDEX_CHANGES=false` rồi redeploy để kết thúc quyền sửa indexes. Mặc định container chỉ chạy server.
+
 Các secrets Google/mail có trong export chưa được dùng để gửi email/request trong phiên. Đối với staging, chủ sở hữu chọn tài khoản test và authorized origins tương ứng; không copy API/mail credentials production để chạy test gây tác dụng thật. Gateway credential variables cũ có thể để ngoài staging vì hai flags đều false; không xóa callback/source code.
 
 ## 2. ML staging

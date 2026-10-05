@@ -67,3 +67,30 @@ test.each([26, undefined])("startup logs identify index failures without exposin
   expect(JSON.stringify(log.mock.calls)).not.toContain("private database details");
   expect(context.startupReady).not.toBe(true);
 });
+
+test.each([
+  ["staging", "shop_staging", "true", 0, true],
+  ["production", "shop_staging", "true", 0, false],
+  ["staging", "shop", "true", 0, false],
+  ["staging", "shop_staging", "false", 0, false],
+  ["staging", "shop_staging", "true", 1, false],
+])("operator index repair guards environment=%s database=%s approval=%s duplicates=%s", async (environment, database, approval, duplicates, allowed) => {
+  const db = { connect: jest.fn(), disconnect: jest.fn() };
+  const order = {
+    aggregate: jest.fn().mockResolvedValue(duplicates ? [{ groups: duplicates }] : []),
+    createIndexes: jest.fn(),
+  };
+  const shipment = { createIndexes: jest.fn() };
+  const context = {
+    URL, process: { argv: ["node", "check-production-indexes.js", "--apply", "--staging-only"],
+      env: { APP_ENV: environment, MONGO_URI: `mongodb://127.0.0.1:27019/${database}`, ALLOW_INDEX_CHANGES: approval } },
+    console: { log: jest.fn(), error: jest.fn() },
+    require: name => name === "mongoose" ? db : name.includes("Order.model") ? order : shipment,
+  };
+  const source = require("fs").readFileSync(require("path").join(__dirname, "../scripts/check-production-indexes.js"), "utf8");
+  await require("vm").runInNewContext(source, context);
+  expect(order.createIndexes).toHaveBeenCalledTimes(allowed ? 1 : 0);
+  expect(shipment.createIndexes).toHaveBeenCalledTimes(allowed ? 1 : 0);
+  expect(context.process.exitCode).toBe(allowed ? undefined : 1);
+  if (environment !== "staging" || !database.endsWith("_staging")) expect(db.connect).not.toHaveBeenCalled();
+});
