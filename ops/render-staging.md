@@ -53,6 +53,11 @@ Script thêm 3 sản phẩm có tên `[Staging]`, giá gốc lớn hơn giá bá
 ID cố định và `$setOnInsert` tránh tạo trùng hoặc ghi đè chỉnh sửa của admin khi chạy lại; không xóa dữ liệu.
 Sau khi xác minh API/client hiển thị đủ 3 sản phẩm, đặt lại `SEED_STAGING_FLASH_SALE=false` rồi deploy.
 
+Để có danh mục đầy đủ, bật `SEED_STAGING_CATALOG=true`: cùng script thêm 92 sản phẩm từ
+`backend/scripts/product-fixtures.js` (dùng chung với seed local), giữ nguyên 3 Flash Sale và mọi chỉnh sửa đã có.
+Sau khi xác minh 95 sản phẩm, tắt `SEED_STAGING_CATALOG=false` rồi deploy. Không chạy seed local trên cloud:
+script local còn có thao tác xóa sản phẩm/đơn hàng và tạo tài khoản.
+
 ## 2. ML staging
 
 Root Directory: `ml/VuaVuiVe_Recommender`; Language Python3. Health `/health`; Auto-Deploy Off.

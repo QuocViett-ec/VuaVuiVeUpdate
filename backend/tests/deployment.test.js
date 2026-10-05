@@ -16,12 +16,13 @@ test("Flash Sale fixtures refuse production and preserve existing staging produc
     if (!exists) documents.set(filter._id, { ...update.$setOnInsert });
     return { upsertedCount: exists ? 0 : 1 };
   }) };
-  async function run(environment, database, approval) {
+  const catalog = require("../scripts/product-fixtures");
+  async function run(environment, database, approval, catalogApproval = "false") {
     const context = {
       URL, process: { env: { APP_ENV: environment, MONGO_URI: `mongodb://127.0.0.1:27019/${database}`,
-        SEED_STAGING_FLASH_SALE: approval } },
+        SEED_STAGING_FLASH_SALE: approval, SEED_STAGING_CATALOG: catalogApproval } },
       console: { log: jest.fn(), error: jest.fn() },
-      require: name => name === "mongoose" ? db : product,
+      require: name => name === "mongoose" ? db : name === "./product-fixtures" ? catalog : product,
     };
     await require("vm").runInNewContext(source, context);
     return context;
@@ -43,7 +44,20 @@ test("Flash Sale fixtures refuse production and preserve existing staging produc
   await run("staging", "shop_staging", "true");
   expect(documents.size).toBe(3);
   expect(documents.values().next().value.price).toBe(11000);
-  expect(db.disconnect).toHaveBeenCalledTimes(2);
+  expect((await run("production", "shop_staging", "false", "true")).process.exitCode).toBe(1);
+  expect(db.connect).toHaveBeenCalledTimes(2);
+  await run("staging", "shop_staging", "false", "true");
+  expect(documents.size).toBe(catalog.length + 3);
+  expect(documents.values().next().value.price).toBe(11000);
+  for (const fixture of catalog) {
+    const seeded = documents.get("ca7a10" + fixture._id.padStart(18, "0"));
+    expect(seeded.category).toBe(fixture.category);
+    expect(seeded.price).toBe(fixture.price);
+    expect(require("fs").existsSync(require("path").join(__dirname, "../../frontend/public", seeded.imageUrl))).toBe(true);
+  }
+  await run("staging", "shop_staging", "false", "true");
+  expect(documents.size).toBe(catalog.length + 3);
+  expect(db.disconnect).toHaveBeenCalledTimes(4);
 });
 let previous;
 beforeEach(() => { previous = Object.fromEntries(keys.map(key => [key, process.env[key]])); });
